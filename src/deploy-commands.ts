@@ -27,7 +27,25 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
 
 (async () => {
   try {
-    console.log(`\n🚀 Bắt đầu deploy ${commands.length} commands...\n`);
+    console.log(`\n🗑️  Xóa tất cả commands cũ...\n`);
+
+    if (process.env.GUILD_ID) {
+      // Xóa guild commands cũ
+      await rest.put(
+        Routes.applicationGuildCommands(process.env.CLIENT_ID!, process.env.GUILD_ID),
+        { body: [] }
+      );
+      console.log('✅ Đã xóa commands cũ trong guild\n');
+    } else {
+      // Xóa global commands cũ
+      await rest.put(
+        Routes.applicationCommands(process.env.CLIENT_ID!),
+        { body: [] }
+      );
+      console.log('✅ Đã xóa commands cũ global\n');
+    }
+
+    console.log(`🚀 Bắt đầu deploy ${commands.length} commands mới...\n`);
 
     if (process.env.GUILD_ID) {
       // Deploy cho guild (dev mode)
