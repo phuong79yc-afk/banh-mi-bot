@@ -3,32 +3,53 @@ import { hasModeratorAccess } from '../utils/permissions.js';
 
 export const data = new SlashCommandBuilder()
   .setName('mute')
-  .setDescription('Timeout a member')
-  .addUserOption(option =>
-    option
-      .setName('user')
-      .setDescription('The member to mute')
-      .setRequired(true)
+  .setDescription('🔇 Mute/Unmute thành viên')
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('add')
+      .setDescription('🔇 Mute thành viên')
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('Thành viên cần mute')
+          .setRequired(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Thời gian mute (phút, 1-1440)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(1440)
+      )
+      .addStringOption(option =>
+        option
+          .setName('reason')
+          .setDescription('Lý do mute')
+          .setRequired(false)
+      )
   )
-  .addIntegerOption(option =>
-    option
-      .setName('duration')
-      .setDescription('Duration in minutes (1-1440)')
-      .setRequired(true)
-      .setMinValue(1)
-      .setMaxValue(1440)
-  )
-  .addStringOption(option =>
-    option
-      .setName('reason')
-      .setDescription('Reason for muting')
-      .setRequired(false)
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('remove')
+      .setDescription('🔊 Unmute thành viên')
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('Thành viên cần unmute')
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName('reason')
+          .setDescription('Lý do unmute')
+          .setRequired(false)
+      )
   )
   .setDefaultMemberPermissions(null)
   .setDMPermission(false);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  // Check if user has moderator access
   const executor = interaction.guild?.members.cache.get(interaction.user.id);
   if (!executor || !hasModeratorAccess(executor)) {
     await interaction.reply({ 
@@ -38,45 +59,89 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  const subcommand = interaction.options.getSubcommand();
   const user = interaction.options.getUser('user', true);
-  const duration = interaction.options.get('duration')?.value as number;
-  const reason = interaction.options.get('reason')?.value as string || 'No reason provided';
+  const reason = interaction.options.getString('reason') || 'Không có lý do';
   const member = interaction.guild?.members.cache.get(user.id);
 
   if (!member) {
-    await interaction.reply({ content: 'Member not found!', ephemeral: true });
+    await interaction.reply({ content: '❌ Không tìm thấy thành viên!', ephemeral: true });
     return;
   }
 
   if (member.id === interaction.user.id) {
-    await interaction.reply({ content: 'You cannot mute yourself!', ephemeral: true });
+    await interaction.reply({ content: '❌ Bạn không thể mute chính mình!', ephemeral: true });
     return;
   }
 
   if (member.permissions.has(PermissionFlagsBits.Administrator)) {
-    await interaction.reply({ content: 'You cannot mute an administrator!', ephemeral: true });
+    await interaction.reply({ content: '❌ Không thể mute administrator!', ephemeral: true });
     return;
   }
 
   try {
-    await member.timeout(duration * 60 * 1000, reason);
+    if (subcommand === 'add') {
+      // Mute member
+      const duration = interaction.options.getInteger('duration', true);
+      
+      if (member.isCommunicationDisabled()) {
+        await interaction.reply({ 
+          content: `⚠️ ${user.tag} đã bị mute rồi!`, 
+          ephemeral: true 
+        });
+        return;
+      }
 
-    const embed = new EmbedBuilder()
-      .setColor(0xFF0000)
-      .setTitle('Member Muted')
-      .setThumbnail(user.displayAvatarURL())
-      .addFields(
-        { name: 'User', value: `${user.tag}`, inline: true },
-        { name: 'Duration', value: `${duration} minutes`, inline: true },
-        { name: 'Muted By', value: interaction.user.tag, inline: true },
-        { name: 'Reason', value: reason, inline: false },
-        { name: 'Expires', value: `<t:${Math.floor((Date.now() + duration * 60 * 1000) / 1000)}:R>`, inline: false }
-      )
-      .setTimestamp()
-      .setFooter({ text: `Muted by ${interaction.user.tag}` });
+      await member.timeout(duration * 60 * 1000, reason);
 
-    await interaction.reply({ embeds: [embed] });
+      const muteEmbed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle('🔇 Thành Viên Bị Mute')
+        .setThumbnail(user.displayAvatarURL())
+        .addFields(
+          { name: '👤 User', value: `${user.tag} (${user.id})`, inline: true },
+          { name: '⏱️ Thời Gian', value: `${duration} phút`, inline: true },
+          { name: '👮 Mute Bởi', value: interaction.user.tag, inline: true },
+          { name: '📝 Lý Do', value: reason, inline: false },
+          { name: '🕐 Hết Hạn', value: `<t:${Math.floor((Date.now() + duration * 60 * 1000) / 1000)}:R>`, inline: false }
+        )
+        .setFooter({ text: `Mute bởi ${interaction.user.tag}` })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [muteEmbed] });
+
+    } else if (subcommand === 'remove') {
+      // Unmute member
+      if (!member.isCommunicationDisabled()) {
+        await interaction.reply({ 
+          content: `⚠️ ${user.tag} không bị mute!`, 
+          ephemeral: true 
+        });
+        return;
+      }
+
+      await member.timeout(null, reason);
+
+      const unmuteEmbed = new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle('🔊 Thành Viên Được Unmute')
+        .setThumbnail(user.displayAvatarURL())
+        .addFields(
+          { name: '👤 User', value: `${user.tag} (${user.id})`, inline: true },
+          { name: '👮 Unmute Bởi', value: interaction.user.tag, inline: true },
+          { name: '📝 Lý Do', value: reason, inline: false }
+        )
+        .setFooter({ text: `Unmute bởi ${interaction.user.tag}` })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [unmuteEmbed] });
+    }
+
   } catch (error) {
-    await interaction.reply({ content: 'Failed to mute member!', ephemeral: true });
+    console.error('Lỗi mute/unmute:', error);
+    await interaction.reply({ 
+      content: '❌ Không thể thực hiện! Kiểm tra quyền của bot.', 
+      ephemeral: true 
+    });
   }
 }
