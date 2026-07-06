@@ -5,13 +5,13 @@
   "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node start-bot.js",
+    "start": "node dist/deploy-commands.js && node dist/src/index.js",
     "start:simple": "node dist/src/index.js",
     "start:watch": "nodemon dist/src/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "dev:build": "tsc --watch",
     "dev:web": "concurrently \"npm run dev:build\" \"nodemon dist/src/index.js\"",
-    "deploy-commands": "ts-node deploy-commands.ts",
+    "deploy-commands": "node dist/deploy-commands.js",
     "web": "node dist/src/web/server.js"
   },
   "keywords": [
