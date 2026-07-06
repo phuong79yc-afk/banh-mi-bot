@@ -23,6 +23,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*", "deploy-commands.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
