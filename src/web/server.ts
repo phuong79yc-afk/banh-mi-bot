@@ -91,9 +91,14 @@ export function startWebServer(client: Client, port: number = 3000) {
       <h2 class="section-title">Tính Năng Nổi Bật</h2>
       <div class="features-grid">
         <div class="feature-card">
+          <div class="feature-icon">🎵</div>
+          <h3>Music Player Pro</h3>
+          <p>Phát nhạc YouTube, Spotify, SoundCloud với chất lượng cao. Queue system, skip, pause, resume mượt mà.</p>
+        </div>
+        <div class="feature-card">
           <div class="feature-icon">🛡️</div>
-          <h3>Bảo Mật Tuyệt Đối</h3>
-          <p>Hệ thống moderation mạnh mẽ với auto-mod, anti-spam, anti-raid để bảo vệ server 24/7.</p>
+          <h3>Moderation Mạnh Mẽ</h3>
+          <p>Ban, kick, timeout, purge messages. Quản lý thành viên hiệu quả với permissions đầy đủ.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">⚡</div>
@@ -102,18 +107,13 @@ export function startWebServer(client: Client, port: number = 3000) {
         </div>
         <div class="feature-card">
           <div class="feature-icon">🎨</div>
-          <h3>Tùy Biến Linh Hoạt</h3>
-          <p>Cấu hình commands, roles, permissions dễ dàng theo nhu cầu server của bạn.</p>
+          <h3>Slash Commands</h3>
+          <p>Giao diện slash commands hiện đại, dễ sử dụng với autocomplete và validation tự động.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📊</div>
-          <h3>Thống Kê Chi Tiết</h3>
-          <p>Dashboard trực quan hiển thị hoạt động server, members, và các metrics quan trọng.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🎯</div>
-          <h3>Dễ Sử Dụng</h3>
-          <p>Giao diện slash commands trực quan, setup chỉ trong vài phút không cần code.</p>
+          <h3>Embeds Đẹp Mắt</h3>
+          <p>Mọi thông báo đều được thiết kế với embeds đẹp, màu sắc rõ ràng, dễ đọc.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🇻🇳</div>
