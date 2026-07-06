@@ -1,8 +1,9 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, ChannelType } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
-  .setName('serverinfo')
-  .setDescription('Xem thông tin chi tiết về server');
+  .setName('server')
+  .setDescription('📊 Xem thông tin chi tiết về server')
+  .setDMPermission(false);
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const guild = interaction.guild;
