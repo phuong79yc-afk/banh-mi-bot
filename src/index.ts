@@ -65,6 +65,11 @@ client.once('ready', () => {
   console.log(`📊 Servers: ${client.guilds.cache.size}`);
   console.log(`👥 Users: ${client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)}`);
   console.log('==================================================\n');
+
+  // Start web server
+  const { startWebServer } = require('./web/server');
+  const port = process.env.PORT || 3000;
+  startWebServer(client, port);
 });
 
 // Interaction handler
