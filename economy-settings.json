@@ -1,9 +1,0 @@
-{
-  "dailyReward": 1000,
-  "startingBalance": 500,
-  "currencySymbol": "💎",
-  "enableWork": true,
-  "workMinAmount": 50,
-  "workMaxAmount": 150,
-  "workCooldown": 3600
-}

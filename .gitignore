@@ -1,38 +1,7 @@
-# Dependencies
 node_modules/
-
-# Build output (Render will build)
 dist/
-
-# Environment variables
 .env
-
-# IDE files
+.DS_Store
+*.log
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-logs/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional REPL history
-.node_repl_history
-
-# Restart trigger file
-.restart-trigger
