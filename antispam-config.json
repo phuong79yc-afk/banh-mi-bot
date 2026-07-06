@@ -1,0 +1,26 @@
+{
+  "1133747672482857021": {
+    "enabled": true,
+    "maxMessages": 5,
+    "timeWindow": 5,
+    "maxMentions": 5,
+    "maxEmojis": 10,
+    "muteDuration": 5,
+    "autoDelete": true,
+    "autoMute": true,
+    "whitelistedRoles": [],
+    "whitelistedChannels": []
+  },
+  "1499671249373368410": {
+    "enabled": true,
+    "maxMessages": 5,
+    "timeWindow": 5,
+    "maxMentions": 5,
+    "maxEmojis": 10,
+    "muteDuration": 5,
+    "autoDelete": true,
+    "autoMute": true,
+    "whitelistedRoles": [],
+    "whitelistedChannels": []
+  }
+}

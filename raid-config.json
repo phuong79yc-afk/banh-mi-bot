@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "channel_id": "1508871086161395843",
+  "threshold": 5,
+  "timeWindow": 10000,
+  "action": "ban"
+}

@@ -1,0 +1,12 @@
+{
+  "prefix": "/",
+  "language": "vi",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "ownerId": "",
+  "autoReply": true,
+  "dmCommands": true,
+  "typing": true,
+  "embedReplies": true,
+  "errorNotif": true,
+  "startNotif": true
+}

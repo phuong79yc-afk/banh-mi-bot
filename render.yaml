@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: banh-mi-bot
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node dist/src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3002
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_API_KEY
+        sync: false

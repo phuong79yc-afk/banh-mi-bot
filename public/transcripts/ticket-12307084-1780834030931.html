@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Transcript - ticket-12307084</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #313338;
+            --bg-secondary: #2b2d31;
+            --bg-tertiary: #1e1f22;
+            --bg-floating: #111214;
+            --text-normal: #dbdee1;
+            --text-muted: #949ba4;
+            --text-link: #00a8fc;
+            --interactive-normal: #b5bac1;
+            --interactive-hover: #dbdee1;
+            --interactive-active: #fff;
+            --brand: #5865f2;
+            --brand-hover: #4752c4;
+            --green: #23a559;
+            --red: #f23f43;
+            --yellow: #f0b232;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-tertiary);
+            color: var(--text-normal);
+            line-height: 1.5;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-primary);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--brand) 0%, #4752c4 100%);
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .server-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            border: 4px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 42px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            letter-spacing: -0.5px;
+        }
+        
+        .header .subtitle {
+            font-size: 18px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+        }
+        
+        .info-banner {
+            background: var(--bg-secondary);
+            padding: 30px 40px;
+            border-bottom: 1px solid var(--bg-floating);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .info-card {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 3px solid var(--brand);
+            transition: all 0.2s ease;
+        }
+        
+        .info-card:hover {
+            border-left-color: var(--brand-hover);
+            transform: translateX(4px);
+        }
+        
+        .info-card .label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .info-card .value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-normal);
+            word-break: break-word;
+        }
+        
+        .messages-container {
+            padding: 40px;
+            background: var(--bg-primary);
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--bg-floating);
+        }
+        
+        .message {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            transition: background 0.1s ease;
+            border-radius: 4px;
+        }
+        
+        .message:hover {
+            background: rgba(255,255,255,0.02);
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        .message-avatar {
+            flex-shrink: 0;
+        }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .message-content-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .author {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--interactive-active);
+        }
+        
+        .timestamp {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .message-text {
+            font-size: 15px;
+            color: var(--text-normal);
+            word-wrap: break-word;
+            line-height: 1.375;
+        }
+        
+        .message-text em {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        
+        .attachments {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .attachment {
+            background: var(--bg-secondary);
+            border: 1px solid var(--bg-floating);
+            border-radius: 4px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+        
+        .attachment:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--brand);
+        }
+        
+        .attachment-icon {
+            font-size: 24px;
+        }
+        
+        .attachment-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .attachment-name {
+            color: var(--text-link);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .attachment-name:hover {
+            text-decoration: underline;
+        }
+        
+        .attachment-size {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        
+        .embed-indicator {
+            margin-top: 12px;
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--yellow);
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .stats {
+            background: var(--bg-secondary);
+            padding: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .stat-card {
+            background: var(--bg-tertiary);
+            padding: 24px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--bg-floating);
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--brand);
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+        
+        .footer {
+            background: var(--bg-tertiary);
+            padding: 32px 40px;
+            text-align: center;
+            border-top: 1px solid var(--bg-floating);
+        }
+        
+        .footer-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+        
+        .scroll-top {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 48px;
+            height: 48px;
+            background: var(--brand);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            opacity: 0;
+            pointer-events: none;
+            font-size: 24px;
+            z-index: 1000;
+        }
+        
+        .scroll-top.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .scroll-top:hover {
+            background: var(--brand-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 40px 24px;
+            }
+            
+            .header h1 {
+                font-size: 32px;
+            }
+            
+            .info-banner,
+            .messages-container,
+            .stats,
+            .footer {
+                padding: 24px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .message {
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                
+                <h1>📋 Ticket Transcript</h1>
+                <div class="subtitle">Máy chủ của TrầnTuấn.</div>
+            </div>
+        </div>
+        
+        <div class="info-banner">
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="label">🎫 Tên Ticket</div>
+                    <div class="value">ticket-12307084</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">🆔 Ticket ID</div>
+                    <div class="value">1513152311025995918</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">👤 Người Tạo</div>
+                    <div class="value">12307084</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">🔒 Đóng Bởi</div>
+                    <div class="value">12307084</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">📝 Lý Do</div>
+                    <div class="value">Đóng bởi button</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">⏰ Thời Gian</div>
+                    <div class="value">19:07 07/06/2026</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="messages-container">
+            <div class="section-title">💬 Tin nhắn (5)</div>
+            <div class="message">
+                <div class="message-avatar">
+                    <div class="avatar">
+                        <img src="https://cdn.discordapp.com/avatars/1498700400327528498/0ebb1e63d1c3027974e7acbbc68a254d.webp?size=128" alt="Bánh Mì#7971" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <span class="author">Bánh Mì#7971</span>
+                        <span class="timestamp">19:07 07/06/2026</span>
+                    </div>
+                    <div class="message-text">&lt;@1144806767595900979&gt; | Staff sẽ hỗ trợ bạn sớm</div>
+                <div class="embed-indicator">
+                    💬 Tin nhắn này chứa 1 embed(s)
+                </div>
+                </div>
+            </div>
+            <div class="message">
+                <div class="message-avatar">
+                    <div class="avatar">
+                        <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="12307084" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <span class="author">12307084</span>
+                        <span class="timestamp">19:07 07/06/2026</span>
+                    </div>
+                    <div class="message-text">uh</div>
+                </div>
+            </div>
+            <div class="message">
+                <div class="message-avatar">
+                    <div class="avatar">
+                        <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="12307084" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <span class="author">12307084</span>
+                        <span class="timestamp">19:07 07/06/2026</span>
+                    </div>
+                    <div class="message-text">yhh8h</div>
+                </div>
+            </div>
+            <div class="message">
+                <div class="message-avatar">
+                    <div class="avatar">
+                        <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="12307084" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <span class="author">12307084</span>
+                        <span class="timestamp">19:07 07/06/2026</span>
+                    </div>
+                    <div class="message-text">\juuh</div>
+                </div>
+            </div>
+            <div class="message">
+                <div class="message-avatar">
+                    <div class="avatar">
+                        <img src="https://cdn.discordapp.com/avatars/1498700400327528498/0ebb1e63d1c3027974e7acbbc68a254d.webp?size=128" alt="Bánh Mì#7971" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-header">
+                        <span class="author">Bánh Mì#7971</span>
+                        <span class="timestamp">19:07 07/06/2026</span>
+                    </div>
+                    <div class="message-text">&lt;em style=&quot;color: #999;&quot;&gt;Không có nội dung văn bản&lt;/em&gt;</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">💬 Tin nhắn</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0</div>
+                <div class="stat-label">📎 File đính kèm</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">2</div>
+                <div class="stat-label">👥 Người tham gia</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0 B</div>
+                <div class="stat-label">💾 Dung lượng</div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-text">
+                🤖 Generated by Discord Bot<br>
+                📅 lúc 19:07:10 Chủ Nhật, 7 tháng 6, 2026
+            </div>
+        </div>
+    </div>
+    
+    <div class="scroll-top" id="scrollTop">⬆️</div>
+    
+    <script>
+        // Scroll to top button
+        const scrollTopBtn = document.getElementById('scrollTop');
+        
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                scrollTopBtn.classList.add('visible');
+            } else {
+                scrollTopBtn.classList.remove('visible');
+            }
+        });
+        
+        scrollTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+        
+        // Add animation delay to messages
+        document.querySelectorAll('.message').forEach((msg, index) => {
+            msg.style.animationDelay = `${index * 0.05}s`;
+        });
+    </script>
+</body>
+</html>
