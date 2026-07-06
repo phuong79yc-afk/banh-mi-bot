@@ -64,13 +64,14 @@ export function setClient(client: Client) {
 // Get bot stats
 function getBotStats() {
   if (!botClient) {
-    return { servers: 0, users: 0, commands: 55 };
+    return { servers: 0, users: 0, commands: 34, uptime: 0 };
   }
   
   return {
     servers: botClient.guilds.cache.size,
     users: botClient.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0),
-    commands: 55
+    commands: botClient.commands?.size || 34,
+    uptime: botClient.uptime ? Math.floor(botClient.uptime / 1000) : 0
   };
 }
 
