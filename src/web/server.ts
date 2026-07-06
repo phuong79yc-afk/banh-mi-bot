@@ -48,10 +48,10 @@ export function startWebServer(client: Client, port: number = 3000) {
   <section class="hero">
     <div class="container">
       <div class="hero-content">
-        <div class="badge">#1 Utilities Bot Việt Nam</div>
+        <div class="badge">⭐ #1 Utilities Bot Việt Nam</div>
         <h1 class="hero-title">Quản Lý Server<br>Thông Minh & Hiệu Quả</h1>
         <p class="hero-description">
-          Bánh Mì là Discord Bot đa năng, cung cấp các công cụ đóc quyền<br>
+          Bánh Mì là Discord Bot đa năng, cung cấp các công cụ độc quyền<br>
           về quản lý và tự động hóa, giúp bạn vận hành Server chuyên nghiệp<br>
           và hiệu quả hơn bao giờ hết.
         </p>
@@ -61,8 +61,9 @@ export function startWebServer(client: Client, port: number = 3000) {
         </div>
       </div>
       <div class="hero-image">
-        <div class="logo-large">
-          <img src="${client.user?.displayAvatarURL() || ''}" alt="Bánh Mì Bot">
+        <div class="logo-wrapper">
+          <div class="logo-glow"></div>
+          <img src="${client.user?.displayAvatarURL({ size: 512 }) || ''}" alt="Bánh Mì Bot" class="bot-avatar">
         </div>
       </div>
     </div>
