@@ -1,0 +1,38 @@
+═══════════════════════════════════════════
+🍞 BÁNH MÌ BOT - All-in-One Discord Bot
+═══════════════════════════════════════════
+
+🛡️ Moderation & Security
+• Anti-raid, anti-spam with AI detection
+• Advanced mod commands (ban, kick, mute, timeout)
+• Channel management (lock, slowmode, purge)
+
+🎵 Premium Music Player
+• YouTube, Spotify, SoundCloud support
+• 320kbps quality, no lag
+• Interactive controls with buttons
+
+🔗 Social Media Link Fixer (Like Bot Keto!)
+• TikTok: Auto-download videos (no watermark)
+• Twitter/X, Instagram, Reddit embeds
+• Beautiful custom embeds with stats
+
+🏆 Level & Economy
+• Auto XP system with rank cards
+• Server leaderboards
+• Virtual currency & mini-games
+
+⚡ Quick Setup
+/setup - Guided setup wizard
+/help - View all 34+ commands
+/play - Start playing music
+/antiraid - Enable protection
+
+🌟 Why Choose Us?
+✅ 99.9% uptime
+✅ Regular updates
+✅ Active support
+✅ Free forever
+✅ Easy to use
+
+Made with ❤️ in Vietnam
