@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import { Player } from 'discord-player';
+import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -23,6 +25,39 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+// Initialize music player
+const player = new Player(client);
+
+// Load YouTube extractor
+player.extractors.register(YoutubeiExtractor, {});
+
+console.log('🎵 Initializing music player...');
+player.extractors.loadDefault().then(() => {
+  console.log('✅ Music player ready!');
+});
+
+// Player events
+player.events.on('playerStart', (queue, track) => {
+  const channel = queue.metadata.channel as any;
+  channel?.send(`🎵 Đang phát: **${track.title}** • ${track.author}`);
+});
+
+player.events.on('audioTrackAdd', (queue, track) => {
+  const channel = queue.metadata.channel as any;
+  channel?.send(`✅ Đã thêm vào hàng đợi: **${track.title}**`);
+});
+
+player.events.on('emptyQueue', (queue) => {
+  const channel = queue.metadata.channel as any;
+  channel?.send('✅ Đã phát hết nhạc trong hàng đợi!');
+});
+
+player.events.on('error', (queue, error) => {
+  console.error(`Music player error:`, error);
+  const channel = queue.metadata.channel as any;
+  channel?.send('❌ Có lỗi xảy ra khi phát nhạc!');
+});
 
 // Load commands
 const commandsPath = path.join(__dirname, 'commands');
