@@ -1,0 +1,7 @@
+{
+  "name": "autoresponder-module",
+  "version": "1.0.0",
+  "description": "Autoresponder - Auto-reply based on keywords with multiple match modes",
+  "enabled": true,
+  "priority": 10
+}

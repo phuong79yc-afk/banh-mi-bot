@@ -1,0 +1,7 @@
+{
+  "name": "games-module",
+  "version": "1.0.0",
+  "description": "Games - Fun games like Guess The Number",
+  "enabled": true,
+  "priority": 17
+}

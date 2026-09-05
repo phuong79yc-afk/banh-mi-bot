@@ -29,13 +29,23 @@ client.commands = new Collection();
 // Initialize music player
 const player = new Player(client);
 
-// Load YouTube extractor
+// Load YouTube extractor (suppress warnings)
 player.extractors.register(YoutubeiExtractor, {});
 
-console.log('🎵 Initializing music player...');
-player.extractors.loadDefault().then(() => {
-  console.log('✅ Music player ready!');
-});
+// Suppress YouTube console warnings
+const originalConsoleWarn = console.warn;
+console.warn = (...args: any[]) => {
+  const message = args.join(' ');
+  // Suppress YouTube extractor warnings
+  if (message.includes('[YOUTUBEJS][Player]') || 
+      message.includes('Failed to extract signature') ||
+      message.includes('Failed to extract n decipher')) {
+    return;
+  }
+  originalConsoleWarn.apply(console, args);
+};
+
+console.log('✅ YouTube extractor loaded');
 
 // Player events
 player.events.on('playerStart', (queue, track) => {
@@ -59,7 +69,37 @@ player.events.on('error', (queue, error) => {
   channel?.send('❌ Có lỗi xảy ra khi phát nhạc!');
 });
 
-// Load commands
+// ============================================
+// LOAD MODULES (New Module System)
+// ============================================
+import { ModuleLoader } from './core/ModuleLoader';
+
+// Load modules on ready
+let moduleLoader: ModuleLoader;
+
+async function initializeModules() {
+  try {
+    // Pass absolute path to modules directory
+    const modulesPath = path.resolve(__dirname, 'modules');
+    console.log('📁 Modules path:', modulesPath);
+    
+    moduleLoader = new ModuleLoader(client, modulesPath);
+    await moduleLoader.loadAllModules();
+    
+    // Register all module commands
+    for (const [moduleName, loadedModule] of moduleLoader.getLoadedModules()) {
+      if (loadedModule.instance && loadedModule.instance.commands) {
+        for (const [cmdName, command] of loadedModule.instance.commands) {
+          client.commands.set(cmdName, command);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error loading modules:', error);
+  }
+}
+
+// Load legacy commands (if any)
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
   const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -93,13 +133,28 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// Ready event
-client.once('ready', () => {
-  console.log('\n==================================================');
-  console.log(`🚀 Bot đã online: ${client.user?.tag}`);
+// Ready event (using clientReady to avoid deprecation warning)
+client.once('clientReady' as any, async () => {
+  console.log('\n' + '='.repeat(60));
+  console.log('🤖 BOT STATUS');
+  console.log('='.repeat(60));
+  console.log(`✅ Online: ${client.user?.tag}`);
   console.log(`📊 Servers: ${client.guilds.cache.size}`);
   console.log(`👥 Users: ${client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)}`);
-  console.log('==================================================\n');
+  console.log('='.repeat(60) + '\n');
+
+  // Set bot status (idle with custom status text matching GlitchBucket)
+  client.user?.setPresence({
+    activities: [{ 
+      name: 'Custom Status',
+      type: 4, // Type 4 = Custom Status
+      state: '/help | http://localhost:5173/dashboard'
+    }],
+    status: 'idle', // idle = yellow/orange moon icon
+  });
+
+  // Initialize modules
+  await initializeModules();
 
   // Start web server
   const { startWebServer } = require('./web/server');
@@ -131,5 +186,94 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// Helper event to collect all commands for /help
+client.on('getAllCommands', (commandsArray: any[]) => {
+  client.commands.forEach((cmd) => {
+    commandsArray.push(cmd);
+  });
+});
+
 // Login
 client.login(process.env.DISCORD_TOKEN);
+
+// ============================================
+// AI CHAT - Message Listener for Auto-Reply
+// ============================================
+import { aiChatService } from './utils/aiChatService';
+import { conversationManager } from './utils/conversationManager';
+
+client.on('messageCreate', async (message) => {
+  // Ignore bot messages
+  if (message.author.bot) return;
+  
+  // Only in guilds
+  if (!message.guild) return;
+
+  const config = conversationManager.getConfig();
+
+  // Check if auto-reply is enabled
+  if (!config.autoReplyOnMention) return;
+
+  // Check if bot is mentioned
+  const botMentioned = message.mentions.has(client.user!);
+  if (!botMentioned) return;
+
+  // Check if user is blacklisted
+  if (conversationManager.isUserBlacklisted(message.author.id)) return;
+
+  // Check if channel is allowed
+  if (!conversationManager.isChannelAllowed(message.channel.id)) return;
+
+  // Check if AI service is available
+  if (!aiChatService.isAvailable()) {
+    return message.reply('❌ AI service chưa được cấu hình');
+  }
+
+  try {
+    // Show typing indicator
+    await message.channel.sendTyping();
+
+    // Remove mention from message
+    let userMessage = message.content
+      .replace(/<@!?\d+>/g, '')
+      .trim();
+
+    if (!userMessage) {
+      return message.reply('💭 Bạn muốn hỏi gì?');
+    }
+
+    // Get AI response
+    const response = await aiChatService.chat(
+      message.author.id,
+      message.guild.id,
+      userMessage,
+      { model: 'openai/gpt-oss-20b' } // Fastest (1000 T/s)
+    );
+
+    if (!response.success) {
+      return message.reply(`❌ Lỗi: ${response.error}`);
+    }
+
+    // Split long messages
+    const maxLength = 2000;
+    const responseText = response.message || 'No response';
+
+    if (responseText.length <= maxLength) {
+      await message.reply(responseText);
+    } else {
+      // Send first chunk as reply
+      await message.reply(responseText.substring(0, maxLength));
+
+      // Send remaining chunks
+      for (let i = maxLength; i < responseText.length; i += maxLength) {
+        await message.channel.send(responseText.substring(i, i + maxLength));
+      }
+    }
+
+  } catch (error) {
+    console.error('AI chat error:', error);
+    message.reply('❌ Có lỗi xảy ra khi xử lý tin nhắn');
+  }
+});
+
+console.log('✅ AI Chat auto-reply listener initialized');

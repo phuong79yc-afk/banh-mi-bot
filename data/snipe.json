@@ -1,0 +1,18 @@
+{
+  "deleted": {
+    "1514216510523179038": [
+      {
+        "messageId": "1545408360109703218",
+        "channelId": "1514216510523179038",
+        "guildId": "1482354951689605150",
+        "authorId": "923215778776481793",
+        "authorUsername": "tran.tuan",
+        "content": "**Thiết lập hệ thống ticket**\n`[1/4]` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (⁠không xác định).\n`[2/4]` ✅ Tạo kênh hỗ trợ hoàn tất. (⁠🎫〡ticket tại <#1545399052919636068>).\n`[3/4`] ✅ Tạo ticket mặc định tại kênh ⁠🎫〡ticket hoàn tất.\n`[4/4] `✅ Tạo role hỗ trợ @vai-trò-chưa-rõ & <@&1545399060306071663> hoàn tất.\n                                                                                                                                                                                                                                                                                                                                                         \n**Khởi tạo cài đặt mặc định hoàn tất.**\n •   Để quản lí hoặc thêm một danh mục hỗ trợ, sử dụng` /ticket panel manage`\n •    Để chỉnh sửa các cài đặt có sẵn, sử dụng `/ticket configuration`",
+        "attachments": [],
+        "timestamp": 1788524465349,
+        "deletedAt": 1788524468910
+      }
+    ]
+  },
+  "edited": {}
+}

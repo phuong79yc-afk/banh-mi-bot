@@ -1,0 +1,10 @@
+{
+  "1482354951689605150": {
+    "guildId": "1482354951689605150",
+    "enabled": true,
+    "receiverRoleIds": [],
+    "roleRewards": [],
+    "notificationChannelId": null,
+    "thankYouMessage": "Thank you {user} for donating **${amount}**! 💖"
+  }
+}

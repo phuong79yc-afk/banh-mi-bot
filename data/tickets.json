@@ -1,0 +1,27 @@
+{
+  "configs": [
+    {
+      "guildId": "1482354951689605150",
+      "enabled": true,
+      "categoryId": "1545719412299145256",
+      "staffRoleId": "1545719435401367642",
+      "ticketMessageChannelId": "1545719422625255484",
+      "ticketMessageId": "1545719428929429535",
+      "logChannelId": "1545719414509539418"
+    },
+    {
+      "guildId": "1385551830855192670",
+      "enabled": true,
+      "categoryId": "1545734436497260564",
+      "staffRoleId": "1545734458982924351",
+      "ticketMessageChannelId": "1545734445015896124",
+      "ticketMessageId": "1545734451126997055",
+      "logChannelId": "1545734438300815370"
+    }
+  ],
+  "tickets": [],
+  "counters": {
+    "1482354951689605150": 1,
+    "1385551830855192670": 3
+  }
+}

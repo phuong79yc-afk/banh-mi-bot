@@ -1,0 +1,31 @@
+[
+  {
+    "userId": "923215778776481793",
+    "username": "tran.tuan",
+    "tier": "premium",
+    "dailyUsage": {
+      "date": "2026-09-02",
+      "aiTextRequests": 1,
+      "aiImageRequests": 0
+    },
+    "totalUsage": {
+      "aiTextRequests": 92,
+      "aiImageRequests": 3
+    },
+    "premiumExpiry": "2026-09-23T10:07:23.113Z"
+  },
+  {
+    "userId": "1144806767595900979",
+    "username": "12307084",
+    "tier": "free",
+    "dailyUsage": {
+      "date": "2026-08-27",
+      "aiTextRequests": 0,
+      "aiImageRequests": 0
+    },
+    "totalUsage": {
+      "aiTextRequests": 12,
+      "aiImageRequests": 0
+    }
+  }
+]

@@ -1,0 +1,52 @@
+{
+  "1482354951689605150-1787907115165": {
+    "id": "1482354951689605150-1787907115165",
+    "guildId": "1482354951689605150",
+    "channelId": "1542524778928410744",
+    "messageId": "1542819008737312860",
+    "question": "xin chào",
+    "options": [
+      "gay",
+      "kgay",
+      "gà"
+    ],
+    "votes": {},
+    "voteDetails": {},
+    "allowMultiple": true,
+    "anonymous": true,
+    "createdBy": "923215778776481793",
+    "createdAt": 1787907115852,
+    "ended": false
+  },
+  "1482354951689605150-1787911890586": {
+    "id": "1482354951689605150-1787911890586",
+    "guildId": "1482354951689605150",
+    "channelId": "1542524778928410744",
+    "messageId": "1542839040477241424",
+    "question": "Ai là member tốt nhất?",
+    "options": [
+      "@Alice",
+      "@Bob",
+      "@Charlie",
+      "@David",
+      "@Eve"
+    ],
+    "votes": {
+      "923215778776481793": 0
+    },
+    "voteDetails": {
+      "923215778776481793": {
+        "optionIndex": 0,
+        "escaped": false,
+        "isNewAccount": false,
+        "timestamp": 1787911914505
+      }
+    },
+    "allowMultiple": false,
+    "anonymous": false,
+    "endTime": 1787915490586,
+    "createdBy": "923215778776481793",
+    "createdAt": 1787911891586,
+    "ended": false
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "giveaway-module",
+  "displayName": "Giveaway System",
+  "description": "Host and manage giveaways with automatic winner selection",
+  "version": "1.0.0",
+  "author": "GlitchBucket",
+  "enabled": true,
+  "commands": ["giveaway-migrate"],
+  "dependencies": []
+}

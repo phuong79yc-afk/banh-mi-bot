@@ -1,0 +1,8 @@
+{
+  "maxHistory": 20,
+  "contextTimeout": 30,
+  "systemPrompt": "Bạn là một trợ lý AI thông minh và thân thiện trên Discord. Bạn có thể nói cả tiếng Việt và tiếng Anh. Hãy trả lời một cách hữu ích, ngắn gọn và chính xác. Khi được hỏi về bản thân, hãy giới thiệu là Discord Bot AI có thể chat và giúp đỡ users.",
+  "autoReplyOnMention": true,
+  "allowedChannels": [],
+  "blacklistedUsers": []
+}

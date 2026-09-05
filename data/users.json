@@ -1,0 +1,19 @@
+[
+  {
+    "username": "User",
+    "email": "ntoa047@gmail.com",
+    "passwordHash": "a61a8adf60038792a2cb88e670b20540a9d6c2ca204ab754fc768950e79e7d36",
+    "role": "admin",
+    "createdAt": 1786282236335,
+    "balance": 1,
+    "level": 1,
+    "xp": 0
+  },
+  {
+    "username": "testuser",
+    "email": "test@example.com",
+    "passwordHash": "85777f270ad7cf2a790981bbae3c4e484a1dc55e24a77390d692fbf1cffa12fa",
+    "role": "user",
+    "createdAt": 1786282531911
+  }
+]

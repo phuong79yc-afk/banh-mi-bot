@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Auto Build, Deploy & Restart Bot",
+      "trigger": "PostFileSave",
+      "description": "Tự động build, deploy và restart bot khi code trong src/ thay đổi",
+      "matcher": "src[\\\\/].*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": ".\\scripts\\rebuild-on-change.bat",
+        "timeout": 180
+      }
+    }
+  ]
+}
