@@ -28,6 +28,34 @@ export default class ServerGeneratorModule {
     this.groq = new Groq({ apiKey: keyRotator.getGroqKey() || '' });
   }
 
+  // Predefined server templates
+  private templates = {
+    gaming: {
+      name: '🎮 Gaming Community',
+      prompt: 'Tạo server gaming chuyên nghiệp với 5 categories: Welcome (rules, announcements), Game Channels (valorant, league-of-legends, minecraft), Voice Channels (lobby-1, lobby-2, afk), Community (general-chat, memes, screenshots), Support (tickets, feedback). Roles: Owner, Admin, Moderator, VIP Member, Member.'
+    },
+    community: {
+      name: '💬 Community Hub',
+      prompt: 'Tạo server cộng đồng thân thiện với 4 categories: Information (welcome, rules, announcements), Chat Rooms (general, random, introductions, topic-discussion), Activities (events, games, media-sharing), Support (help-desk, suggestions). Roles: Founder, Admin, Moderator, Helper, Active Member, Member.'
+    },
+    study: {
+      name: '📚 Study Group',
+      prompt: 'Tạo server học tập với 5 categories: Information (welcome, rules, announcements), Study Rooms (math, science, language, history), Resources (books, links, notes), Discussion (homework-help, study-groups, q-and-a), Break Time (general-chat, memes). Roles: Teacher, Study Leader, Tutor, Student.'
+    },
+    business: {
+      name: '💼 Business/Work',
+      prompt: 'Tạo server công việc chuyên nghiệp với 5 categories: Information (announcements, company-news), Departments (sales, marketing, development, hr), Projects (project-alpha, project-beta, deadlines), General (general-discussion, random, water-cooler), Resources (documents, tools, training). Roles: Executive, Manager, Team Lead, Employee, Intern.'
+    },
+    anime: {
+      name: '🌸 Anime/Manga',
+      prompt: 'Tạo server anime/manga với 5 categories: Welcome (rules, announcements, introductions), Anime Discussion (anime-talk, manga-discussion, recommendations), Media (fanart, cosplay, videos), Events (movie-nights, game-nights), Community (general-chat, memes, voice-channels). Roles: Admin, Moderator, Otaku, Weeb, Member.'
+    },
+    tech: {
+      name: '💻 Tech/Development',
+      prompt: 'Tạo server tech/dev với 5 categories: Information (rules, announcements, resources), Development (web-dev, mobile-dev, backend, frontend), Help & Support (code-help, debugging, project-reviews), Discussion (tech-news, career-advice, off-topic), Projects (showcase, collaborations). Roles: Admin, Senior Dev, Developer, Junior Dev, Learner.'
+    }
+  };
+
   async initialize() {
     this.registerCommands();
     this.setupEventHandlers();
@@ -218,6 +246,145 @@ export default class ServerGeneratorModule {
         );
 
         await interaction.showModal(modal);
+        return;
+      }
+
+      // Templates menu
+      if (action === 'gen_templates') {
+        const templatesContainer = new ContainerBuilder()
+          .setAccentColor(0x5865F2)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.sparkles} Server Templates\n\nChọn một mẫu máy chủ có sẵn:`)
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`🎮 **Gaming Community**\nServer game chuyên nghiệp với game channels, voice lobbies, và community chat`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_gaming_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`💬 **Community Hub**\nCộng đồng thân thiện với chat rooms, activities, và support`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_community_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`📚 **Study Group**\nServer học tập với study rooms, resources, và homework help`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_study_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`💼 **Business/Work**\nServer công việc chuyên nghiệp với departments, projects, và resources`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_business_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`🌸 **Anime/Manga**\nServer anime với discussion, media sharing, và community events`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_anime_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`💻 **Tech/Development**\nServer tech với development channels, code help, và project showcases`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_template_tech_${interaction.user.id}`)
+                  .setLabel('Chọn')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          )
+          .addSectionComponents(
+            (section) => section
+              .addTextDisplayComponents(
+                (text) => text.setContent(`${emojis.refresh} Quay lại settings`)
+              )
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`gen_back_to_settings_${interaction.user.id}`)
+                  .setLabel('Quay lại')
+                  .setStyle(ButtonStyle.Primary)
+              )
+          );
+
+        await interaction.update({
+          flags: MessageFlags.IsComponentsV2,
+          components: [templatesContainer]
+        });
+        return;
+      }
+
+      // Apply template
+      if (action === 'gen_template') {
+        const templateName = parts[2]; // gaming, community, study, etc
+        const template = (this as any).templates[templateName];
+        
+        if (template) {
+          const settings = (this as any).tempSettings?.get(interaction.user.id) || {};
+          settings.prompt = template.prompt;
+          settings.theme = templateName;
+          (this as any).tempSettings?.set(interaction.user.id, settings);
+
+          const settingsContainer = this.buildSettingsPanel(interaction.user.id, settings);
+
+          await interaction.update({
+            flags: MessageFlags.IsComponentsV2,
+            components: [settingsContainer]
+          });
+        }
+        return;
+      }
+
+      // Back to settings from templates
+      if (action === 'gen_back_to_settings') {
+        const settings = (this as any).tempSettings?.get(interaction.user.id) || {
+          prompt: 'Máy chủ cơ bản với đầy đủ tính năng',
+          theme: '',
+          complexity: 'medium',
+          enhancedPrompt: true,
+          enhancedResult: true
+        };
+
+        const settingsContainer = this.buildSettingsPanel(interaction.user.id, settings);
+
+        await interaction.update({
+          flags: MessageFlags.IsComponentsV2,
+          components: [settingsContainer]
+        });
         return;
       }
 
@@ -923,6 +1090,18 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`gen_prompt_${userId}`)
               .setLabel('Đổi')
+              .setStyle(ButtonStyle.Primary)
+          )
+      )
+      .addSectionComponents(
+        (section) => section
+          .addTextDisplayComponents(
+            (text) => text.setContent(`${emojis.sparkles} **Templates:** Gaming, Community, Study, Business, Anime, Tech`)
+          )
+          .setButtonAccessory(
+            new ButtonBuilder()
+              .setCustomId(`gen_templates_${userId}`)
+              .setLabel('Chọn mẫu')
               .setStyle(ButtonStyle.Primary)
           )
       )

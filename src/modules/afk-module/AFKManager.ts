@@ -22,7 +22,7 @@ export interface AFKData {
   [key: string]: AFKUser; // key: `${guildId}_${userId}`
 }
 
-class AFKManager {
+export class AFKManager {
   private data: AFKData = {};
 
   constructor() {

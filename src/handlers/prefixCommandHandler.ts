@@ -717,8 +717,8 @@ export function setupPrefixCommands(client: Client) {
           console.error('Failed to change nickname:', error);
         }
 
-        // Set AFK with saved nickname
-        afkManager.setAFK(message.guildId!, message.author.id, reason, oldNickname);
+        // Set AFK
+        afkManager.setAFK(message.guildId!, message.author.id, reason);
 
         const embed = createEnhancedEmbed({
           title: '💤 AFK Status Set',
