@@ -123,7 +123,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`generator_start_${interaction.user.id}`)
               .setLabel('Start')
-              .setStyle(ButtonStyle.Success),
+              .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
               .setCustomId(`generator_settings_${interaction.user.id}`)
               .setLabel('Settings')
@@ -131,7 +131,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`generator_exit_${interaction.user.id}`)
               .setLabel('Exit')
-              .setStyle(ButtonStyle.Danger)
+              .setStyle(ButtonStyle.Primary)
           );
 
         // Store settings temporarily with defaults
@@ -287,7 +287,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`gen_back_${userId}`)
               .setLabel('Back')
-              .setStyle(ButtonStyle.Secondary)
+              .setStyle(ButtonStyle.Primary)
           );
 
         await interaction.update({
@@ -345,7 +345,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`generator_start_${userId}`)
               .setLabel(`Start')
-              .setStyle(ButtonStyle.Success),
+              .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
               .setCustomId(`generator_settings_${userId}`)
               .setLabel('Settings')
@@ -353,7 +353,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`generator_exit_${userId}`)
               .setLabel('Exit')
-              .setStyle(ButtonStyle.Danger)
+              .setStyle(ButtonStyle.Primary)
           );
 
         await interaction.update({

@@ -317,7 +317,7 @@ export default class ServerGeneratorModule {
                   new ButtonBuilder()
                     .setCustomId(`gen_export_${interaction.user.id}`)
                     .setLabel('Export')
-                    .setStyle(ButtonStyle.Success)
+                    .setStyle(ButtonStyle.Primary)
                 )
             )
             .addSectionComponents(
@@ -329,7 +329,7 @@ export default class ServerGeneratorModule {
                   new ButtonBuilder()
                     .setCustomId(`gen_menu_${interaction.user.id}`)
                     .setLabel('Menu')
-                    .setStyle(ButtonStyle.Danger)
+                    .setStyle(ButtonStyle.Primary)
                 )
             );
 
@@ -548,7 +548,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`gen_prompt_${userId}`)
               .setLabel('Đổi')
-              .setStyle(ButtonStyle.Secondary)
+              .setStyle(ButtonStyle.Primary)
           )
       )
       .addSectionComponents(
@@ -590,7 +590,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`gen_start_${userId}`)
               .setLabel('Start')
-              .setStyle(ButtonStyle.Success)
+              .setStyle(ButtonStyle.Primary)
           )
       )
       .addSectionComponents(
@@ -602,7 +602,7 @@ export default class ServerGeneratorModule {
             new ButtonBuilder()
               .setCustomId(`gen_exit_${userId}`)
               .setLabel('Exit')
-              .setStyle(ButtonStyle.Danger)
+              .setStyle(ButtonStyle.Primary)
           )
       );
   }

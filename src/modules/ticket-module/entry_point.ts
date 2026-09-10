@@ -146,7 +146,7 @@ export default class TicketModule {
         const button = new ButtonBuilder()
           .setCustomId('ticket_create')
           .setLabel('🎫 Tạo ticket')
-          .setStyle(ButtonStyle.Success); // Green button
+          .setStyle(ButtonStyle.Primary); // Green button
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
         const panelMessage = await supportChannel!.send({ embeds: [panelEmbed], components: [row] });
@@ -614,17 +614,17 @@ export default class TicketModule {
       const claimButton = new ButtonBuilder()
         .setCustomId('ticket_claim')
         .setLabel('🎫 Nhận ticket')
-        .setStyle(ButtonStyle.Success);
+        .setStyle(ButtonStyle.Primary);
 
       const closeButton = new ButtonBuilder()
         .setCustomId('ticket_close_button')
         .setLabel('🔒 Đóng ticket')
-        .setStyle(ButtonStyle.Danger);
+        .setStyle(ButtonStyle.Primary);
 
       const closeWithReasonButton = new ButtonBuilder()
         .setCustomId('ticket_close_reason')
         .setLabel('🔒 Đóng với lí do')
-        .setStyle(ButtonStyle.Danger);
+        .setStyle(ButtonStyle.Primary);
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         claimButton,

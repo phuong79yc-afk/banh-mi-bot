@@ -57,42 +57,42 @@ export class ModalHelper {
             .setCustomId('modal_kick')
             .setLabel('Kick')
             .setEmoji('🔨')
-            .setStyle(ButtonStyle.Danger),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_ban')
             .setLabel('Ban')
             .setEmoji('⛔')
-            .setStyle(ButtonStyle.Danger),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_unban')
             .setLabel('Unban')
             .setEmoji('✅')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_timeout')
             .setLabel('Timeout')
             .setEmoji('⏰')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_warn')
             .setLabel('Warn')
             .setEmoji('⚠️')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_warnings')
             .setLabel('Warnings')
             .setEmoji('📋')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_mute')
             .setLabel('Mute')
             .setEmoji('🔇')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_unmute')
             .setLabel('Unmute')
             .setEmoji('🔊')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_clear')
             .setLabel('Clear')
@@ -107,12 +107,12 @@ export class ModalHelper {
             .setCustomId('modal_lock')
             .setLabel('Lock')
             .setEmoji('🔒')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_unlock')
             .setLabel('Unlock')
             .setEmoji('🔓')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_slowmode')
             .setLabel('Slowmode')
@@ -122,7 +122,7 @@ export class ModalHelper {
             .setCustomId('modal_nuke')
             .setLabel('Nuke')
             .setEmoji('💥')
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Primary)
         );
         break;
 
@@ -175,17 +175,17 @@ export class ModalHelper {
             .setCustomId('modal_joke')
             .setLabel('Joke')
             .setEmoji('😂')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_meme')
             .setLabel('Meme')
             .setEmoji('🤣')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_giveaway')
             .setLabel('Giveaway')
             .setEmoji('🎁')
-            .setStyle(ButtonStyle.Success)
+            .setStyle(ButtonStyle.Primary)
         );
         break;
 
@@ -233,7 +233,7 @@ export class ModalHelper {
             .setCustomId('modal_ticket')
             .setLabel('Ticket')
             .setEmoji('🎫')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_emoji')
             .setLabel('Emoji')
@@ -243,17 +243,17 @@ export class ModalHelper {
             .setCustomId('modal_userinfo')
             .setLabel('User Info')
             .setEmoji('👤')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_avatar')
             .setLabel('Avatar')
             .setEmoji('🖼️')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_serverinfo')
             .setLabel('Server')
             .setEmoji('📊')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_speak')
             .setLabel('Speak')
@@ -263,7 +263,7 @@ export class ModalHelper {
             .setCustomId('modal_help')
             .setLabel('Help')
             .setEmoji('📚')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_invite')
             .setLabel('Invite')
@@ -278,32 +278,32 @@ export class ModalHelper {
             .setCustomId('modal_stats')
             .setLabel('Stats')
             .setEmoji('📊')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_ping')
             .setLabel('Ping')
             .setEmoji('🏓')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_uptime')
             .setLabel('Uptime')
             .setEmoji('⏰')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_balance')
             .setLabel('Balance')
             .setEmoji('💰')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_daily')
             .setLabel('Daily')
             .setEmoji('💵')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_shop')
             .setLabel('Shop')
             .setEmoji('🛒')
-            .setStyle(ButtonStyle.Success)
+            .setStyle(ButtonStyle.Primary)
         );
         break;
 
@@ -341,7 +341,7 @@ export class ModalHelper {
             .setCustomId('modal_play')
             .setLabel('Play')
             .setEmoji('▶️')
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('button_pause')
             .setLabel('Pause')
@@ -351,12 +351,12 @@ export class ModalHelper {
             .setCustomId('button_stop')
             .setLabel('Stop')
             .setEmoji('⏹️')
-            .setStyle(ButtonStyle.Danger),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('button_skip')
             .setLabel('Skip')
             .setEmoji('⏭️')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_volume')
             .setLabel('Volume')
@@ -376,12 +376,12 @@ export class ModalHelper {
             .setCustomId('button_nowplaying')
             .setLabel('Now Playing')
             .setEmoji('🎵')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('button_queue')
             .setLabel('Queue')
             .setEmoji('📋')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_lyrics')
             .setLabel('Lyrics')

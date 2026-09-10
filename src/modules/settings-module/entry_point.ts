@@ -96,7 +96,7 @@ export default class SettingsModule {
         new ButtonBuilder()
           .setCustomId('settings_change_prompt')
           .setLabel('Đổi Prompt')
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Primary)
           .setEmoji('📝'),
         new ButtonBuilder()
           .setCustomId('settings_toggle_enhanced_prompt')
@@ -117,11 +117,11 @@ export default class SettingsModule {
         new ButtonBuilder()
           .setCustomId('settings_start')
           .setLabel('Start')
-          .setStyle(ButtonStyle.Success),
+          .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId('settings_exit')
           .setLabel('Exit')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Primary)
       );
 
     await interaction.reply({
@@ -272,7 +272,7 @@ export default class SettingsModule {
         new ButtonBuilder()
           .setCustomId('settings_change_prompt')
           .setLabel('Đổi Prompt')
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Primary)
           .setEmoji('📝'),
         new ButtonBuilder()
           .setCustomId('settings_toggle_enhanced_prompt')
@@ -293,11 +293,11 @@ export default class SettingsModule {
         new ButtonBuilder()
           .setCustomId('settings_start')
           .setLabel('Start')
-          .setStyle(ButtonStyle.Success),
+          .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId('settings_exit')
           .setLabel('Exit')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Primary)
       );
 
     return [row1, row2, row3];

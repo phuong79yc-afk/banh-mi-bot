@@ -55,3 +55,18 @@ export function statusEmoji(status: 'success' | 'error' | 'warning' | 'info' | '
   };
   return map[status];
 }
+
+/**
+ * Button style helper - Returns consistent Primary style for all buttons
+ */
+export function getButtonStyle(): number {
+  // ButtonStyle.Primary = 1
+  return 1;
+}
+
+/**
+ * Convert any button to Primary style (blue)
+ */
+export function toPrimaryButton(builder: any): any {
+  return builder.setStyle(1); // ButtonStyle.Primary
+}

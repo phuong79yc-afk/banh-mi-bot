@@ -327,12 +327,12 @@ export default class UtilityModule {
         const prefixBtn = new ButtonBuilder()
           .setCustomId('help_prefix')
           .setLabel('Lệnh Prefix')
-          .setStyle(ButtonStyle.Secondary);
+          .setStyle(ButtonStyle.Primary);
 
         const slashBtn = new ButtonBuilder()
           .setCustomId('help_slash')
           .setLabel('Lệnh Slash')
-          .setStyle(ButtonStyle.Secondary);
+          .setStyle(ButtonStyle.Primary);
 
         const row2 = new ActionRowBuilder().addComponents(prefixBtn, slashBtn);
 
