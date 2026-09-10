@@ -87,8 +87,16 @@ export default class ServerGeneratorModule {
           .setLabel('Mô tả server bạn muốn tạo')
           .setStyle(TextInputStyle.Paragraph)
           .setPlaceholder('VD: Server game Minecraft với channels cho survival, creative, và trading...')
-          .setRequired(true)
+          .setRequired(false)
           .setMinLength(10)
+          .setMaxLength(500);
+
+        const imageInput = new TextInputBuilder()
+          .setCustomId('image_url')
+          .setLabel('Link ảnh mẫu (tùy chọn)')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('https://i.imgur.com/example.png hoặc Discord attachment URL')
+          .setRequired(false)
           .setMaxLength(500);
 
         const themeInput = new TextInputBuilder()
@@ -110,6 +118,7 @@ export default class ServerGeneratorModule {
 
         modal.addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(promptInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(imageInput),
           new ActionRowBuilder<TextInputBuilder>().addComponents(themeInput),
           new ActionRowBuilder<TextInputBuilder>().addComponents(complexityInput)
         );
@@ -130,14 +139,24 @@ export default class ServerGeneratorModule {
       const userId = interaction.customId.split('_').pop();
       if (interaction.user.id !== userId) return;
 
-      const prompt = interaction.fields.getTextInputValue('prompt');
+      const prompt = interaction.fields.getTextInputValue('prompt') || '';
+      const imageUrl = interaction.fields.getTextInputValue('image_url') || '';
       const theme = interaction.fields.getTextInputValue('theme') || '';
       const complexity = interaction.fields.getTextInputValue('complexity') || 'medium';
+
+      // Validate: either prompt or image must be provided
+      if (!prompt && !imageUrl) {
+        return interaction.reply({
+          content: `${emojis.error} Vui lòng nhập mô tả hoặc cung cấp link ảnh mẫu!`,
+          flags: 64
+        });
+      }
 
       // Save to temp settings
       (this as any).tempSettings = (this as any).tempSettings || new Map();
       (this as any).tempSettings.set(interaction.user.id, {
         prompt,
+        imageUrl,
         theme,
         complexity,
         enhancedPrompt: true,
@@ -147,6 +166,7 @@ export default class ServerGeneratorModule {
       // Show settings panel
       const settingsContainer = this.buildSettingsPanel(interaction.user.id, {
         prompt,
+        imageUrl,
         theme,
         complexity,
         enhancedPrompt: true,
@@ -167,7 +187,8 @@ export default class ServerGeneratorModule {
       const userId = interaction.customId.split('_').pop();
       if (interaction.user.id !== userId) return;
 
-      const newPrompt = interaction.fields.getTextInputValue('prompt');
+      const newPrompt = interaction.fields.getTextInputValue('prompt') || '';
+      const newImageUrl = interaction.fields.getTextInputValue('image_url') || '';
       const newTheme = interaction.fields.getTextInputValue('theme') || '';
       const newComplexity = interaction.fields.getTextInputValue('complexity') || 'medium';
       
@@ -176,6 +197,7 @@ export default class ServerGeneratorModule {
         enhancedResult: true
       };
       settings.prompt = newPrompt;
+      settings.imageUrl = newImageUrl;
       settings.theme = newTheme;
       settings.complexity = newComplexity;
       (this as any).tempSettings?.set(interaction.user.id, settings);
@@ -213,12 +235,21 @@ export default class ServerGeneratorModule {
 
         const promptInput = new TextInputBuilder()
           .setCustomId('prompt')
-          .setLabel('Mô tả server')
+          .setLabel('Mô tả server (tùy chọn)')
           .setPlaceholder('VD: Server game Minecraft với channels cho survival...')
           .setStyle(TextInputStyle.Paragraph)
-          .setValue(settings.prompt || 'Máy chủ cơ bản với đầy đủ tính năng')
-          .setRequired(true)
+          .setValue(settings.prompt || '')
+          .setRequired(false)
           .setMinLength(10)
+          .setMaxLength(500);
+
+        const imageInput = new TextInputBuilder()
+          .setCustomId('image_url')
+          .setLabel('Link ảnh mẫu (tùy chọn)')
+          .setPlaceholder('https://i.imgur.com/example.png hoặc Discord attachment')
+          .setStyle(TextInputStyle.Short)
+          .setValue(settings.imageUrl || '')
+          .setRequired(false)
           .setMaxLength(500);
 
         const themeInput = new TextInputBuilder()
@@ -241,6 +272,7 @@ export default class ServerGeneratorModule {
 
         modal.addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(promptInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(imageInput),
           new ActionRowBuilder<TextInputBuilder>().addComponents(themeInput),
           new ActionRowBuilder<TextInputBuilder>().addComponents(complexityInput)
         );
@@ -446,6 +478,7 @@ export default class ServerGeneratorModule {
           const settings = (this as any).tempSettings?.get(interaction.user.id) || {};
           const design = await this.generateServerDesign(
             settings.prompt || 'Basic server',
+            settings.imageUrl || '',
             settings.theme || '',
             settings.complexity || 'medium'
           );
@@ -1072,9 +1105,23 @@ export default class ServerGeneratorModule {
   }
 
   private buildSettingsPanel(userId: string, settings: any): ContainerBuilder {
-    const prompt = settings.prompt || 'Máy chủ cơ bản với đầy đủ tính năng';
+    const prompt = settings.prompt || '';
+    const imageUrl = settings.imageUrl || '';
     const theme = settings.theme ? ` (${settings.theme})` : '';
     const complexity = settings.complexity || 'medium';
+    
+    // Build prompt/image display text
+    let requirementText = '';
+    if (imageUrl) {
+      requirementText = `${emojis.image} **Ảnh mẫu đã upload**\n${emojis.link} [Xem ảnh](${imageUrl})`;
+      if (prompt) {
+        requirementText += `\n${emojis.document} **Mô tả thêm:** ${prompt.substring(0, 60)}${prompt.length > 60 ? '...' : ''}`;
+      }
+    } else if (prompt) {
+      requirementText = `${emojis.document} **Yêu cầu:** ${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}${theme}`;
+    } else {
+      requirementText = `${emojis.document} **Yêu cầu:** Máy chủ cơ bản với đầy đủ tính năng`;
+    }
     
     return new ContainerBuilder()
       .setAccentColor(0x2B2D31)
@@ -1084,7 +1131,7 @@ export default class ServerGeneratorModule {
       .addSectionComponents(
         (section) => section
           .addTextDisplayComponents(
-            (text) => text.setContent(`${emojis.document} **Yêu cầu:** ${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}${theme}`)
+            (text) => text.setContent(requirementText)
           )
           .setButtonAccessory(
             new ButtonBuilder()
@@ -1158,8 +1205,15 @@ export default class ServerGeneratorModule {
       );
   }
 
-  private async generateServerDesign(prompt: string, theme: string, complexity: string): Promise<any> {
+  private async generateServerDesign(prompt: string, imageUrl: string, theme: string, complexity: string): Promise<any> {
     const themeText = theme ? ` Theme: ${theme}.` : '';
+    
+    // Build image analysis prompt if URL provided
+    let imageAnalysisText = '';
+    if (imageUrl) {
+      imageAnalysisText = `\n\nUser provided reference image: ${imageUrl}\nAnalyze the image style, colors, and theme to create matching server design. Use colors and aesthetics from the image.`;
+    }
+    
     const systemPrompt = `You are a professional Discord server designer. Create a well-structured server with categories, channels (text & voice), and roles.
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.
@@ -1212,7 +1266,7 @@ Community: "Welcome", "Chat Rooms", "Activities", "Support"`;
         model: 'openai/gpt-oss-20b',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Create a Discord server for: ${prompt}.${themeText} Complexity: ${complexity}` }
+          { role: 'user', content: `Create a Discord server for: ${prompt}.${themeText} Complexity: ${complexity}${imageAnalysisText}` }
         ],
         temperature: 0.8,
         max_tokens: 3000
