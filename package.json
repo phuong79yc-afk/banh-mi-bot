@@ -7,7 +7,9 @@
     "build": "tsc && node -e \"require('fs').cpSync('assets', 'dist/assets', {recursive: true})\"",
     "start": "node dist/src/deploy-commands.js && node dist/src/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "deploy": "ts-node src/deploy-commands.ts"
+    "deploy": "ts-node src/deploy-commands.ts",
+    "push": "powershell -ExecutionPolicy Bypass -File scripts/quick-push.ps1",
+    "push:msg": "powershell -ExecutionPolicy Bypass -File scripts/auto-git-push.ps1"
   },
   "keywords": [
     "discord",
@@ -17,32 +19,26 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@discord-player/extractor": "^7.2.0",
-    "@discordjs/voice": "^0.19.2",
     "@google/generative-ai": "^0.24.1",
     "@types/express": "^5.0.6",
     "bcrypt": "^6.0.0",
     "canvas": "^3.2.3",
     "cookie-parser": "^1.4.7",
-    "discord-player": "^7.2.0",
-    "discord-player-youtubei": "^2.0.0",
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.27.0",
     "dotenv": "^16.4.5",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "googleapis": "^178.0.0",
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.3",
-    "lyrics-finder": "^21.7.0",
     "mcping-js": "^1.5.0",
     "minecraft-server-util": "^5.4.4",
-    "nodemailer": "^9.0.6",
-    "play-dl": "^1.9.7",
-    "puppeteer": "^25.9.0",
-    "youtube-dl-exec": "^3.1.13"
+    "nodemailer": "^9.0.6"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "nodemon": "^3.1.14",
+    "puppeteer": "^25.10.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.3"
   }

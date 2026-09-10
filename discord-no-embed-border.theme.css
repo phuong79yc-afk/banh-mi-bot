@@ -1,0 +1,107 @@
+/**
+ * @name No Embed Border
+ * @description Ẩn viền trái của embed trong Discord - dùng với BetterDiscord
+ * @author Supporter Bot
+ * @version 1.0.0
+ * @authorId YOUR_DISCORD_ID
+ * @invite YOUR_DISCORD_SERVER
+ * @website https://github.com/yourusername/discord-theme
+ * @source https://github.com/yourusername/discord-theme
+ */
+
+/* ============================================
+   MAIN THEME - Ẩn viền embed
+   ============================================ */
+
+/* Ẩn viền trái của embed */
+.embedFull__8dc21,
+.embedFull-1HGV2S,
+.embedFull-2tM8-- {
+    border-left: none !important;
+}
+
+/* Backup: Làm trong suốt nếu class name thay đổi */
+[class*="embedFull"] {
+    border-left-color: transparent !important;
+}
+
+/* Hoặc set width = 0 */
+[class*="embedFull"] {
+    border-left-width: 0px !important;
+}
+
+/* ============================================
+   BONUS: Tùy chỉnh thêm (tùy chọn)
+   ============================================ */
+
+/* Giảm padding trái của embed khi không có viền */
+.embedFull__8dc21 .embedWrapper__8f5af,
+[class*="embedFull"] [class*="embedWrapper"] {
+    padding-left: 8px !important;
+}
+
+/* Bo tròn góc embed */
+.embedFull__8dc21,
+[class*="embedFull"] {
+    border-radius: 8px !important;
+}
+
+/* Tùy chỉnh màu nền embed (tùy chọn) */
+.embedFull__8dc21,
+[class*="embedFull"] {
+    background-color: rgba(47, 49, 54, 0.6) !important;
+}
+
+/* ============================================
+   HƯỚNG DẪN SỬ DỤNG
+   ============================================
+   
+   1. Cài BetterDiscord: https://betterdiscord.app/
+   
+   2. CÁCH 1 - Import theme:
+      - Mở Discord Settings → BetterDiscord → Themes
+      - Click "Open Themes Folder"
+      - Copy file này vào folder
+      - Bật theme trong Discord
+   
+   3. CÁCH 2 - Custom CSS:
+      - Mở Discord Settings → BetterDiscord → Custom CSS
+      - Copy toàn bộ code dưới "MAIN THEME" paste vào
+      - Save và reload Discord (Ctrl+R)
+   
+   4. Nếu không work sau khi Discord update:
+      - Bấm F12 (DevTools)
+      - Click vào một embed message
+      - Tìm class name mới (vd: embedFull-XXXXX)
+      - Thay đổi trong CSS code
+   
+   5. Tắt theme:
+      - Vào BetterDiscord → Themes → Tắt theme này
+      - Hoặc xóa code trong Custom CSS
+   
+   ============================================ */
+
+/* ============================================
+   ADVANCED: Ẩn viền cho bot cụ thể
+   ============================================ */
+
+/* Chỉ ẩn viền của embed từ Supporter Bot */
+[data-author-id="YOUR_BOT_ID"] .embedFull__8dc21,
+[data-author-id="YOUR_BOT_ID"] [class*="embedFull"] {
+    border-left: none !important;
+}
+
+/* ============================================
+   COMPATIBILITY
+   ============================================ */
+
+/* Support cho các Discord client mods khác */
+/* Vencord, GooseMod, etc. */
+.theme-dark .embedFull__8dc21,
+.theme-light .embedFull__8dc21 {
+    border-left: none !important;
+}
+
+/* ============================================
+   END OF THEME
+   ============================================ */

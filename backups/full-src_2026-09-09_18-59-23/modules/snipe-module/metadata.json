@@ -1,0 +1,7 @@
+{
+  "name": "snipe-module",
+  "version": "1.0.0",
+  "description": "Snipe - Track deleted and edited messages for 28 days",
+  "enabled": true,
+  "priority": 13
+}

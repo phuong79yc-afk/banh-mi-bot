@@ -1,0 +1,30 @@
+🤖 Bot Invite Link (với đầy đủ permissions)
+
+Client ID: 1523664549637525616
+
+Link 1 - Administrator (recommended):
+https://discord.com/api/oauth2/authorize?client_id=1523664549637525616&permissions=8&scope=bot%20applications.commands
+
+Link 2 - Specific Permissions (including Use External Emojis):
+https://discord.com/api/oauth2/authorize?client_id=1523664549637525616&permissions=414531656768&scope=bot%20applications.commands
+
+Permissions included:
+- Read Messages/View Channels
+- Send Messages
+- Send Messages in Threads
+- Embed Links
+- Attach Files
+- Add Reactions
+- Use External Emojis ✅ (IMPORTANT!)
+- Manage Messages
+- Manage Threads
+- Read Message History
+- Mention Everyone
+- Use Slash Commands
+- Manage Roles
+- Manage Channels
+- Kick Members
+- Ban Members
+- Manage Webhooks
+
+After re-inviting, test /test-emoji again!

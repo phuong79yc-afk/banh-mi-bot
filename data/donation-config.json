@@ -6,5 +6,13 @@
     "roleRewards": [],
     "notificationChannelId": null,
     "thankYouMessage": "Thank you {user} for donating **${amount}**! 💖"
+  },
+  "1385551830855192670": {
+    "guildId": "1385551830855192670",
+    "enabled": false,
+    "receiverRoleIds": [],
+    "roleRewards": [],
+    "notificationChannelId": null,
+    "thankYouMessage": "thank"
   }
 }

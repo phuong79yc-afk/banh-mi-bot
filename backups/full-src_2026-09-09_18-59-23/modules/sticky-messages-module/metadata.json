@@ -1,0 +1,7 @@
+{
+  "name": "sticky-messages-module",
+  "version": "1.0.0",
+  "description": "Sticky Messages - Pin important messages that auto-repost",
+  "enabled": true,
+  "priority": 11
+}

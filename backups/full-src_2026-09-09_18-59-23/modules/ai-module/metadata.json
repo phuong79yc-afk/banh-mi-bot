@@ -1,0 +1,10 @@
+{
+  "name": "ai-module",
+  "version": "1.0.0",
+  "description": "Enhanced AI chat with context memory and multiple models",
+  "author": "GlitchBucket Team",
+  "enabled": true,
+  "main_class": "AIModule",
+  "priority": 10,
+  "dependencies": []
+}

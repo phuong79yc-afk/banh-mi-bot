@@ -1,0 +1,7 @@
+{
+  "name": "donation-module",
+  "version": "1.0.0",
+  "description": "Donation Tracking - Track donations with role rewards",
+  "enabled": true,
+  "priority": 15
+}
