@@ -304,8 +304,11 @@ export default class ServerGeneratorModule {
             .addTextDisplayComponents(
               (text) => text.setContent(`# ${emojis.success} Server Design Complete\n\n${emojis.success} ${emojis.success} ${emojis.success}`)
             )
-            .addTextDisplayComponents(
-              (text) => text.setContent('```ansi\n' + treeView + '\n```')
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent('```ansi\n' + treeView + '\n```')
+                )
             )
             .addTextDisplayComponents(
               (text) => text.setContent(`### ${emojis.export} Actions`)
@@ -438,7 +441,7 @@ export default class ServerGeneratorModule {
           await interaction.editReply({
             flags: MessageFlags.IsComponentsV2,
             components: [loadingContainer]
-          }).catch(() => {}); // Ignore if interaction expired
+          });
 
           let totalChannels = 0;
           let totalRoles = 0;
@@ -452,7 +455,7 @@ export default class ServerGeneratorModule {
                   color: roleData.color || undefined
                 });
                 totalRoles++;
-                await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 300ms
+                await new Promise(resolve => setTimeout(resolve, 300));
               } catch (err) {
                 console.error(`Failed to create role ${roleData.name}:`, err);
               }
@@ -468,7 +471,7 @@ export default class ServerGeneratorModule {
                   name: category.name,
                   type: ChannelType.GuildCategory
                 });
-                await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 300ms
+                await new Promise(resolve => setTimeout(resolve, 300));
 
                 // Create channels in this category
                 if (category.channels && category.channels.length > 0) {
@@ -480,7 +483,7 @@ export default class ServerGeneratorModule {
                         parent: createdCategory.id
                       });
                       totalChannels++;
-                      await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 300ms
+                      await new Promise(resolve => setTimeout(resolve, 300));
                     } catch (err) {
                       console.error(`Failed to create channel ${channelData.name}:`, err);
                     }
@@ -500,7 +503,7 @@ export default class ServerGeneratorModule {
                   type: channelData.type || ChannelType.GuildText
                 });
                 totalChannels++;
-                await new Promise(resolve => setTimeout(resolve, 200)); // Reduced from 300ms
+                await new Promise(resolve => setTimeout(resolve, 300));
               } catch (err) {
                 console.error(`Failed to create channel:`, err);
               }
@@ -525,32 +528,23 @@ export default class ServerGeneratorModule {
           await interaction.editReply({
             flags: MessageFlags.IsComponentsV2,
             components: [successContainer]
-          }).catch(() => {
-            // If interaction expired, just log success
-            console.log(`Export completed: ${totalChannels} channels, ${totalRoles} roles, ${design.categories?.length || 0} categories`);
           });
 
         } catch (error: any) {
-          console.error('Export error:', error);
-          try {
-            await interaction.editReply({
-              flags: MessageFlags.IsComponentsV2,
-              components: [
-                new ContainerBuilder()
-                  .setAccentColor(0xED4245)
-                  .addTextDisplayComponents(
-                    (text) => text.setContent(
-                      `# ${emojis.error} Export Failed\n\n` +
-                      `### ${emojis.warning} Có lỗi xảy ra\n\n` +
-                      `**Error:**\n\`\`\`\n${error.message}\`\`\`\n\n` +
-                      `*${emojis.info} Vui lòng thử lại hoặc kiểm tra quyền bot*`
-                    )
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(
+                    `# ${emojis.error} Export Failed\n\n` +
+                    `### ${emojis.warning} Có lỗi xảy ra\n\n` +
+                    `**Error:**\n\`\`\`\n${error.message}\`\`\`\n\n` +
+                    `*${emojis.info} Vui lòng thử lại hoặc kiểm tra quyền bot*`
                   )
-              ]
-            }).catch(() => {});
-          } catch {
-            // Interaction completely expired, ignore
-          }            ]
+                )
+            ]
           });
         }
         return;
@@ -859,8 +853,11 @@ export default class ServerGeneratorModule {
               .setStyle(ButtonStyle.Primary)
           )
       )
-      .addTextDisplayComponents(
-        (text) => text.setContent(`${emojis.chart} **Độ phức tạp:** ${complexity}`)
+      .addSectionComponents(
+        (section) => section
+          .addTextDisplayComponents(
+            (text) => text.setContent(`${emojis.chart} **Độ phức tạp:** ${complexity}`)
+          )
       )
       .addSectionComponents(
         (section) => section
