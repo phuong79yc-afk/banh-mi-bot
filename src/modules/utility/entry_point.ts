@@ -485,10 +485,8 @@ export default class UtilityModule {
           title: `${emojis.info} Bot Information`,
           description: 
             `**${client.user?.username}** - Discord bot TypeScript-based với AI integration\n\n` +
-            `${emojis.link} [${repoUrl.split('/').slice(-2).join('/')}](${repoUrl})\n` +
             `${emojis.tag} ${branchInfo}\n\n` +
-            `• Sử dụng ${helpMention} để xem danh sách lệnh\n` +
-            `• [Repository](${repoUrl}) • [Issues](${repoUrl}/issues) • [PRs](${repoUrl}/pulls)\n\n` +
+            `• Sử dụng ${helpMention} để xem danh sách lệnh\n\n` +
             `${emojis.clock} *Uptime: **${hours} giờ***`,
           color: 0x5865F2,
           timestamp: false,
