@@ -304,11 +304,8 @@ export default class ServerGeneratorModule {
             .addTextDisplayComponents(
               (text) => text.setContent(`# ${emojis.success} Server Design Complete\n\n${emojis.success} ${emojis.success} ${emojis.success}`)
             )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent('```ansi\n' + treeView + '\n```')
-                )
+            .addTextDisplayComponents(
+              (text) => text.setContent('```ansi\n' + treeView + '\n```')
             )
             .addTextDisplayComponents(
               (text) => text.setContent(`### ${emojis.export} Actions`)
