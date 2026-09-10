@@ -850,11 +850,8 @@ export default class ServerGeneratorModule {
               .setStyle(ButtonStyle.Primary)
           )
       )
-      .addSectionComponents(
-        (section) => section
-          .addTextDisplayComponents(
-            (text) => text.setContent(`${emojis.chart} **Độ phức tạp:** ${complexity}`)
-          )
+      .addTextDisplayComponents(
+        (text) => text.setContent(`${emojis.chart} **Độ phức tạp:** ${complexity}`)
       )
       .addSectionComponents(
         (section) => section
