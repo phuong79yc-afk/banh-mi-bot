@@ -335,53 +335,17 @@ export default class ServerGeneratorModule {
                 )
             )
             .addTextDisplayComponents(
-              (text) => text.setContent(`### ${emojis.warning} Delete Operations`)
+              (text) => text.setContent(`### ${emojis.warning} Danger Zone`)
             )
             .addSectionComponents(
               (section) => section
                 .addTextDisplayComponents(
-                  (text) => text.setContent(`${emojis.delete} Delete all channels (except system channels)`)
+                  (text) => text.setContent(`${emojis.delete} ${emojis.warning} ${emojis.delete} Delete ALL server content (roles, categories, channels, voice)\n**Warning:** This cannot be undone!`)
                 )
                 .setButtonAccessory(
                   new ButtonBuilder()
-                    .setCustomId(`gen_delete_channels_${interaction.user.id}`)
-                    .setLabel('Delete Channels')
-                    .setStyle(ButtonStyle.Primary)
-                )
-            )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent(`${emojis.folder} Delete all categories`)
-                )
-                .setButtonAccessory(
-                  new ButtonBuilder()
-                    .setCustomId(`gen_delete_categories_${interaction.user.id}`)
-                    .setLabel('Delete Categories')
-                    .setStyle(ButtonStyle.Primary)
-                )
-            )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent(`${emojis.shield} Delete all roles (except @everyone and bot roles)`)
-                )
-                .setButtonAccessory(
-                  new ButtonBuilder()
-                    .setCustomId(`gen_delete_roles_${interaction.user.id}`)
-                    .setLabel('Delete Roles')
-                    .setStyle(ButtonStyle.Primary)
-                )
-            )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent(`${emojis.voice} Delete all voice channels`)
-                )
-                .setButtonAccessory(
-                  new ButtonBuilder()
-                    .setCustomId(`gen_delete_voice_${interaction.user.id}`)
-                    .setLabel('Delete Voice')
+                    .setCustomId(`gen_delete_all_${interaction.user.id}`)
+                    .setLabel('Delete All')
                     .setStyle(ButtonStyle.Primary)
                 )
             );
@@ -789,6 +753,118 @@ export default class ServerGeneratorModule {
                 )
             ]
           });
+        }
+        return;
+      }
+
+      // Delete All
+      if (action === 'gen_delete_all') {
+        await interaction.deferUpdate();
+
+        const loadingContainer = new ContainerBuilder()
+          .setAccentColor(0xFEE75C)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.loading} Deleting All Server Content...\n\n${emojis.warning} ${emojis.warning} ${emojis.warning} Please wait, this may take a while...`)
+          );
+
+        await interaction.editReply({
+          flags: MessageFlags.IsComponentsV2,
+          components: [loadingContainer]
+        }).catch(() => {});
+
+        try {
+          let rolesDeleted = 0;
+          let categoriesDeleted = 0;
+          let channelsDeleted = 0;
+          let voiceDeleted = 0;
+
+          // Step 1: Delete Roles (except @everyone and bot roles)
+          const roles = interaction.guild.roles.cache.filter(
+            (r: any) => !r.managed && r.name !== '@everyone' && r.position < interaction.guild.members.me!.roles.highest.position
+          );
+          for (const [id, role] of roles) {
+            try {
+              await role.delete();
+              rolesDeleted++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete role ${(role as any).name}:`, err);
+            }
+          }
+
+          // Step 2: Delete Categories
+          const categories = interaction.guild.channels.cache.filter(
+            (c: any) => c.type === ChannelType.GuildCategory
+          );
+          for (const [id, category] of categories) {
+            try {
+              await category.delete();
+              categoriesDeleted++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete category ${(category as any).name}:`, err);
+            }
+          }
+
+          // Step 3: Delete Text Channels (except system channels)
+          const textChannels = interaction.guild.channels.cache.filter(
+            (c: any) => (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement || c.type === ChannelType.GuildForum) &&
+              c.id !== interaction.guild.rulesChannelId &&
+              c.id !== interaction.guild.publicUpdatesChannelId
+          );
+          for (const [id, channel] of textChannels) {
+            try {
+              await channel.delete();
+              channelsDeleted++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete channel ${(channel as any).name}:`, err);
+            }
+          }
+
+          // Step 4: Delete Voice Channels
+          const voiceChannels = interaction.guild.channels.cache.filter(
+            (c: any) => c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
+          );
+          for (const [id, channel] of voiceChannels) {
+            try {
+              await channel.delete();
+              voiceDeleted++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete voice channel ${(channel as any).name}:`, err);
+            }
+          }
+
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0x57F287)
+            .addTextDisplayComponents(
+              (text) => text.setContent(
+                `# ${emojis.success} ${emojis.success} ${emojis.success} All Content Deleted!\n\n` +
+                `${emojis.shield} Roles: **${rolesDeleted}** deleted\n` +
+                `${emojis.folder} Categories: **${categoriesDeleted}** deleted\n` +
+                `${emojis.delete} Channels: **${channelsDeleted}** deleted\n` +
+                `${emojis.voice} Voice: **${voiceDeleted}** deleted\n\n` +
+                `${emojis.info} Protected: @everyone role, bot roles, system channels`
+              )
+            );
+
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [successContainer]
+          }).catch(() => {});
+
+        } catch (error: any) {
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`# ${emojis.error} Delete Failed\n\n\`\`\`\n${error.message}\`\`\``)
+                )
+            ]
+          }).catch(() => {});
         }
         return;
       }

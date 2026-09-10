@@ -295,7 +295,7 @@ export function setupPrefixCommands(client: Client) {
             .setTitle('Alone - Marshmello')
             .setDescription('04:34\n\nRequested by flytri')
             // Không set color!
-            .setThumbnail('https://i.scdn.co/image/ab67616d0000b273a1c77682c126bd92dbb8d912`)
+            .setThumbnail('https://i.scdn.co/image/ab67616d0000b273a1c77682c126bd92dbb8d912')
             .setTimestamp();
           
           await message.reply({ embeds: [embed] });
@@ -315,7 +315,7 @@ export function setupPrefixCommands(client: Client) {
       }
 
       // Mute command
-      else if (commandName === `mute') {
+      else if (commandName === 'mute') {
         if (!message.guild || !message.member) return;
 
         // Check permissions
@@ -336,12 +336,12 @@ export function setupPrefixCommands(client: Client) {
               return message.reply(`${emojis.error} Không tìm thấy user với ID này!`);
             }
           } else {
-            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!mute @user <time> [reason]` hoặc `!mute <user ID> <time> [reason]``);
+            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!mute @user <time> [reason]\` hoặc \`!mute <user ID> <time> [reason]\``);
           }
         }
 
         if (!targetUser) {
-          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!mute @user <time> [reason]` hoặc `!mute <user ID> <time> [reason]``);
+          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!mute @user <time> [reason]\` hoặc \`!mute <user ID> <time> [reason]\``);
         }
 
         const targetMember = message.guild.members.cache.get(targetUser.id);
@@ -427,12 +427,12 @@ export function setupPrefixCommands(client: Client) {
               return message.reply(`${emojis.error} Không tìm thấy user với ID này!`);
             }
           } else {
-            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!unmute @user [reason]` hoặc `!unmute <user ID> [reason]``);
+            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!unmute @user [reason]\` hoặc \`!unmute <user ID> [reason]\``);
           }
         }
 
         if (!targetUser) {
-          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!unmute @user [reason]` hoặc `!unmute <user ID> [reason]``);
+          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!unmute @user [reason]\` hoặc \`!unmute <user ID> [reason]\``);
         }
 
         const targetMember = message.guild.members.cache.get(targetUser.id);
@@ -503,12 +503,12 @@ export function setupPrefixCommands(client: Client) {
               return message.reply(`${emojis.error} Không tìm thấy user với ID này!`);
             }
           } else {
-            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!ban @user [reason]` hoặc `!ban <user ID> [reason]``);
+            return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!ban @user [reason]\` hoặc \`!ban <user ID> [reason]\``);
           }
         }
 
         if (!targetUser) {
-          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** `!ban @user [reason]` hoặc `!ban <user ID> [reason]``);
+          return message.reply(`${emojis.error} Vui lòng mention user hoặc nhập User ID!\n**Cách dùng:** \`!ban @user [reason]\` hoặc \`!ban <user ID> [reason]\``);
         }
 
         const targetMember = message.guild.members.cache.get(targetUser.id);
@@ -564,7 +564,7 @@ export function setupPrefixCommands(client: Client) {
 
         const userId = args[0];
         if (!userId) {
-          return message.reply(`${emojis.error} Vui lòng nhập User ID cần unban!\n**Cách dùng:** `!unban <user ID> [lý do]``);
+          return message.reply(`${emojis.error} Vui lòng nhập User ID cần unban!\n**Cách dùng:** \`!unban <user ID> [lý do]\``);
         }
 
         // Validate user ID format
@@ -699,7 +699,8 @@ export function setupPrefixCommands(client: Client) {
         const reason = args.join(' ') || 'AFK';
         
         // Import AFKManager
-        const { afkManager } = await import('../modules/afk-module/entry_point');
+        const { AFKManager } = await import('../modules/afk-module/AFKManager');
+        const afkManager = new AFKManager();
         
         // Try to change nickname and store old one
         let oldNickname: string | undefined;
