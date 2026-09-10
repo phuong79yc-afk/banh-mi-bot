@@ -118,5 +118,9 @@ export const emojis = {
   clock: getEmoji('clock'),
   pin: getEmoji('pin'),
   tag: getEmoji('tag'),
-  flag: getEmoji('flag')
+  flag: getEmoji('flag'),
+  
+  // Placeholders for missing emojis
+  voice: '🔊', // Voice channel
+  rocket: '🚀' // Rocket for launch/export
 } as const;

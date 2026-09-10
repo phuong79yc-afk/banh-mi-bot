@@ -313,7 +313,13 @@ export default class ServerGeneratorModule {
             .addSectionComponents(
               (section) => section
                 .addTextDisplayComponents(
-                  (text) => text.setContent(`${emojis.export} Apply this design to your server`)
+                  (text) => text.setContent(`**${emojis.export} Actions**`)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`${emojis.rocket} Apply this design to your server`)
                 )
                 .setButtonAccessory(
                   new ButtonBuilder()
@@ -331,6 +337,60 @@ export default class ServerGeneratorModule {
                   new ButtonBuilder()
                     .setCustomId(`gen_menu_${interaction.user.id}`)
                     .setLabel('Menu')
+                    .setStyle(ButtonStyle.Primary)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`**${emojis.warning} Delete Operations**`)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`${emojis.delete} Delete all channels (except system channels)`)
+                )
+                .setButtonAccessory(
+                  new ButtonBuilder()
+                    .setCustomId(`gen_delete_channels_${interaction.user.id}`)
+                    .setLabel('Delete Channels')
+                    .setStyle(ButtonStyle.Primary)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`${emojis.folder} Delete all categories`)
+                )
+                .setButtonAccessory(
+                  new ButtonBuilder()
+                    .setCustomId(`gen_delete_categories_${interaction.user.id}`)
+                    .setLabel('Delete Categories')
+                    .setStyle(ButtonStyle.Primary)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`${emojis.shield} Delete all roles (except @everyone and bot roles)`)
+                )
+                .setButtonAccessory(
+                  new ButtonBuilder()
+                    .setCustomId(`gen_delete_roles_${interaction.user.id}`)
+                    .setLabel('Delete Roles')
+                    .setStyle(ButtonStyle.Primary)
+                )
+            )
+            .addSectionComponents(
+              (section) => section
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`${emojis.voice} Delete all voice channels`)
+                )
+                .setButtonAccessory(
+                  new ButtonBuilder()
+                    .setCustomId(`gen_delete_voice_${interaction.user.id}`)
+                    .setLabel('Delete Voice')
                     .setStyle(ButtonStyle.Primary)
                 )
             );
@@ -489,6 +549,252 @@ export default class ServerGeneratorModule {
                     `**Error:**\n\`\`\`\n${error.message}\`\`\`\n\n` +
                     `*${emojis.info} Vui lòng thử lại hoặc kiểm tra quyền bot*`
                   )
+                )
+            ]
+          });
+        }
+        return;
+      }
+
+      // Delete Channels
+      if (action === 'gen_delete_channels') {
+        await interaction.deferUpdate();
+
+        const loadingContainer = new ContainerBuilder()
+          .setAccentColor(0xFEE75C)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.loading} Deleting Channels...\n\n${emojis.warning} Please wait...`)
+          );
+
+        await interaction.editReply({
+          flags: MessageFlags.IsComponentsV2,
+          components: [loadingContainer]
+        });
+
+        try {
+          let deletedCount = 0;
+          const channels = interaction.guild.channels.cache.filter(
+            (c: any) => c.type !== ChannelType.GuildCategory && !c.isThread()
+          );
+
+          for (const [id, channel] of channels) {
+            try {
+              // Skip system channels
+              if ((channel as any).isSystemChannel?.() || (channel as any).name === 'rules' || (channel as any).name === 'general') {
+                continue;
+              }
+              await channel.delete();
+              deletedCount++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete channel ${(channel as any).name}:`, err);
+            }
+          }
+
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0x57F287)
+            .addTextDisplayComponents(
+              (text) => text.setContent(
+                `# ${emojis.success} Channels Deleted\n\n` +
+                `${emojis.delete} Deleted **${deletedCount}** channels\n\n` +
+                `${emojis.info} System channels were preserved`
+              )
+            );
+
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [successContainer]
+          });
+
+        } catch (error: any) {
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`# ${emojis.error} Delete Failed\n\n\`\`\`\n${error.message}\`\`\``)
+                )
+            ]
+          });
+        }
+        return;
+      }
+
+      // Delete Categories
+      if (action === 'gen_delete_categories') {
+        await interaction.deferUpdate();
+
+        const loadingContainer = new ContainerBuilder()
+          .setAccentColor(0xFEE75C)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.loading} Deleting Categories...\n\n${emojis.warning} Please wait...`)
+          );
+
+        await interaction.editReply({
+          flags: MessageFlags.IsComponentsV2,
+          components: [loadingContainer]
+        });
+
+        try {
+          let deletedCount = 0;
+          const categories = interaction.guild.channels.cache.filter(
+            (c: any) => c.type === ChannelType.GuildCategory
+          );
+
+          for (const [id, category] of categories) {
+            try {
+              await category.delete();
+              deletedCount++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete category ${(category as any).name}:`, err);
+            }
+          }
+
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0x57F287)
+            .addTextDisplayComponents(
+              (text) => text.setContent(
+                `# ${emojis.success} Categories Deleted\n\n` +
+                `${emojis.folder} Deleted **${deletedCount}** categories`
+              )
+            );
+
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [successContainer]
+          });
+
+        } catch (error: any) {
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`# ${emojis.error} Delete Failed\n\n\`\`\`\n${error.message}\`\`\``)
+                )
+            ]
+          });
+        }
+        return;
+      }
+
+      // Delete Roles
+      if (action === 'gen_delete_roles') {
+        await interaction.deferUpdate();
+
+        const loadingContainer = new ContainerBuilder()
+          .setAccentColor(0xFEE75C)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.loading} Deleting Roles...\n\n${emojis.warning} Please wait...`)
+          );
+
+        await interaction.editReply({
+          flags: MessageFlags.IsComponentsV2,
+          components: [loadingContainer]
+        });
+
+        try {
+          let deletedCount = 0;
+          const roles = interaction.guild.roles.cache.filter(
+            (r: any) => !r.managed && r.name !== '@everyone' && r.position < interaction.guild.members.me.roles.highest.position
+          );
+
+          for (const [id, role] of roles) {
+            try {
+              await role.delete();
+              deletedCount++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete role ${role.name}:`, err);
+            }
+          }
+
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0x57F287)
+            .addTextDisplayComponents(
+              (text) => text.setContent(
+                `# ${emojis.success} Roles Deleted\n\n` +
+                `${emojis.shield} Deleted **${deletedCount}** roles\n\n` +
+                `${emojis.info} Bot roles and @everyone were preserved`
+              )
+            );
+
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [successContainer]
+          });
+
+        } catch (error: any) {
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`# ${emojis.error} Delete Failed\n\n\`\`\`\n${error.message}\`\`\``)
+                )
+            ]
+          });
+        }
+        return;
+      }
+
+      // Delete Voice Channels
+      if (action === 'gen_delete_voice') {
+        await interaction.deferUpdate();
+
+        const loadingContainer = new ContainerBuilder()
+          .setAccentColor(0xFEE75C)
+          .addTextDisplayComponents(
+            (text) => text.setContent(`# ${emojis.loading} Deleting Voice Channels...\n\n${emojis.warning} Please wait...`)
+          );
+
+        await interaction.editReply({
+          flags: MessageFlags.IsComponentsV2,
+          components: [loadingContainer]
+        });
+
+        try {
+          let deletedCount = 0;
+          const voiceChannels = interaction.guild.channels.cache.filter(
+            (c: any) => c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
+          );
+
+          for (const [id, channel] of voiceChannels) {
+            try {
+              await channel.delete();
+              deletedCount++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (err) {
+              console.error(`Failed to delete voice channel ${(channel as any).name}:`, err);
+            }
+          }
+
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0x57F287)
+            .addTextDisplayComponents(
+              (text) => text.setContent(
+                `# ${emojis.success} Voice Channels Deleted\n\n` +
+                `${emojis.voice} Deleted **${deletedCount}** voice channels`
+              )
+            );
+
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [successContainer]
+          });
+
+        } catch (error: any) {
+          await interaction.editReply({
+            flags: MessageFlags.IsComponentsV2,
+            components: [
+              new ContainerBuilder()
+                .setAccentColor(0xED4245)
+                .addTextDisplayComponents(
+                  (text) => text.setContent(`# ${emojis.error} Delete Failed\n\n\`\`\`\n${error.message}\`\`\``)
                 )
             ]
           });
