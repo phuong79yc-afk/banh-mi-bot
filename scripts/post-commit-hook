@@ -1,0 +1,12 @@
+#!/bin/sh
+# Auto-push after every commit
+# Copy this to .git/hooks/post-commit to enable
+
+echo "Auto-pushing to GitHub..."
+git push origin main
+
+if [ $? -eq 0 ]; then
+    echo "Successfully pushed to GitHub!"
+else
+    echo "Push failed - please push manually"
+fi
