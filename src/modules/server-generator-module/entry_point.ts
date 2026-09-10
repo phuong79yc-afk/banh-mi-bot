@@ -310,11 +310,8 @@ export default class ServerGeneratorModule {
                   (text) => text.setContent('```ansi\n' + treeView + '\n```')
                 )
             )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent(`**${emojis.export} Actions**`)
-                )
+            .addTextDisplayComponents(
+              (text) => text.setContent(`### ${emojis.export} Actions`)
             )
             .addSectionComponents(
               (section) => section
@@ -340,11 +337,8 @@ export default class ServerGeneratorModule {
                     .setStyle(ButtonStyle.Primary)
                 )
             )
-            .addSectionComponents(
-              (section) => section
-                .addTextDisplayComponents(
-                  (text) => text.setContent(`**${emojis.warning} Delete Operations**`)
-                )
+            .addTextDisplayComponents(
+              (text) => text.setContent(`### ${emojis.warning} Delete Operations`)
             )
             .addSectionComponents(
               (section) => section
