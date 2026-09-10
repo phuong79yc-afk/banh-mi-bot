@@ -223,6 +223,7 @@ export default class ServerGeneratorModule {
 
       // Toggle enhanced prompt
       if (action === 'gen_enhanced_prompt') {
+        // Defer not needed for update()
         const settings = (this as any).tempSettings?.get(interaction.user.id) || {};
         settings.enhancedPrompt = !settings.enhancedPrompt;
         (this as any).tempSettings?.set(interaction.user.id, settings);
@@ -237,6 +238,7 @@ export default class ServerGeneratorModule {
 
       // Toggle enhanced result
       if (action === 'gen_enhanced_result') {
+        // Defer not needed for update()
         const settings = (this as any).tempSettings?.get(interaction.user.id) || {};
         settings.enhancedResult = !settings.enhancedResult;
         (this as any).tempSettings?.set(interaction.user.id, settings);
