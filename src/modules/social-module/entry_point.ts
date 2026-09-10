@@ -7,6 +7,7 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
 
 // Anime GIF APIs
 const TENOR_API_KEY = process.env.TENOR_API_KEY || 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ'; // Default public key

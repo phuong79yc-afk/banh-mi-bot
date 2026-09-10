@@ -18,6 +18,7 @@ import {
   ChannelType
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
 import { reportManager } from './QuickReportManager';
 
 export default class QuickReportModule {

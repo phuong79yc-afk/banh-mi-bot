@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
-import { Player } from 'discord-player';
-import { YoutubeiExtractor } from 'discord-player-youtubei';
+// import { Player } from 'discord-player';
+// import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -26,7 +26,8 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize music player
+// Initialize music player (DISABLED - missing discord-player package)
+/*
 const player = new Player(client);
 
 // Load YouTube extractor (suppress warnings)
@@ -48,26 +49,27 @@ console.warn = (...args: any[]) => {
 console.log('✅ YouTube extractor loaded');
 
 // Player events
-player.events.on('playerStart', (queue, track) => {
+player.events.on('playerStart', (queue: any, track: any) => {
   const channel = queue.metadata.channel as any;
   channel?.send(`🎵 Đang phát: **${track.title}** • ${track.author}`);
 });
 
-player.events.on('audioTrackAdd', (queue, track) => {
+player.events.on('audioTrackAdd', (queue: any, track: any) => {
   const channel = queue.metadata.channel as any;
   channel?.send(`✅ Đã thêm vào hàng đợi: **${track.title}**`);
 });
 
-player.events.on('emptyQueue', (queue) => {
+player.events.on('emptyQueue', (queue: any) => {
   const channel = queue.metadata.channel as any;
   channel?.send('✅ Đã phát hết nhạc trong hàng đợi!');
 });
 
-player.events.on('error', (queue, error) => {
+player.events.on('error', (queue: any, error: any) => {
   console.error(`Music player error:`, error);
   const channel = queue.metadata.channel as any;
   channel?.send('❌ Có lỗi xảy ra khi phát nhạc!');
 });
+*/
 
 // ============================================
 // LOAD MODULES (New Module System)
@@ -95,7 +97,7 @@ async function initializeModules() {
       }
     }
   } catch (error) {
-    console.error('❌ Error loading modules:', error);
+    console.error('Error loading modules:', error);
   }
 }
 
@@ -172,9 +174,13 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(`❌ Error executing ${interaction.commandName}:`, error);
+    console.error(`Error executing ${interaction.commandName}:`, error);
+    
+    // Import emojis for error message
+    const { emojis } = require('./config/emojis');
+    
     const reply = {
-      content: '❌ Có lỗi xảy ra khi thực hiện lệnh này!',
+      content: `${emojis.error} Có lỗi xảy ra khi thực hiện lệnh này!`,
       ephemeral: true,
     };
     

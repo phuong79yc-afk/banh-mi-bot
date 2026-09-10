@@ -1,5 +1,7 @@
 import { Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
+import testEmojiCommand from './test-emoji';
 
 export default class UtilityModule {
   name = 'utility';
@@ -25,7 +27,7 @@ export default class UtilityModule {
     const pollCommand = {
       data: new SlashCommandBuilder()
         .setName('poll')
-        .setDescription('📊 Tạo bình chọn')
+        .setDescription(`${emojis.chart} Tạo bình chọn`)
         .addStringOption(option =>
           option
             .setName('question')
@@ -45,32 +47,32 @@ export default class UtilityModule {
 
         if (options.length < 2) {
           return interaction.reply({
-            content: '❌ Cần ít nhất 2 options!',
+            content: `${emojis.error} Cần ít nhất 2 options!`,
             flags: 64
           });
         }
 
         if (options.length > 10) {
           return interaction.reply({
-            content: '❌ Tối đa 10 options!',
+            content: `${emojis.error} Tối đa 10 options!`,
             flags: 64
           });
         }
 
-        const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        const optionsText = options.map((opt, i) => `${emojis[i]} ${opt}`).join('\n');
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        const optionsText = options.map((opt, i) => `${numberEmojis[i]} ${opt}`).join('\n');
 
         const embed = createEnhancedEmbed({
-          title: `📊 ${question}`,
-          description: optionsText,
-          color: 'random',
+          title: `${emojis.chart} Poll`,
+          description: `**${question}**\n\n${optionsText}\n\n${emojis.users} ${emojis.users} **React để vote!**`,
+          color: 0x5865F2,
           footer: `Poll by ${interaction.user.username}`,
         });
 
         const message = await interaction.reply({ embeds: [embed], fetchReply: true });
 
         for (let i = 0; i < options.length; i++) {
-          await message.react(emojis[i]);
+          await message.react(numberEmojis[i]);
         }
       }
     };
@@ -95,15 +97,15 @@ export default class UtilityModule {
           const result = eval(sanitized);
 
           const embed = createEnhancedEmbed({
-            title: '🧮 Calculator',
-            description: `**Expression:** \`${expression}\`\n**Result:** \`${result}\``,
-            color: 'random',
+            title: `${emojis.terminal} Calculator`,
+            description: `**Expression:** \`${expression}\`\n\n# ${result}\n\n${emojis.success} ${emojis.success} ${emojis.success}`,
+            color: 0x57F287,
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error: any) {
           await interaction.reply({
-            content: `❌ Invalid expression: ${error.message}`,
+            content: `${emojis.error} Invalid expression: ${error.message}`,
             flags: 64
           });
         }
@@ -133,7 +135,7 @@ export default class UtilityModule {
 
         if (min >= max) {
           return interaction.reply({
-            content: '❌ Min phải nhỏ hơn Max!',
+            content: `${emojis.error} Min phải nhỏ hơn Max!`,
             flags: 64
           });
         }
@@ -141,9 +143,9 @@ export default class UtilityModule {
         const result = Math.floor(Math.random() * (max - min + 1)) + min;
 
         const embed = createEnhancedEmbed({
-          title: '🎲 Random Number',
-          description: `**Range:** ${min} - ${max}\n**Result:** **${result}**`,
-          color: 'random',
+          title: `${emojis.sparkles} Random Number`,
+          description: `**Range:** ${min} - ${max}\n\n${emojis.sparkles} ${emojis.sparkles} ${emojis.sparkles}\n\n# ${result}\n\n${emojis.success} **Random result!**`,
+          color: 0xFF6B6B,
         });
 
         await interaction.reply({ embeds: [embed] });
@@ -167,20 +169,20 @@ export default class UtilityModule {
 
         if (options.length < 2) {
           return interaction.reply({
-            content: '❌ Cần ít nhất 2 options phân cách bởi dấu phẩy!',
+            content: `${emojis.error} Cần ít nhất 2 options phân cách bởi dấu phẩy!`,
             flags: 64
           });
         }
 
         await interaction.deferReply();
 
-        // Animation frames
+        // Animation frames with larger emojis
         const frames = [
-          '🤔 Đang suy nghĩ...',
-          '🤔 Đang cân nhắc...',
-          '🤔 Hmmm...',
-          '🤔 Quyết định thôi...',
-          '🎯 Đã chọn!'
+          `${emojis.loading} **Đang suy nghĩ...**`,
+          `${emojis.loading} **Đang cân nhắc...**`,
+          `${emojis.loading} **Hmmm...**`,
+          `${emojis.sparkles} **Quyết định thôi...**`,
+          `${emojis.success} **Đã chọn!**`
         ];
 
         // Show thinking animation
@@ -189,13 +191,15 @@ export default class UtilityModule {
           await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay
         }
 
-        // Final choice
+        // Final choice with large emoji
         const chosen = options[Math.floor(Math.random() * options.length)];
 
-        const text = `🤔 **Decision Maker**\n\n` +
+        const text = `## ${emojis.search} Decision Maker\n\n` +
           `**Options:**\n${options.map(opt => `• ${opt}`).join('\n')}\n\n` +
-          `✨ **Tôi chọn:** **${chosen}**! 🎯\n\n` +
-          `*${options.length} options • Random selection*`;
+          `${emojis.star} ${emojis.star} ${emojis.star}\n\n` +
+          `# ➤ ${chosen}\n\n` +
+          `${emojis.success} ${emojis.success} ${emojis.success}\n\n` +
+          `*${options.length} options available*`;
 
         await interaction.editReply({ content: text });
       }
@@ -205,7 +209,7 @@ export default class UtilityModule {
     const helpCommand = {
       data: new SlashCommandBuilder()
         .setName('help')
-        .setDescription('📖 Menu Trợ Giúp - Xem tất cả lệnh'),
+        .setDescription(`${emojis.document} Menu Trợ Giúp - Xem tất cả lệnh`),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const client = interaction.client;
 
@@ -251,7 +255,7 @@ export default class UtilityModule {
 
         // Build main embed with custom footer (not using createEnhancedEmbed's auto-footer)
         const embed = new EmbedBuilder()
-          .setTitle('📖 Menu Trợ Giúp')
+          .setTitle(`${emojis.document} Menu Trợ Giúp`)
           .setDescription(
             `**Supporter** là một bot Discord dựa trên [discord.py](https://discord.py), đáp ứng mọi nhu cầu thiết.\n\n` +
             `• [Server Giải đáp & Hỗ trợ](https://discord.gg/support)\n` +
@@ -375,7 +379,7 @@ export default class UtilityModule {
     const infoCommand = {
       data: new SlashCommandBuilder()
         .setName('information')
-        .setDescription('ℹ️ Thông tin về bot'),
+        .setDescription(`${emojis.info} Thông tin về bot`),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const client = interaction.client;
         const uptime = process.uptime();
@@ -398,10 +402,52 @@ export default class UtilityModule {
             .replace(/(\d+) year(s?) ago/, '$1 năm trước');
         };
 
-        // Get latest commits from git
+        // Get latest commits from git with real repo URL
         let commitsText = '';
+        let repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
+        let branchInfo = '';
+        
         try {
           const { execSync } = require('child_process');
+          
+          // Get current branch
+          try {
+            const branch = execSync('git branch --show-current', { 
+              cwd: process.cwd(),
+              encoding: 'utf8',
+              timeout: 3000
+            }).trim();
+            
+            // Get total commits on this branch
+            const totalCommits = execSync('git rev-list --count HEAD', { 
+              cwd: process.cwd(),
+              encoding: 'utf8',
+              timeout: 3000
+            }).trim();
+            
+            branchInfo = `Branch: \`${branch}\` • ${totalCommits} commits`;
+          } catch (err) {
+            branchInfo = 'Git info unavailable';
+          }
+          
+          // Get remote URL
+          try {
+            const remote = execSync('git remote get-url origin', { 
+              cwd: process.cwd(),
+              encoding: 'utf8',
+              timeout: 3000
+            }).trim();
+            
+            // Convert git URL to https URL
+            if (remote.startsWith('git@github.com:')) {
+              repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace('.git', '');
+            } else if (remote.startsWith('https://')) {
+              repoUrl = remote.replace('.git', '');
+            }
+          } catch (err) {
+            // Use default if can't get remote
+          }
+          
           const gitLog = execSync('git log -5 --pretty=format:"%ar|%h|%s"', { 
             cwd: process.cwd(),
             encoding: 'utf8',
@@ -415,7 +461,7 @@ export default class UtilityModule {
           });
 
           commitsText = commits.map((c: any) => 
-            `${c.time} [\`${c.hash}\`](https://github.com/yourrepo/commit/${c.hash}) ${c.msg}`
+            `${c.time} [\`${c.hash}\`](${repoUrl}/commit/${c.hash}) ${c.msg}`
           ).join('\n');
         } catch (error) {
           commitsText = '*Không thể lấy thông tin commit*';
@@ -436,38 +482,38 @@ export default class UtilityModule {
         }
 
         const embed = createEnhancedEmbed({
-          title: 'Thông tin',
+          title: `${emojis.info} Bot Information`,
           description: 
-            `**${client.user?.username}** là một bot Discord dựa trên [discord.py](https://discord.py), đáp ứng mọi nhu cầu thiết.\n\n` +
-            `• Để biết danh sách các lệnh có sẵn, hãy sử dụng ${helpMention}.\n` +
-            `• [Server Giải đáp & Hỗ trợ](https://discord.gg/support)\n` +
-            `• [Hướng dẫn Sử dụng](https://docs.bot.com) - [Điều khoản Dịch vụ](https://tos.bot.com) - [Chính sách Bảo mật](https://privacy.bot.com) - [Invite bot!](https://invite.bot.com)\n\n` +
-            `*${client.user?.username} đã start **${hours} giờ trước** với **${client.guilds.cache.size}** shard.*\n` +
-            `*Server này đang chạy trên shard **10**.*`,
-          color: 0x000000,
+            `**${client.user?.username}** - Discord bot TypeScript-based với AI integration\n\n` +
+            `${emojis.link} [${repoUrl.split('/').slice(-2).join('/')}](${repoUrl})\n` +
+            `${emojis.tag} ${branchInfo}\n\n` +
+            `• Sử dụng ${helpMention} để xem danh sách lệnh\n` +
+            `• [Repository](${repoUrl}) • [Issues](${repoUrl}/issues) • [PRs](${repoUrl}/pulls)\n\n` +
+            `${emojis.clock} *Uptime: **${hours} giờ***`,
+          color: 0x5865F2,
           timestamp: false,
           fields: [
             {
-              name: 'Thống kê',
+              name: `${emojis.chart} Stats`,
               value: 
-                `• **${client.guilds.cache.size.toLocaleString()}** server\n` +
-                `• **${totalMembers.toLocaleString()}** member`,
+                `${emojis.server} **${client.guilds.cache.size.toLocaleString()}** servers\n` +
+                `${emojis.users} **${totalMembers.toLocaleString()}** members`,
               inline: true
             },
             {
-              name: 'Tài hệ thống',
+              name: `${emojis.database} Resources`,
               value:
-                `• **23.2%** CPU\n` +
-                `• **${memUsage} GiB (${memPercent}%)** virt mem`,
+                `${emojis.terminal} **${memUsage} GiB** (${memPercent}%)\n` +
+                `${emojis.clock} **${hours}h** uptime`,
               inline: true
             },
             {
-              name: 'Cập nhật gần nhất',
-              value: commitsText,
+              name: `${emojis.refresh} Latest Updates`,
+              value: commitsText || '*No git info available*',
               inline: false
             }
           ],
-          footer: `Made with ❤️ by admin`
+          footer: `${emojis.heart} TypeScript + Discord.js`
         });
 
         await interaction.reply({ embeds: [embed] });
@@ -481,6 +527,7 @@ export default class UtilityModule {
     this.commands.set('choose', chooseCommand);
     this.commands.set('help', helpCommand);
     this.commands.set('information', infoCommand);
+    this.commands.set('test-emoji', testEmojiCommand);
   }
 
   async cleanup() {

@@ -21,6 +21,7 @@ import {
   ModalSubmitInteraction
 } from 'discord.js';
 import { ticketManager } from './TicketManager';
+import { emojis } from '../../config/emojis';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 
 export default class TicketModule {

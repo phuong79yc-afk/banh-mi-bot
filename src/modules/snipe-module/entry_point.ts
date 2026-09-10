@@ -10,6 +10,7 @@ import {
   AttachmentBuilder
 } from 'discord.js';
 import { snipeManager } from './SnipeManager';
+import { emojis } from '../../config/emojis';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 
 export default class SnipeModule {

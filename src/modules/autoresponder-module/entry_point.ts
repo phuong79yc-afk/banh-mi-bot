@@ -1,5 +1,6 @@
 // Autoresponder Module - Entry Point
 import { Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { emojis } from '../../config/emojis';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { autoresponderManager, MatchMode } from './AutoresponderManager';
 

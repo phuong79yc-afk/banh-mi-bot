@@ -11,6 +11,7 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
 
 export default class ModerationModule {
   name = 'moderation-module';

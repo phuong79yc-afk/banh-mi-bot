@@ -8,6 +8,7 @@ import {
   Message
 } from 'discord.js';
 import { gtnManager } from './GuessTheNumberManager';
+import { emojis } from '../../config/emojis';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 
 export default class GamesModule {

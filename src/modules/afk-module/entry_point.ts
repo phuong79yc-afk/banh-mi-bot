@@ -8,6 +8,7 @@ import {
   Message
 } from 'discord.js';
 import { afkManager } from './AFKManager';
+import { emojis } from '../../config/emojis';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 
 export default class AFKModule {

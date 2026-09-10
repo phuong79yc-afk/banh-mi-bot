@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ChannelType } from 'discord.js';
-import { getCustomEmoji } from '../utils/customEmoji';
+import { emojis } from '../config/emojis';
 
 export const data = new SlashCommandBuilder()
   .setName('lock-invites')
@@ -31,13 +31,13 @@ const inviteLockState = new Map<string, boolean>();
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   if (!interaction.guild) {
-    return interaction.editReply({ content: '❌ Lệnh này chỉ dùng trong máy chủ!' });
+    return interaction.editReply({ content: `${emojis.error} Lệnh này chỉ dùng trong máy chủ!` });
   }
 
   // Check if user is owner or has administrator
   const member = interaction.member;
   if (!member) {
-    return interaction.editReply({ content: '❌ Không thể xác định quyền của bạn!' });
+    return interaction.editReply({ content: `${emojis.error} Không thể xác định quyền của bạn!` });
   }
 
   const subcommand = interaction.options.getSubcommand();
@@ -98,20 +98,20 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       const embed = new EmbedBuilder()
         .setColor(0xef4444)
-        .setTitle(`${getCustomEmoji('SECURITY_LOCK')} Invites  Kha`)
-        .setDescription('🔒 Tất cả invite links đã bị vô hiệu hóa')
+        .setTitle(`${emojis.unlock} Invites Đã Khóa`)
+        .setDescription(`${emojis.shield} Tất cả invite links đã bị vô hiệu hóa`)
         .addFields(
-          { name: '📊 Kênh đã khóa', value: `${lockedCount} kênh`, inline: true },
-          { name: '🗑️ Invite đã xóa', value: `${deletedInvites} invite`, inline: true },
-          { name: '⚠️ Lưu ý', value: 'Chỉ administrators mới có thể tạo invite', inline: false }
+          { name: `${emojis.chart} Kênh đã khóa`, value: `${lockedCount} kênh`, inline: true },
+          { name: `${emojis.delete} Invite đã xóa`, value: `${deletedInvites} invite`, inline: true },
+          { name: `${emojis.warning} Lưu ý`, value: 'Chỉ administrators mới có thể tạo invite', inline: false }
         )
         .setTimestamp()
-        .setFooter({ text: `Bi: ${interaction.user.tag}` });
+        .setFooter({ text: `Bởi: ${interaction.user.tag}` });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error: any) {
       console.error('Lock invites error:', error);
-      await interaction.editReply({ content: ` Li khi kha invites: ${error.message}` });
+      await interaction.editReply({ content: `${emojis.error} Lỗi khi khóa invites: ${error.message}` });
     }
   } else if (subcommand === 'unlock') {
     if (!interaction.deferred && !interaction.replied) {
@@ -148,18 +148,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       const embed = new EmbedBuilder()
         .setColor(0x10b981)
-        .setTitle(`${getCustomEmoji('SECURITY_UNLOCK')} Invites  M Kha`)
-        .setDescription('🔓 Thành viên có thể tạo invite links trở lại')
+        .setTitle(`${emojis.unlock} Invites Đã Mở Khóa`)
+        .setDescription(`${emojis.success} Thành viên có thể tạo invite links trở lại`)
         .addFields(
-          { name: '📊 Kênh đã mở khóa', value: `${unlockedCount} kênh`, inline: true }
+          { name: `${emojis.chart} Kênh đã mở khóa`, value: `${unlockedCount} kênh`, inline: true }
         )
         .setTimestamp()
-        .setFooter({ text: `Bi: ${interaction.user.tag}` });
+        .setFooter({ text: `Bởi: ${interaction.user.tag}` });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error: any) {
       console.error('Unlock invites error:', error);
-      await interaction.editReply({ content: ` Li khi m kha invites: ${error.message}` });
+      await interaction.editReply({ content: `${emojis.error} Lỗi khi mở khóa invites: ${error.message}` });
     }
   } else if (subcommand === 'status') {
     const isLocked = inviteLockState.get(interaction.guild.id) || false;
@@ -186,15 +186,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       const embed = new EmbedBuilder()
         .setColor(isLocked ? 0xef4444 : 0x10b981)
-        .setTitle(`${getCustomEmoji('SECURITY_INFO')} Trng Thi Invite Lock`)
+        .setTitle(`${emojis.info} Trạng Thái Invite Lock`)
         .setDescription(
           isLocked 
-            ? '🔒 **LOCKED** - Invites bị vô hiệu hóa'
-            : '🔓 **UNLOCKED** - Invites hoạt động bình thường'
+            ? `${emojis.unlock} **LOCKED** - Invites bị vô hiệu hóa`
+            : `${emojis.success} **UNLOCKED** - Invites hoạt động bình thường`
         )
         .addFields(
-          { name: '📊 Kênh bị khóa', value: `${lockedChannels} kênh`, inline: true },
-          { name: '🔗 Invite hoạt động', value: `${activeInvites} invite`, inline: true }
+          { name: `${emojis.chart} Kênh bị khóa`, value: `${lockedChannels} kênh`, inline: true },
+          { name: `${emojis.link} Invite hoạt động`, value: `${activeInvites} invite`, inline: true }
         )
         .setTimestamp();
 
@@ -202,7 +202,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     } catch (error: any) {
       console.error('Status check error:', error);
       await interaction.editReply({ 
-        content: ` Li khi kim tra trng thi: ${error.message}` });
+        content: `${emojis.error} Lỗi khi kiểm tra trạng thái: ${error.message}` });
     }
   }
 }

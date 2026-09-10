@@ -8,6 +8,7 @@ import {
   AttachmentBuilder
 } from 'discord.js';
 import { createCanvas, loadImage } from 'canvas';
+import { emojis } from '../../config/emojis';
 import { PIXEL_FONT } from './pixel-font';
 
 interface MinecraftServerStatus {

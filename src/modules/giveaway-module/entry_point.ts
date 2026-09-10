@@ -11,6 +11,7 @@ import {
   PermissionFlagsBits
 } from 'discord.js';
 import { giveawayManager } from './GiveawayManager';
+import { emojis } from '../../config/emojis';
 
 export default class GiveawayModule {
   name = 'giveaway-module';

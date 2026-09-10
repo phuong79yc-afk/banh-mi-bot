@@ -16,6 +16,7 @@ import {
   AllowedMentionsTypes
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
 import { stickyManager, StickyMode } from './StickyManager';
 
 export default class StickyMessagesModule {

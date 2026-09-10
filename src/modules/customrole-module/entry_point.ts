@@ -9,6 +9,7 @@ import {
   ColorResolvable
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { emojis } from '../../config/emojis';
 import { customRoleManager } from './CustomRoleManager';
 
 export default class CustomRoleModule {
