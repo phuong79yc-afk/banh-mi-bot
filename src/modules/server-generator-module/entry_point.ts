@@ -137,23 +137,49 @@ Output ONLY valid JSON in this exact format:
   ]
 }
 
-RULES:
-- Channel types: 0=Text, 2=Voice, 5=Announcement, 13=Stage
-- Text channels: use hyphens (game-discussion)
-- Voice channels: use spaces (game discussion)
-- Add emoji to every role, category, and channel
-- Use Vietnamese names if user asks in Vietnamese
-- Keep it practical and organized
-- Include Welcome, Community, Voice categories minimum`;
+CRITICAL RULES:
+1. Channel types: 0=Text, 2=Voice, 5=Announcement, 13=Stage
+2. Text channels: MUST use lowercase hyphens (general-chat, game-discussion, memes-and-fun)
+3. Voice channels: MUST use Title Case spaces (Voice Lobby, Gaming Room, Music Lounge, AFK Room)
+4. Add ATTRACTIVE emoji to EVERY role, category, and channel
+5. Use Vietnamese names if user requests in Vietnamese, otherwise English
+6. Keep practical, organized, and visually appealing
+
+CHANNEL NAMING STANDARDS:
+✅ Good Text Channels: general-chat, announcements, off-topic, game-discussion, tech-support, memes-and-fun
+❌ Bad: GeneralChat, general_chat, GENERAL, general (too simple)
+
+✅ Good Voice Channels: Voice Lobby, Gaming Room, Music Lounge, Chill Zone, AFK Room, Study Session
+❌ Bad: voice-lobby, VOICE1, voice (not descriptive)
+
+SMART DESIGN PATTERNS:
+- Gaming servers: welcome, rules, announcements, general-chat, game channels, voice lobbies, support
+- Community servers: introductions, rules, general-chat, off-topic, events, giveaways, voice rooms
+- Tech servers: announcements, help-desk, projects, resources, code-chat, voice
+- Always include: Welcome category, Community category, Voice Channels category
+- Voice channels minimum: Voice Lobby, Gaming Room (or General Voice), Music, AFK
+- Roles hierarchy: Owner, Admin, Moderator, VIP/Booster, Member
+
+EMOJI SELECTION GUIDE (Use attractive, matching emoji):
+- Welcome: 👋, 📜, 📢, ✅, 🎉, 🎊
+- Community: 💬, 🎲, 😂, 🎨, 📸, 🎵, 🎬
+- Gaming: 🎮, 🕹️, 🏆, 🎯, 👾, 🔥, ⚔️
+- Voice: 🎙️, 🎵, 🔊, 🎧, 💤, 🌙, 🎤
+- Support: ❓, 💡, 🐛, 📨, 🎫, 📋
+- Events: 🎉, 🎁, 🏆, 📅, 🎊, 🏅
+- Media: 📸, 🎬, 🖼️, 🎨, 🎵, 📹
+
+Be creative, descriptive, and match the server theme!`;
 
         const completion = await this.groq.chat.completions.create({
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
+            { role: 'user', content: `Create a Discord server structure for: ${prompt}\n\nBe creative, add many relevant channels and categories. Think about what users would actually need and use.` }
           ],
           model: 'openai/gpt-oss-20b',
-          temperature: 0.7,
-          max_tokens: 2000
+          temperature: 0.85,
+          max_tokens: 3500,
+          top_p: 0.95
         });
 
         const aiResponse = completion.choices[0]?.message?.content || '{}';
@@ -170,25 +196,16 @@ RULES:
           sum + (cat.channels?.length || 0), 0) || 0;
         const totalRoles = design.roles?.length || 0;
 
-        // Generate beautiful tree preview with colors (using ANSI)
+        // Generate compact tree preview (categories + channels only)
         let preview = `\x1b[36m${design.serverName || 'Server Design'}\x1b[0m\n`;
-        preview += `└── \x1b[35m🛡️ Roles (${design.roles?.length || 0})\x1b[0m\n`;
 
-        // Roles section
-        if (design.roles && design.roles.length > 0) {
-          design.roles.forEach((role: any, index: number) => {
-            const isLast = index === design.roles.length - 1;
-            const prefix = isLast ? '    └──' : '    ├──';
-            preview += `\x1b[31m${prefix} ${index + 1}. ${role.name}\x1b[0m (${role.emoji || '🎖️'})\n`;
-          });
-        }
-
-        // Categories and channels
+        // Categories and channels only
         if (design.categories && design.categories.length > 0) {
           design.categories.forEach((cat: any, catIndex: number) => {
             const isCatLast = catIndex === design.categories.length - 1;
             const catPrefix = isCatLast ? '└──' : '├──';
-            preview += `\x1b[33m${catPrefix} ${catIndex + 1}. ${cat.name}\x1b[0m ${cat.emoji || '📁'}\n`;
+            const catEmoji = cat.emoji || '📁';
+            preview += `${catPrefix} \x1b[33m${catIndex + 1}. ${catEmoji} ${cat.name}\x1b[0m\n`;
             
             if (cat.channels && cat.channels.length > 0) {
               cat.channels.forEach((ch: any, chIndex: number) => {
@@ -196,8 +213,9 @@ RULES:
                 const lineChar = isCatLast ? '    ' : '│   ';
                 const chPrefix = isChLast ? '└──' : '├──';
                 const chIcon = ch.type === 2 ? '\x1b[34m🔊\x1b[0m' : '\x1b[32m#\x1b[0m';
-                const chEmoji = ch.emoji || (ch.type === 2 ? '🎙️' : '💬');
-                preview += `${lineChar}${chPrefix} ${catIndex + 1}.${chIndex + 1} ${chIcon} ${chEmoji}・${ch.name}\n`;
+                const chEmoji = ch.emoji || '';
+                const chName = chEmoji ? `${chEmoji} ${ch.name}` : ch.name;
+                preview += `${lineChar}${chPrefix} ${catIndex + 1}.${chIndex + 1} ${chIcon} ${chName}\n`;
               });
             }
           });
@@ -350,11 +368,12 @@ RULES:
           }
         }
 
-        // Delete Text Channels
+        // Delete Text Channels (except current channel)
         const textChannels = interaction.guild.channels.cache.filter(
           (c: any) => (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement || c.type === ChannelType.GuildForum) &&
             c.id !== interaction.guild.rulesChannelId &&
-            c.id !== interaction.guild.publicUpdatesChannelId
+            c.id !== interaction.guild.publicUpdatesChannelId &&
+            c.id !== interaction.channelId // Keep current channel
         );
         for (const [id, channel] of textChannels) {
           try {
@@ -393,7 +412,11 @@ RULES:
               `${emojis.delete} **Channels:** ${channelsDeleted} đã xóa\n` +
               `${emojis.music} **Voice:** ${voiceDeleted} đã xóa\n\n` +
               `━━━━━━━━━━━━━━━━━━━━\n\n` +
-              `${emojis.shield} **Protected:** @everyone role, bot roles, system channels\n` +
+              `${emojis.shield} **Protected:**\n` +
+              `• @everyone role\n` +
+              `• Bot roles\n` +
+              `• System channels\n` +
+              `• Channel này (đang dùng)\n\n` +
               `${emojis.sparkles} *Server của bạn giờ đã sạch sẽ!*`
             )
           );
