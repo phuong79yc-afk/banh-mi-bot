@@ -5,9 +5,7 @@
 import { emojis } from './emojis';
 
 /**
- * Render emoji in large size (standalone)
- * Discord automatically renders standalone emojis larger
- */
+ * Render emoj
 export function largeEmoji(emojiString: string): string {
   return `\n${emojiString}\n`;
 }

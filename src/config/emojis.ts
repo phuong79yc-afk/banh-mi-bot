@@ -6,6 +6,7 @@
  */
 
 export const EMOJI_IDS = {
+  "lock_transparent": "1547968598113517599",
   "video": "1547153565771108382",
   "wifi": "1547153591205367858",
   "trophy": "1547153659140382780",
@@ -103,13 +104,14 @@ export const emojis = {
   crown: getEmoji('crown'),
   shield: getEmoji('shield'),
   
-  // Tools/Tech (8)
+  // Tools/Tech (9)
   terminal: getEmoji('terminal'),
   database: getEmoji('database'),
   server: getEmoji('server'),
   cloud: getEmoji('cloud'),
   wifi: getEmoji('wifi'),
   unlock: getEmoji('unlock'),
+  lock: getEmoji('lock_transparent'),
   key: getEmoji('key'),
   link: getEmoji('link'),
   
@@ -120,7 +122,6 @@ export const emojis = {
   tag: getEmoji('tag'),
   flag: getEmoji('flag'),
   
-  // Placeholders for missing emojis
-  voice: '🔊', // Voice channel
-  rocket: '🚀' // Rocket for launch/export
+  // Placeholders for missing emojis  
+  rocket: getEmoji('sparkles'), // Using sparkles as rocket alternative
 } as const;

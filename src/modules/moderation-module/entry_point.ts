@@ -57,14 +57,14 @@ export default class ModerationModule {
 
         if (!target) {
           return interaction.reply({
-            content: '❌ Không tìm thấy người dùng!',
+            content: `${emojis.error} Không tìm thấy người dùng!`,
             flags: 64
           });
         }
 
         if (!target.kickable) {
           return interaction.reply({
-            content: '❌ Không thể kick người dùng này!',
+            content: `${emojis.error} Không thể kick người dùng này!`,
             flags: 64
           });
         }
@@ -73,20 +73,20 @@ export default class ModerationModule {
           await target.kick(reason);
 
           const embed = createEnhancedEmbed({
-            title: '👢 Đã Kick',
+            title: `${emojis.remove} Đã Kick`,
             description: `**${target.user.tag}** đã bị kick khỏi server`,
-            color: 0x1ABC9C, // Light purple
+            color: 0x1ABC9C,
             fields: [
-              { name: 'Người dùng', value: `${target}`, inline: true },
-              { name: 'Bởi', value: `${interaction.user}`, inline: true },
-              { name: 'Lý do', value: reason, inline: false }
+              { name: `${emojis.user} Người dùng`, value: `${target}`, inline: true },
+              { name: `${emojis.shield} Bởi`, value: `${interaction.user}`, inline: true },
+              { name: `${emojis.document} Lý do`, value: reason, inline: false }
             ]
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể kick'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể kick'}`,
             flags: 64
           });
         }
@@ -126,14 +126,14 @@ export default class ModerationModule {
 
         if (!target) {
           return interaction.reply({
-            content: '❌ Không tìm thấy người dùng!',
+            content: `${emojis.error} Không tìm thấy người dùng!`,
             flags: 64
           });
         }
 
         if (!target.bannable) {
           return interaction.reply({
-            content: '❌ Không thể ban người dùng này!',
+            content: `${emojis.error} Không thể ban người dùng này!`,
             flags: 64
           });
         }
@@ -145,20 +145,20 @@ export default class ModerationModule {
           });
 
           const embed = createEnhancedEmbed({
-            title: '🔨 Đã Ban',
+            title: `${emojis.warning} Đã Ban`,
             description: `**${target.user.tag}** đã bị ban khỏi server`,
-            color: 0x1ABC9C, // Light purple
+            color: 0xED4245,
             fields: [
-              { name: 'Người dùng', value: `${target}`, inline: true },
-              { name: 'Bởi', value: `${interaction.user}`, inline: true },
-              { name: 'Lý do', value: reason, inline: false }
+              { name: `${emojis.user} Người dùng`, value: `${target}`, inline: true },
+              { name: `${emojis.shield} Bởi`, value: `${interaction.user}`, inline: true },
+              { name: `${emojis.document} Lý do`, value: reason, inline: false }
             ]
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể ban'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể ban'}`,
             flags: 64
           });
         }
@@ -198,14 +198,14 @@ export default class ModerationModule {
 
         if (!target) {
           return interaction.reply({
-            content: '❌ Không tìm thấy người dùng!',
+            content: `${emojis.error} Không tìm thấy người dùng!`,
             flags: 64
           });
         }
 
         if (!target.moderatable) {
           return interaction.reply({
-            content: '❌ Không thể timeout người dùng này!',
+            content: `${emojis.error} Không thể timeout người dùng này!`,
             flags: 64
           });
         }
@@ -214,20 +214,20 @@ export default class ModerationModule {
           await target.timeout(duration * 60 * 1000, reason);
 
           const embed = createEnhancedEmbed({
-            title: '⏰ Đã Timeout',
+            title: `${emojis.clock} Đã Timeout`,
             description: `**${target.user.tag}** đã bị timeout`,
-            color: 0x1ABC9C, // Light purple
+            color: 0xFEE75C,
             fields: [
-              { name: 'Người dùng', value: `${target}`, inline: true },
-              { name: 'Thời gian', value: `${duration} phút`, inline: true },
-              { name: 'Lý do', value: reason, inline: false }
+              { name: `${emojis.user} Người dùng`, value: `${target}`, inline: true },
+              { name: `${emojis.clock} Thời gian`, value: `${duration} phút`, inline: true },
+              { name: `${emojis.document} Lý do`, value: reason, inline: false }
             ]
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể timeout'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể timeout'}`,
             flags: 64
           });
         }
@@ -256,12 +256,12 @@ export default class ModerationModule {
           const deleted = await channel.bulkDelete(amount, true);
 
           await interaction.reply({
-            content: `✅ Đã xóa **${deleted.size}** tin nhắn!`,
+            content: `${emojis.success} Đã xóa **${deleted.size}** tin nhắn!`,
             flags: 64
           });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể xóa tin nhắn'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể xóa tin nhắn'}`,
             flags: 64
           });
         }
@@ -297,19 +297,19 @@ export default class ModerationModule {
           });
 
           const embed = createEnhancedEmbed({
-            title: '🔒 `Kênh Đã Khóa`',
+            title: `${emojis.lock} Kênh Đã Khóa`,
             description: `${targetChannel} đã bị **khóa**`,
-            color: 0x1ABC9C, // Light purple
+            color: 0xED4245,
             fields: [
-              { name: 'Bởi', value: `${interaction.user}`, inline: true },
-              { name: 'Lý do', value: reason, inline: true }
+              { name: `${emojis.shield} Bởi`, value: `${interaction.user}`, inline: true },
+              { name: `${emojis.document} Lý do`, value: reason, inline: true }
             ]
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể khóa kênh'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể khóa kênh'}`,
             flags: 64
           });
         }
@@ -338,18 +338,18 @@ export default class ModerationModule {
           });
 
           const embed = createEnhancedEmbed({
-            title: '🔒 `Kênh Đã Mở Khóa`',
+            title: `${emojis.unlock} Kênh Đã Mở Khóa`,
             description: `${targetChannel} đã được mở khóa`,
-            color: 0x1ABC9C, // Light purple
+            color: 0x57F287,
             fields: [
-              { name: 'Bởi', value: `${interaction.user}`, inline: true }
+              { name: `${emojis.shield} Bởi`, value: `${interaction.user}`, inline: true }
             ]
           });
 
           await interaction.reply({ embeds: [embed] });
         } catch (error) {
           await interaction.reply({
-            content: `❌ Lỗi: ${error instanceof Error ? error.message : 'Không thể mở khóa kênh'}`,
+            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể mở khóa kênh'}`,
             flags: 64
           });
         }

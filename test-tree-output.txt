@@ -1,0 +1,98 @@
+═══════════════════════════════════════
+★ 🏰 My Awesome Server ★
+═══════════════════════════════════════
+
+◆ 🛡️  ROLES (8)
+  ➤ 👑┊Owner
+  ➤ 🔱┊Co-Owner
+  ➤ 🛡️┊Admin
+  ➤ ⚔️┊Moderator
+  ➤ 🙋┊Helper
+  ➤ 💎┊Server Booster
+  ➤ ⭐┊VIP
+  ➤ 👤┊Member
+
+★ 👋 WELCOME
+  • 👋┊welcome
+  • 🙋┊introductions
+  • 🎭┊roles
+  • ✅┊verify
+
+★ 💬 COMMUNITY
+  • 💬┊forum
+  • 💬┊general
+  • 💭┊tán-gẫu
+  • 🎲┊off-topic
+  • 🎫┊open-ticket
+
+★ 😂 MEME & FUN
+  • 😂┊memes
+  • 📸┊media
+  • 🖼️┊media-share
+  • 🎵┊chia-sẻ-nhạc
+
+★ 🎮 GAMING
+  • 🎮┊game-discussion
+  • 🔍┊looking-for-group
+  • 🏆┊competitive
+  • 📹┊clips
+  • 🏅┊tournaments
+
+★ 🔊 VOICE CHAT
+  ◉ 🎙️┊phòng 1
+  ◉ 🎙️┊phòng 2
+  ◉ 🎮┊gaming vc
+  ◉ 🔒┊phòng admin
+  ◉ 🎵┊music room
+  ◉ 💤┊afk
+
+★ 🔧 RESOURCES
+  • 🎨┊official-packs
+  • 📦┊community-packs
+  • 🔧┊client-and-configs
+  • ⚙️┊community-configs
+  • 🔰┊fake-ip-guide
+
+★ 🤖 BOT COMMANDS
+  • 🤖┊command-bot
+  • 🔍┊scan-url-file
+  • 📊┊bot-spam
+  • 🎵┊music-commands
+
+★ 💎 BOOSTERS
+  • 💎┊boosters
+  • ✨┊booster-perks
+  • 💬┊booster-chat
+
+★ 📊 TIERLIST
+  • 📋┊rubric
+  • 🔄┊updates
+  • 📜┊tierlist-rules
+  • 🧪┊testing-servers
+
+★ 🎯 EVENTS
+  • 📅┊events
+  • 🎁┊giveaways
+  • 🏆┊competitions
+
+★ 🆘 SUPPORT
+  • ❓┊help-desk
+  • 💡┊suggestions
+  • 🐛┊bug-reports
+
+═══════════════════════════════════════
+DISCORD-STYLE FORMAT (CONSISTENT):
+★ = Category header
+◆ = Section header
+➤ = Role (with ┊ separator)
+• = Text channel (with ┊ separator, use hyphens)
+◉ = Voice channel (with ┊ separator, use spaces)
+⋯ = More items...
+
+NAMING CONVENTION:
+- Text channels: game-discussion (hyphens)
+- Voice channels: game discussion (spaces)-
+- Roles: Owner (proper case)
+
+ALL ITEMS USE ┊ SEPARATOR (no space after emoji)
+════════════════════════════════════

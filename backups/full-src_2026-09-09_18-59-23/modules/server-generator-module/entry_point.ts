@@ -7,7 +7,8 @@ import {
   Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction,
   PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder,
   TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, 
-  MessageFlags, SectionBuilder, ContainerBuilder, TextDisplayBuilder
+  MessageFlags, SectionBuilder, ContainerBuilder, TextDisplayBuilder,
+  EmbedBuilder
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import Groq from 'groq-sdk';
