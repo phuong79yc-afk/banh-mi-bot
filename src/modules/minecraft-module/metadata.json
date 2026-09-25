@@ -1,10 +1,10 @@
 {
   "name": "minecraft-module",
   "displayName": "Minecraft Server Status",
-  "description": "Check Minecraft server status and player count",
-  "version": "1.0.0",
+  "description": "Check Minecraft server status with official font banner",
+  "version": "1.1.0",
   "author": "GlitchBucket",
   "enabled": true,
-  "commands": ["minecraft"],
+  "commands": ["minecraft-server", "minecraft-custom-server-banner"],
   "dependencies": []
 }
