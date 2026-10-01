@@ -249,5 +249,6 @@ def create_banner(name, title, subtitle):
 create_banner('shop', 'SHOP', '✨ new cuties every day ✨')
 create_banner('daily', 'DAILY CHECK-IN', '🔥 come back every day! 💰')
 create_banner('quest', 'QUESTS', '⭐ complete & earn rewards! 🏆')
+create_banner('balance', 'BALANCE', '💰 your coins & inventory 💎')
 
 print("\n🎉 ALL ANIMAL BANNERS COMPLETE! 6 cute bouncing friends! 💖")
