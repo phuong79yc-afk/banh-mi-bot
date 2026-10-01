@@ -402,6 +402,7 @@ export default class ShopModule {
                       role = await guild.roles.create({
                         name: item.name,
                         color: roleColor,
+                        hoist: true, // Hiển thị role riêng biệt trong member list
                         reason: `Auto-created by shop purchase - ${item.name}`
                       });
                       roleCreated = true;
