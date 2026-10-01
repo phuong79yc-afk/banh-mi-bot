@@ -1,76 +1,78 @@
 /**
  * Custom Emoji IDs for Discord Bot
- * Auto-generated: 2026-09-09T10:06:21.660Z
+ * Auto-generated: 2026-10-01T08:38:55.329Z
  * 
- * Uploaded: 46/50 emojis
+ * ✅ COMPLETE: 50/50 emojis
+ * Server ID: 1482354951689605150
  */
 
 export const EMOJI_IDS = {
-  "lock_transparent": "1547968598113517599",
-  "video": "1547153565771108382",
-  "wifi": "1547153591205367858",
-  "trophy": "1547153659140382780",
-  "menu": "1547153698558316545",
-  "calendar": "1547153734197444678",
-  "add": "1547153760877416458",
-  "document": "1547153789230911558",
-  "clock": "1547153819312332862",
-  "edit": "1547153870562533386",
-  "art": "1547154019317710858",
-  "loading": "1547154056210812970",
-  "refresh": "1547154083318726737",
-  "crown": "1547154122803777627",
-  "shield": "1547154183034118154",
-  "star": "1547154229716717568",
-  "remove": "1547154254790139914",
-  "copy": "1547154286033772645",
-  "flag": "1547154317545312307",
-  "save": "1547154345114607636",
-  "terminal": "1547154406468878366",
-  "unlock": "1547154449502441502",
-  "gift": "1547154482578726934",
-  "heart": "1547154559204331550",
-  "sparkles": "1547154595074285689",
-  "music": "1547154623473786900",
-  "chart": "1547154656898322544",
-  "bell": "1547154723616989234",
-  "success": "1547154783465508894",
-  "database": "1547154820543283230",
-  "users": "1547154898855141386",
-  "user": "1547154933818724453",
-  "server": "1547155077242953811",
-  "warning": "1547155128673374248",
-  "search": "1547155236744069151",
-  "export": "1547155335788367943",
-  "delete": "1547155419989024768",
-  "cloud": "1547155554168999996",
-  "error": "1547155697358217216",
-  "message": "1547155806183489656",
-  "link": "1547155852740399115",
-  "image": "1547155900836610048",
-  "folder": "1547156020441255966",
-  "pin": "1547156080730054676",
-  "key": "1547156118227259413",
-  "tag": "1547156296229322764",
-  "info": "1547156468703432784"
+  "success": "1555134746340884480",
+  "error": "1555133957870460979",
+  "loading": "1555134662525980763",
+  "warning": "1555134947528810578",
+  "info": "1555134284942147644",
+  "export": "1555134130784702515",
+  "delete": "1555133729276698624",
+  "refresh": "1555131892431323156",
+  "edit": "1555129703457751090",
+  "save": "1555132289363480586",
+  "search": "1555132383878193172",
+  "add": "1555128550905085982",
+  "remove": "1555131977705984080",
+  "copy": "1555128973045010452",
+  "unlock": "1555133012310491207",
+  "lock": "1555130449083367494",
+  "cloud": "1555128890421415937",
+  "art": "1555128435112677406",
+  "document": "1555129315170058291",
+  "folder": "1555129784793825301",
+  "sparkles": "1555132604452315156",
+  "chart": "1555128483762675762",
+  "menu": "1555130704575074395",
+  "image": "1555130052197351434",
+  "music": "1555130862855786536",
+  "video": "1555128332801277963",
+  "star": "1555113729513758741",
+  "trophy": "1555127689076023306",
+  "user": "1555127768990093393",
+  "users": "1555128041397551135",
+  "message": "1555113367398653974",
+  "bell": "1555112873544515665",
+  "heart": "1555113187559342200",
+  "crown": "1555113078998306896",
+  "shield": "1555113586031067226",
+  "terminal": "1555127442354610207",
+  "database": "1555113145616564244",
+  "server": "1555113525280637019",
+  "wifi": "1555135545494077440",
+  "calendar": "1555112947074994176",
+  "clock": "1555113014322135040",
+  "pin": "1555112517821272224",
+  "key": "1555112226057355274",
+  "tag": "1555112796960596049",
+  "flag": "1555111993726341152",
+  "gift": "1555112163352256643",
+  "link": "1555112457280823336",
+  "cache": "1555111880463355945",
+  "rocket": "1555112599543087174",
+  "coin": "1555111941729681478",
 } as const;
 
 // Helper function to get emoji string (animated format)
 export function getEmoji(name: keyof typeof EMOJI_IDS): string {
   const id = EMOJI_IDS[name];
-  return id ? `<a:${name}:${id}>` : '❓';
+  if (!id) return '❓';
+  return `<a:${name}:${id}>`;
 }
 
 // Export ready-to-use emoji strings
 export const emojis = {
-  // Core Status (5/5)
   success: getEmoji('success'),
   error: getEmoji('error'),
   loading: getEmoji('loading'),
   warning: getEmoji('warning'),
   info: getEmoji('info'),
-  
-  // Actions (9)
   export: getEmoji('export'),
   delete: getEmoji('delete'),
   refresh: getEmoji('refresh'),
@@ -80,8 +82,9 @@ export const emojis = {
   add: getEmoji('add'),
   remove: getEmoji('remove'),
   copy: getEmoji('copy'),
-  
-  // Categories/Content (9)
+  unlock: getEmoji('unlock'),
+  lock: getEmoji('lock'),
+  cloud: getEmoji('cloud'),
   art: getEmoji('art'),
   document: getEmoji('document'),
   folder: getEmoji('folder'),
@@ -91,37 +94,28 @@ export const emojis = {
   image: getEmoji('image'),
   music: getEmoji('music'),
   video: getEmoji('video'),
-  
-  // Social/Community (10/10)
+  star: getEmoji('star'),
+  trophy: getEmoji('trophy'),
   user: getEmoji('user'),
   users: getEmoji('users'),
   message: getEmoji('message'),
   bell: getEmoji('bell'),
   heart: getEmoji('heart'),
-  star: getEmoji('star'),
-  trophy: getEmoji('trophy'),
-  gift: getEmoji('gift'),
   crown: getEmoji('crown'),
   shield: getEmoji('shield'),
-  
-  // Tools/Tech (9)
   terminal: getEmoji('terminal'),
   database: getEmoji('database'),
   server: getEmoji('server'),
-  cloud: getEmoji('cloud'),
   wifi: getEmoji('wifi'),
-  unlock: getEmoji('unlock'),
-  lock: getEmoji('lock_transparent'),
-  key: getEmoji('key'),
-  link: getEmoji('link'),
-  
-  // Misc (5/5)
   calendar: getEmoji('calendar'),
   clock: getEmoji('clock'),
   pin: getEmoji('pin'),
+  key: getEmoji('key'),
   tag: getEmoji('tag'),
   flag: getEmoji('flag'),
-  
-  // Placeholders for missing emojis  
-  rocket: getEmoji('sparkles'), // Using sparkles as rocket alternative
+  gift: getEmoji('gift'),
+  link: getEmoji('link'),
+  cache: getEmoji('cache'),
+  rocket: getEmoji('rocket'),
+  coin: getEmoji('coin'),
 } as const;
