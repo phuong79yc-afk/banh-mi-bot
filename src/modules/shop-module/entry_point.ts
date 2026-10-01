@@ -349,6 +349,49 @@ export default class ShopModule {
               addToInventory(userId, itemId, 1);
               const newBalance = getUserCoins(userId);
               
+              // Nếu là role, tự động tạo và gán role
+              let roleAssigned = false;
+              let roleCreated = false;
+              if (item.category === 'roles') {
+                try {
+                  const guild = interaction.guild;
+                  if (guild) {
+                    const member = await guild.members.fetch(userId);
+                    
+                    // Tìm hoặc tạo role
+                    let role = guild.roles.cache.find(r => r.name === item.name);
+                    
+                    if (!role) {
+                      // Tạo role mới với màu ngẫu nhiên
+                      const colors = [
+                        0xFF69B4, // Hot pink
+                        0x9370DB, // Medium purple
+                        0x00CED1, // Dark turquoise
+                        0xFFD700, // Gold
+                        0xFF6347, // Tomato
+                        0x32CD32, // Lime green
+                      ];
+                      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                      
+                      role = await guild.roles.create({
+                        name: item.name,
+                        color: randomColor,
+                        reason: `Auto-created by shop purchase - ${item.name}`
+                      });
+                      roleCreated = true;
+                    }
+                    
+                    // Gán role cho user
+                    if (!member.roles.cache.has(role.id)) {
+                      await member.roles.add(role);
+                      roleAssigned = true;
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Error assigning role ${item.name}:`, error);
+                }
+              }
+              
               const purchaseEmbed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle(`${emojis.success} Mua Thành Công!`)
@@ -358,11 +401,14 @@ export default class ShopModule {
                   `${emojis.gift} **Mô tả**: ${item.description}`,
                   `${emojis.trophy} **Giá**: ${item.price} coins`,
                   '',
-                  `${emojis.coin} **Số dư còn lại**: ${newBalance} ${emojis.trophy}`
-                ].join('\n'))
+                  roleCreated ? `${emojis.sparkles} Role mới đã được tạo!` : '',
+                  roleAssigned ? `${emojis.success} Role đã được gán cho bạn!` : '',
+                  '',
+                  `${emojis.coin} **Số dư còn lại**: ${newBalance} coins`
+                ].filter(line => line !== '').join('\n'))
                 .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
                 .setFooter({
-                  text: `Kiểm tra inventory với /inventory`,
+                  text: roleAssigned ? `Role ${item.name} đã sẵn sàng!` : `Kiểm tra inventory với /inventory`,
                   iconURL: interaction.user.displayAvatarURL()
                 })
                 .setTimestamp();
