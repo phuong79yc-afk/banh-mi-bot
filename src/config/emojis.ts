@@ -57,6 +57,7 @@ export const EMOJI_IDS = {
   "cache": "1555111880463355945",
   "rocket": "1555112599543087174",
   "coin": "1555111941729681478",
+  "fire": "1555189792365486120",
 } as const;
 
 // Helper function to get emoji string (animated format)
@@ -118,4 +119,5 @@ export const emojis = {
   cache: getEmoji('cache'),
   rocket: getEmoji('rocket'),
   coin: getEmoji('coin'),
+  fire: getEmoji('fire'),
 } as const;
