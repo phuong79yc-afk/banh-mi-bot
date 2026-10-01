@@ -35,6 +35,7 @@ interface ShopItem {
   emoji: string;
   category: 'roles' | 'items' | 'perks' | 'cosmetics';
   stock?: number;
+  roleColor?: number; // Hex color for roles
 }
 
 interface CoinsData {
@@ -56,7 +57,8 @@ const SHOP_ITEMS: ShopItem[] = [
     description: '[BEST SELLER] Dành cho hội mê bánh cuốn chính hiệu',
     price: 350,
     emoji: '🥟',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0xFFD700 // Gold
   },
   {
     id: 'vip_member',
@@ -64,7 +66,8 @@ const SHOP_ITEMS: ShopItem[] = [
     description: 'Thành viên VIP với nhiều đặc quyền độc quyền',
     price: 500,
     emoji: '👑',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0xFF1493 // Deep pink
   },
   {
     id: 'supporter',
@@ -72,7 +75,8 @@ const SHOP_ITEMS: ShopItem[] = [
     description: 'Người ủng hộ nhiệt tình của Bánh Cuốn Bot',
     price: 300,
     emoji: '💖',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0xFF69B4 // Hot pink
   },
   {
     id: 'gamer',
@@ -80,7 +84,8 @@ const SHOP_ITEMS: ShopItem[] = [
     description: 'Dành cho những game thủ chính hiệu trong server',
     price: 400,
     emoji: '🎮',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0x9370DB // Medium purple
   },
   {
     id: 'music_lover',
@@ -88,7 +93,8 @@ const SHOP_ITEMS: ShopItem[] = [
     description: 'Hội yêu âm nhạc và thường xuyên nghe nhạc',
     price: 350,
     emoji: '🎵',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0x00CED1 // Dark turquoise
   },
   {
     id: 'night_owl',
@@ -96,7 +102,35 @@ const SHOP_ITEMS: ShopItem[] = [
     description: 'Cú đêm hoạt động vào ban đêm, ngủ ban ngày',
     price: 450,
     emoji: '🦉',
-    category: 'roles'
+    category: 'roles',
+    roleColor: 0x4B0082 // Indigo
+  },
+  {
+    id: 'early_bird',
+    name: 'Early Bird',
+    description: 'Chim sơn ca luôn online sớm mỗi ngày',
+    price: 450,
+    emoji: '🐦',
+    category: 'roles',
+    roleColor: 0xFFB6C1 // Light pink
+  },
+  {
+    id: 'artist',
+    name: 'Artist',
+    description: 'Nghệ sĩ tài năng với khả năng sáng tạo không giới hạn',
+    price: 600,
+    emoji: '🎨',
+    category: 'roles',
+    roleColor: 0xFF6347 // Tomato
+  },
+  {
+    id: 'foodie',
+    name: 'Foodie',
+    description: 'Hội yêu ẩm thực và đam mê khám phá món ăn mới',
+    price: 400,
+    emoji: '🍜',
+    category: 'roles',
+    roleColor: 0x32CD32 // Lime green
   },
   {
     id: 'early_bird',
@@ -362,20 +396,12 @@ export default class ShopModule {
                     let role = guild.roles.cache.find(r => r.name === item.name);
                     
                     if (!role) {
-                      // Tạo role mới với màu ngẫu nhiên
-                      const colors = [
-                        0xFF69B4, // Hot pink
-                        0x9370DB, // Medium purple
-                        0x00CED1, // Dark turquoise
-                        0xFFD700, // Gold
-                        0xFF6347, // Tomato
-                        0x32CD32, // Lime green
-                      ];
-                      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                      // Tạo role mới với màu riêng biệt
+                      const roleColor = item.roleColor || 0xFF69B4; // Default hot pink nếu không có màu
                       
                       role = await guild.roles.create({
                         name: item.name,
-                        color: randomColor,
+                        color: roleColor,
                         reason: `Auto-created by shop purchase - ${item.name}`
                       });
                       roleCreated = true;
