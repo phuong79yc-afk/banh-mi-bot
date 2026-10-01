@@ -1,7 +1,0 @@
-{
-  "name": "quickreport-module",
-  "version": "1.0.0",
-  "description": "Quick Report - Context menu message reporting with UUID tracking",
-  "enabled": true,
-  "priority": 14
-}

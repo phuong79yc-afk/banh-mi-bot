@@ -1,0 +1,52 @@
+{
+  "serverName": "♪♫ Party Zone ◉",
+  "categories": [
+    {
+      "name": "🎉 ENTRANCE",
+      "emoji": "🎉",
+      "channels": [
+        {"name": "♪ welcome", "type": 0, "emoji": "👋"},
+        {"name": "◉ rules", "type": 0, "emoji": "📜"},
+        {"name": "🎊 announcements", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "🎵 MUSIC ZONE",
+      "emoji": "🎵",
+      "channels": [
+        {"name": "♫ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "🎶 music-share", "type": 0, "emoji": "🎵"},
+        {"name": "◎ playlist-collab", "type": 0, "emoji": "📀"},
+        {"name": "♪ song-requests", "type": 0, "emoji": "🎤"},
+        {"name": "⊙ concert-talk", "type": 0, "emoji": "🎸"}
+      ]
+    },
+    {
+      "name": "🪩 PARTY ZONE",
+      "emoji": "🪩",
+      "channels": [
+        {"name": "◉ events", "type": 0, "emoji": "🎉"},
+        {"name": "♬ karaoke-queue", "type": 0, "emoji": "🎤"},
+        {"name": "⊚ memes", "type": 0, "emoji": "😂"}
+      ]
+    },
+    {
+      "name": "🎧 VOICE",
+      "emoji": "🎧",
+      "channels": [
+        {"name": "【🎧 DJ Room】", "type": 2, "emoji": "🎧"},
+        {"name": "♪ Listening Party", "type": 2, "emoji": "🎵"},
+        {"name": "◉ Karaoke Stage", "type": 2, "emoji": "🎤"},
+        {"name": "♫ Chill Lounge", "type": 2, "emoji": "🎶"},
+        {"name": "⊙ AFK", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#FF1493", "permissions": []},
+    {"name": "DJ", "emoji": "🎧", "color": "#FF69B4", "permissions": []},
+    {"name": "Moderator", "emoji": "🎵", "color": "#DDA0DD", "permissions": []},
+    {"name": "VIP", "emoji": "⭐", "color": "#FFD700", "permissions": []},
+    {"name": "Member", "emoji": "♪", "color": "#BA55D3", "permissions": []}
+  ]
+}

@@ -27,6 +27,7 @@ export class ModuleLoader {
   private modulesPath: string;
   private loadedModules: Map<string, LoadedModule>;
   private commandsPath: string;
+  private metadataCache: Map<string, ModuleMetadata>; // ⚡ Cache optimization
 
   constructor(client: Client, modulesPath: string = 'modules', commandsPath: string = 'commands') {
     this.client = client;
@@ -46,6 +47,7 @@ export class ModuleLoader {
     }
     
     this.loadedModules = new Map();
+    this.metadataCache = new Map(); // ⚡ Initialize cache
   }
 
   /**
@@ -76,29 +78,38 @@ export class ModuleLoader {
 
     // Load metadata for all modules first to check priorities
     const moduleInfos = await Promise.all(
-      moduleDirs.map(async (dir) => {
-        const metadataPath = path.join(this.modulesPath, dir, 'metadata.json');
-        let metadata: ModuleMetadata;
+      moduleDirs.map(async (dir): Promise<{ dir: string; metadata: ModuleMetadata }> => {
+        // ⚡ Check cache first
+        let metadata = this.metadataCache.get(dir);
         
-        if (fs.existsSync(metadataPath)) {
-          const content = fs.readFileSync(metadataPath, 'utf-8');
-          metadata = JSON.parse(content);
-        } else {
-          metadata = {
-            name: dir,
-            version: '1.0.0',
-            description: 'No description',
-            enabled: true,
-            priority: 999
-          };
+        if (!metadata) {
+          const metadataPath = path.join(this.modulesPath, dir, 'metadata.json');
+          
+          if (fs.existsSync(metadataPath)) {
+            const content = fs.readFileSync(metadataPath, 'utf-8');
+            metadata = JSON.parse(content);
+          } else {
+            metadata = {
+              name: dir,
+              version: '1.0.0',
+              description: 'No description',
+              enabled: true,
+              priority: 999
+            };
+          }
+          
+          // ⚡ Cache metadata
+          if (metadata) {
+            this.metadataCache.set(dir, metadata);
+          }
         }
         
-        return { dir, metadata };
+        return { dir, metadata: metadata as ModuleMetadata };
       })
     );
 
     // Sort by priority (lower = load first)
-    moduleInfos.sort((a, b) => (a.metadata.priority || 999) - (b.metadata.priority || 999));
+    moduleInfos.sort((a, b) => (a.metadata?.priority || 999) - (b.metadata?.priority || 999));
 
     // ⚡ Parallel loading with Promise.allSettled (inspired by SwitLoader)
     const loadPromises = moduleInfos.map(({ dir }) => this.loadModule(dir));

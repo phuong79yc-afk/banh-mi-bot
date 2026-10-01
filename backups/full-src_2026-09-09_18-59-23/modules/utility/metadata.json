@@ -1,7 +1,0 @@
-{
-  "name": "utility",
-  "version": "1.0.0",
-  "description": "Utility commands with animations",
-  "enabled": true,
-  "main_class": "UtilityModule"
-}

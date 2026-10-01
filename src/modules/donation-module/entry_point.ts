@@ -26,9 +26,9 @@ export default class DonationModule {
   }
 
   async initialize() {
-    console.log('💰 Donation module initialized');
+    console.log(`${emojis.coin} Donation module initialized`);
     this.registerCommands();
-    console.log(`✅ Donation module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Donation module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -42,7 +42,7 @@ export default class DonationModule {
         donationManager.updateConfig(interaction.guildId!, { enabled: true });
 
         await interaction.reply({
-          content: '✅ Donation tracking enabled!',
+          content: '${emojis.success} Donation tracking enabled!',
           flags: 64
         });
       }
@@ -58,7 +58,7 @@ export default class DonationModule {
         donationManager.updateConfig(interaction.guildId!, { enabled: false });
 
         await interaction.reply({
-          content: '✅ Donation tracking disabled!',
+          content: '${emojis.success} Donation tracking disabled!',
           flags: 64
         });
       }
@@ -93,7 +93,7 @@ export default class DonationModule {
 
         if (!config.enabled) {
           return interaction.reply({
-            content: '❌ Donation tracking is not enabled!',
+            content: '${emojis.error} Donation tracking is not enabled!',
             flags: 64
           });
         }
@@ -104,7 +104,7 @@ export default class DonationModule {
         if (!donationManager.canReceive(interaction.guildId!, roleIds) && 
             !member.permissions.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({
-            content: '❌ You do not have permission to add donations!',
+            content: '${emojis.error} You do not have permission to add donations!',
             flags: 64
           });
         }
@@ -140,7 +140,7 @@ export default class DonationModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x10b981)
-          .setTitle('💰 Donation Added')
+          .setTitle('${emojis.coin} Donation Added')
           .addFields(
             { name: 'Donor', value: `<@${user.id}>`, inline: true },
             { name: 'Amount', value: `$${amount.toFixed(2)}`, inline: true },
@@ -211,7 +211,7 @@ export default class DonationModule {
 
         if (!donor) {
           return interaction.reply({
-            content: '❌ User has no donation record!',
+            content: '${emojis.error} User has no donation record!',
             flags: 64
           });
         }
@@ -258,7 +258,7 @@ export default class DonationModule {
 
         const embed = new EmbedBuilder()
           .setColor(0xfbbf24)
-          .setTitle('🏆 Donation Leaderboard')
+          .setTitle('${emojis.trophy} Donation Leaderboard')
           .setDescription(
             leaderboard
               .map((donor, i) => {
@@ -269,7 +269,7 @@ export default class DonationModule {
           )
           .addFields(
             { 
-              name: '📊 Statistics', 
+              name: '${emojis.chart} Statistics', 
               value: `Total Donors: **${stats.totalDonors}**\nTotal Donated: **$${stats.totalAmount.toFixed(2)}**\nAverage: **$${stats.avgDonation.toFixed(2)}**`,
               inline: false
             }
@@ -308,7 +308,7 @@ export default class DonationModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x3b82f6)
-          .setTitle(`💰 Donation Stats - ${donor.username}`)
+          .setTitle(`${emojis.coin} Donation Stats - ${donor.username}`)
           .addFields(
             { name: 'Total Donated', value: `$${donor.totalAmount.toFixed(2)}`, inline: true },
             { name: 'Total Donations', value: donor.donations.length.toString(), inline: true },
@@ -399,7 +399,7 @@ export default class DonationModule {
             donationManager.updateConfig(interaction.guildId!, config);
           }
           return interaction.reply({
-            content: `✅ Added ${role} as a receiver role!`,
+            content: `${emojis.success} Added ${role} as a receiver role!`,
             flags: 64
           });
         }
@@ -409,7 +409,7 @@ export default class DonationModule {
           config.receiverRoleIds = config.receiverRoleIds.filter(id => id !== role.id);
           donationManager.updateConfig(interaction.guildId!, config);
           return interaction.reply({
-            content: `✅ Removed ${role} from receiver roles!`,
+            content: `${emojis.success} Removed ${role} from receiver roles!`,
             flags: 64
           });
         }
@@ -419,7 +419,7 @@ export default class DonationModule {
           const threshold = interaction.options.getNumber('threshold', true);
           donationManager.addRoleReward(interaction.guildId!, role.id, threshold);
           return interaction.reply({
-            content: `✅ Added ${role} as a reward for $${threshold.toFixed(2)}!`,
+            content: `${emojis.success} Added ${role} as a reward for $${threshold.toFixed(2)}!`,
             flags: 64
           });
         }
@@ -428,7 +428,7 @@ export default class DonationModule {
           const role = interaction.options.getRole('role', true);
           donationManager.removeRoleReward(interaction.guildId!, role.id);
           return interaction.reply({
-            content: `✅ Removed ${role} from role rewards!`,
+            content: `${emojis.success} Removed ${role} from role rewards!`,
             flags: 64
           });
         }
@@ -437,7 +437,7 @@ export default class DonationModule {
           const channel = interaction.options.getChannel('channel', true);
           donationManager.updateConfig(interaction.guildId!, { notificationChannelId: channel.id });
           return interaction.reply({
-            content: `✅ Set notification channel to <#${channel.id}>!`,
+            content: `${emojis.success} Set notification channel to <#${channel.id}>!`,
             flags: 64
           });
         }
@@ -446,7 +446,7 @@ export default class DonationModule {
           const message = interaction.options.getString('message', true);
           donationManager.updateConfig(interaction.guildId!, { thankYouMessage: message });
           return interaction.reply({
-            content: `✅ Updated thank you message!`,
+            content: `${emojis.success} Updated thank you message!`,
             flags: 64
           });
         }
@@ -454,11 +454,11 @@ export default class DonationModule {
         if (subcommand === 'view') {
           const embed = new EmbedBuilder()
             .setColor(0x3b82f6)
-            .setTitle('💰 Donation Configuration')
+            .setTitle('${emojis.coin} Donation Configuration')
             .addFields(
               {
                 name: 'Status',
-                value: config.enabled ? '✅ Enabled' : '❌ Disabled',
+                value: config.enabled ? '${emojis.success} Enabled' : '${emojis.error} Disabled',
                 inline: true
               },
               {

@@ -26,9 +26,9 @@ export default class CustomRoleModule {
   }
 
   async initialize() {
-    console.log('🎨 Custom Role module initialized');
+    console.log(`${emojis.art} Custom Role module initialized`);
     this.registerCommands();
-    console.log(`✅ Custom Role module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Custom Role module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -55,7 +55,7 @@ export default class CustomRoleModule {
         });
 
         await interaction.reply({
-          content: `✅ Custom role system enabled! Max roles per user: **${maxRoles}**`,
+          content: `${emojis.success} Custom role system enabled! Max roles per user: **${maxRoles}**`,
           flags: 64
         });
       }
@@ -71,7 +71,7 @@ export default class CustomRoleModule {
         customRoleManager.updateConfig(interaction.guildId!, { enabled: false });
 
         await interaction.reply({
-          content: '✅ Custom role system disabled!',
+          content: '${emojis.success} Custom role system disabled!',
           flags: 64
         });
       }
@@ -81,7 +81,7 @@ export default class CustomRoleModule {
     const colorPaletteCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-color-palette')
-        .setDescription('🎨 Đặt màu role cho phép (để trống = tất cả)')
+        .setDescription('${emojis.art} Đặt màu role cho phép (để trống = tất cả)')
         .addStringOption(option =>
           option
             .setName('colors')
@@ -95,7 +95,7 @@ export default class CustomRoleModule {
         if (!colorsStr) {
           customRoleManager.updateConfig(interaction.guildId!, { allowedColors: [] });
           return interaction.reply({
-            content: '✅ All colors are now allowed!',
+            content: '${emojis.success} All colors are now allowed!',
             flags: 64
           });
         }
@@ -105,7 +105,7 @@ export default class CustomRoleModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x5865f2)
-          .setTitle('🎨 Color Palette Updated')
+          .setTitle('${emojis.art} Color Palette Updated')
           .setDescription(`Allowed colors:\n${colors.map(c => `• \`${c}\``).join('\n')}`)
           .setTimestamp();
 
@@ -164,12 +164,12 @@ export default class CustomRoleModule {
           });
 
           await interaction.editReply({
-            content: `✅ Created custom role **${name}** for ${user}`
+            content: `${emojis.success} Created custom role **${name}** for ${user}`
           });
 
         } catch (error) {
           await interaction.editReply({
-            content: `❌ Error: ${error instanceof Error ? error.message : 'Failed to create role'}`
+            content: `${emojis.error} Error: ${error instanceof Error ? error.message : 'Failed to create role'}`
           });
         }
       }
@@ -212,7 +212,7 @@ export default class CustomRoleModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x5865f2)
-            .setTitle('🎨 Custom Roles')
+            .setTitle('${emojis.art} Custom Roles')
             .setDescription(
               roles
                 .map((r, i) => `${i + 1}. <@${r.userId}> - **${r.name}** (\`${r.color}\`)`)
@@ -229,7 +229,7 @@ export default class CustomRoleModule {
 
           if (!roleData) {
             return interaction.reply({
-              content: `❌ ${user} doesn't have a custom role.`,
+              content: `${emojis.error} ${user} doesn't have a custom role.`,
               flags: 64
             });
           }
@@ -243,11 +243,11 @@ export default class CustomRoleModule {
             customRoleManager.removeRole(interaction.guildId!, user.id);
 
             await interaction.editReply({
-              content: `✅ Deleted custom role **${roleData.name}** from ${user}`
+              content: `${emojis.success} Deleted custom role **${roleData.name}** from ${user}`
             });
           } catch (error) {
             await interaction.editReply({
-              content: `❌ Error: ${error instanceof Error ? error.message : 'Failed to delete role'}`
+              content: `${emojis.error} Error: ${error instanceof Error ? error.message : 'Failed to delete role'}`
             });
           }
         }
@@ -258,7 +258,7 @@ export default class CustomRoleModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-migrate')
-        .setDescription('🔄 Chuyển role tùy chỉnh sang server khác')
+        .setDescription('${emojis.refresh} Chuyển role tùy chỉnh sang server khác')
         .addStringOption(option =>
           option
             .setName('target-guild-id')
@@ -276,7 +276,7 @@ export default class CustomRoleModule {
           
           if (!targetGuild) {
             return interaction.editReply({
-              content: '❌ Bot is not in that server!'
+              content: '${emojis.error} Bot is not in that server!'
             });
           }
 
@@ -287,10 +287,10 @@ export default class CustomRoleModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
-            .setTitle('✅ Migration Complete')
+            .setTitle('${emojis.success} Migration Complete')
             .addFields(
-              { name: '✅ Success', value: result.success.toString(), inline: true },
-              { name: '❌ Failed', value: result.failed.toString(), inline: true }
+              { name: '${emojis.success} Success', value: result.success.toString(), inline: true },
+              { name: '${emojis.error} Failed', value: result.failed.toString(), inline: true }
             )
             .setDescription(`Migrated custom roles from **${interaction.guild!.name}** to **${targetGuild.name}**`)
             .setTimestamp();
@@ -299,7 +299,7 @@ export default class CustomRoleModule {
 
         } catch (error) {
           await interaction.editReply({
-            content: `❌ Error: ${error instanceof Error ? error.message : 'Migration failed'}`
+            content: `${emojis.error} Error: ${error instanceof Error ? error.message : 'Migration failed'}`
           });
         }
       }
@@ -309,7 +309,7 @@ export default class CustomRoleModule {
     const terminateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-terminate')
-        .setDescription('⚠️ Xóa TẤT CẢ role tùy chỉnh và tắt hệ thống')
+        .setDescription('${emojis.warning} Xóa TẤT CẢ role tùy chỉnh và tắt hệ thống')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await interaction.deferReply({ flags: 64 });
@@ -333,7 +333,7 @@ export default class CustomRoleModule {
         customRoleManager.updateConfig(interaction.guildId!, { enabled: false });
 
         await interaction.editReply({
-          content: `✅ Terminated custom role system. Deleted **${deleted}** roles.`
+          content: `${emojis.success} Terminated custom role system. Deleted **${deleted}** roles.`
         });
       }
     };

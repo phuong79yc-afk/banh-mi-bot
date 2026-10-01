@@ -35,10 +35,10 @@ export default class QuickReportModule {
   }
 
   async initialize() {
-    console.log('📋 Quick Report module initialized');
+    console.log(`${emojis.copy} Quick Report module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Quick Report module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Quick Report module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -52,14 +52,14 @@ export default class QuickReportModule {
 
         if (!config.enabled) {
           return interaction.reply({
-            content: '❌ Quick Report is not enabled in this server!',
+            content: '${emojis.error} Quick Report is not enabled in this server!',
             flags: 64
           });
         }
 
         if (!config.reportChannelId) {
           return interaction.reply({
-            content: '❌ No report channel configured! Contact an administrator.',
+            content: '${emojis.error} No report channel configured! Contact an administrator.',
             flags: 64
           });
         }
@@ -72,7 +72,7 @@ export default class QuickReportModule {
         
         if (!reportManager.isChannelAllowed(interaction.guildId!, message.channelId, categoryId)) {
           return interaction.reply({
-            content: '❌ Reports are not allowed in this channel!',
+            content: '${emojis.error} Reports are not allowed in this channel!',
             flags: 64
           });
         }
@@ -80,7 +80,7 @@ export default class QuickReportModule {
         // Cannot report own message
         if (message.author.id === interaction.user.id) {
           return interaction.reply({
-            content: '❌ You cannot report your own message!',
+            content: '${emojis.error} You cannot report your own message!',
             flags: 64
           });
         }
@@ -88,7 +88,7 @@ export default class QuickReportModule {
         // Cannot report bot messages
         if (message.author.bot) {
           return interaction.reply({
-            content: '❌ You cannot report bot messages!',
+            content: '${emojis.error} You cannot report bot messages!',
             flags: 64
           });
         }
@@ -134,7 +134,7 @@ export default class QuickReportModule {
         });
 
         await interaction.reply({
-          content: `✅ Quick Report enabled! Reports will be sent to <#${channel.id}>`,
+          content: `${emojis.success} Quick Report enabled! Reports will be sent to <#${channel.id}>`,
           flags: 64
         });
       }
@@ -150,7 +150,7 @@ export default class QuickReportModule {
         reportManager.updateConfig(interaction.guildId!, { enabled: false });
 
         await interaction.reply({
-          content: '✅ Quick Report disabled!',
+          content: '${emojis.success} Quick Report disabled!',
           flags: 64
         });
       }
@@ -208,7 +208,7 @@ export default class QuickReportModule {
             reportManager.updateConfig(interaction.guildId!, config);
           }
           return interaction.reply({
-            content: `✅ Added ${role} as a manager role!`,
+            content: `${emojis.success} Added ${role} as a manager role!`,
             flags: 64
           });
         }
@@ -218,7 +218,7 @@ export default class QuickReportModule {
           config.managerRoleIds = config.managerRoleIds.filter(id => id !== role.id);
           reportManager.updateConfig(interaction.guildId!, config);
           return interaction.reply({
-            content: `✅ Removed ${role} from manager roles!`,
+            content: `${emojis.success} Removed ${role} from manager roles!`,
             flags: 64
           });
         }
@@ -230,7 +230,7 @@ export default class QuickReportModule {
             reportManager.updateConfig(interaction.guildId!, config);
           }
           return interaction.reply({
-            content: `✅ Blacklisted <#${channel.id}> from reports!`,
+            content: `${emojis.success} Blacklisted <#${channel.id}> from reports!`,
             flags: 64
           });
         }
@@ -242,7 +242,7 @@ export default class QuickReportModule {
             reportManager.updateConfig(interaction.guildId!, config);
           }
           return interaction.reply({
-            content: `✅ Whitelisted <#${channel.id}> for reports!`,
+            content: `${emojis.success} Whitelisted <#${channel.id}> for reports!`,
             flags: 64
           });
         }
@@ -250,11 +250,11 @@ export default class QuickReportModule {
         if (subcommand === 'view') {
           const embed = new EmbedBuilder()
             .setColor(0x3b82f6)
-            .setTitle('📋 Quick Report Configuration')
+            .setTitle('${emojis.copy} Quick Report Configuration')
             .addFields(
               {
                 name: 'Status',
-                value: config.enabled ? '✅ Enabled' : '❌ Disabled',
+                value: config.enabled ? '${emojis.success} Enabled' : '${emojis.error} Disabled',
                 inline: true
               },
               {
@@ -321,7 +321,7 @@ export default class QuickReportModule {
 
         if (!reportManager.isManager(interaction.guildId!, roleIds) && !member.permissions.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({
-            content: '❌ You do not have permission to update reports!',
+            content: '${emojis.error} You do not have permission to update reports!',
             flags: 64
           });
         }
@@ -330,13 +330,13 @@ export default class QuickReportModule {
 
         if (!report) {
           return interaction.reply({
-            content: '❌ Report not found!',
+            content: '${emojis.error} Report not found!',
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Report \`${reportId}\` updated to **${status}**!`,
+          content: `${emojis.success} Report \`${reportId}\` updated to **${status}**!`,
           flags: 64
         });
       }
@@ -367,11 +367,11 @@ export default class QuickReportModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x3b82f6)
-          .setTitle('📋 Recent Reports')
+          .setTitle('${emojis.copy} Recent Reports')
           .setDescription(
             reports
               .map((r, i) => {
-                const status = r.status === 'pending' ? '⏳' : r.status === 'resolved' ? '✅' : '🔒';
+                const status = r.status === 'pending' ? '${emojis.loading}' : r.status === 'resolved' ? '${emojis.success}' : '${emojis.lock}';
                 return `${i + 1}. ${status} \`${r.id}\` - <@${r.messageAuthorId}> (<t:${Math.floor(r.createdAt / 1000)}:R>)`;
               })
               .join('\n')
@@ -399,16 +399,16 @@ export default class QuickReportModule {
 
         if (!report) {
           return interaction.reply({
-            content: '❌ Report not found!',
+            content: '${emojis.error} Report not found!',
             flags: 64
           });
         }
 
-        const statusEmoji = report.status === 'pending' ? '⏳' : report.status === 'resolved' ? '✅' : '🔒';
+        const statusEmoji = report.status === 'pending' ? '${emojis.loading}' : report.status === 'resolved' ? '${emojis.success}' : '${emojis.lock}';
 
         const embed = new EmbedBuilder()
           .setColor(0x3b82f6)
-          .setTitle(`📋 Report ${statusEmoji} ${report.status.toUpperCase()}`)
+          .setTitle(`${emojis.copy} Report ${statusEmoji} ${report.status.toUpperCase()}`)
           .addFields(
             { name: 'Report ID', value: `\`${report.id}\``, inline: false },
             { name: 'Reported User', value: `<@${report.messageAuthorId}>`, inline: true },
@@ -447,7 +447,7 @@ export default class QuickReportModule {
         const message = await interaction.channel?.messages.fetch(messageId);
         if (!message) {
           return interaction.reply({
-            content: '❌ Message not found!',
+            content: '${emojis.error} Message not found!',
             flags: 64
           });
         }
@@ -492,13 +492,13 @@ export default class QuickReportModule {
         }
 
         await interaction.reply({
-          content: `✅ Report submitted! ID: \`${report.id}\``,
+          content: `${emojis.success} Report submitted! ID: \`${report.id}\``,
           flags: 64
         });
       } catch (error) {
         console.error('Error handling report:', error);
         await interaction.reply({
-          content: '❌ Failed to submit report!',
+          content: '${emojis.error} Failed to submit report!',
           flags: 64
         });
       }
@@ -508,14 +508,14 @@ export default class QuickReportModule {
     this.client.on('guildMemberRemove', async (member) => {
       const deleted = reportManager.deleteReportsByUser(member.guild.id, member.id);
       if (deleted > 0) {
-        console.log(`🗑️ Auto-deleted ${deleted} reports for user ${member.id}`);
+        console.log(`${emojis.delete} Auto-deleted ${deleted} reports for user ${member.id}`);
       }
     });
 
     this.client.on('guildBanAdd', async (ban) => {
       const deleted = reportManager.deleteReportsByUser(ban.guild.id, ban.user.id);
       if (deleted > 0) {
-        console.log(`🗑️ Auto-deleted ${deleted} reports for banned user ${ban.user.id}`);
+        console.log(`${emojis.delete} Auto-deleted ${deleted} reports for banned user ${ban.user.id}`);
       }
     });
   }

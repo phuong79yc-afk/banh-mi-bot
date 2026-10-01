@@ -694,39 +694,9 @@ export function setupPrefixCommands(client: Client) {
         }
       }
 
-      // AFK command
+      // AFK command - Disabled (module removed)
       else if (commandName === 'afk') {
-        const reason = args.join(' ') || 'AFK';
-        
-        // Import AFKManager
-        const { AFKManager } = await import('../modules/afk-module/AFKManager');
-        const afkManager = new AFKManager();
-        
-        // Try to change nickname and store old one
-        let oldNickname: string | undefined;
-        try {
-          const member = message.guild?.members.cache.get(message.author.id);
-          if (member && member.manageable) {
-            const currentNick = member.nickname || member.user.username;
-            if (!currentNick.startsWith('[AFK]')) {
-              oldNickname = member.nickname || undefined;
-              await member.setNickname(`[AFK] ${currentNick}`);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to change nickname:', error);
-        }
-
-        // Set AFK
-        afkManager.setAFK(message.guildId!, message.author.id, reason);
-
-        const embed = createEnhancedEmbed({
-          title: '💤 AFK Status Set',
-          description: `You are now AFK: **${reason}**\n\nType any message to remove AFK status`,
-          color: 'warning',
-        });
-
-        await message.reply({ embeds: [embed] });
+        await message.reply(`${emojis.error} AFK module đã bị gỡ bỏ!`);
       }
 
       // Help command

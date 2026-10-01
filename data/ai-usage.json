@@ -2,17 +2,16 @@
   {
     "userId": "923215778776481793",
     "username": "tran.tuan",
-    "tier": "premium",
+    "tier": "free",
     "dailyUsage": {
-      "date": "2026-09-07",
+      "date": "2026-09-24",
       "aiTextRequests": 1,
       "aiImageRequests": 0
     },
     "totalUsage": {
-      "aiTextRequests": 93,
+      "aiTextRequests": 95,
       "aiImageRequests": 3
-    },
-    "premiumExpiry": "2026-09-23T10:07:23.113Z"
+    }
   },
   {
     "userId": "1144806767595900979",

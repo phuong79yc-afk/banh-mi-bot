@@ -21,7 +21,7 @@ export default class AutoresponderModule {
     console.log('🤖 Autoresponder module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Autoresponder module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Autoresponder module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -78,13 +78,13 @@ export default class AutoresponderModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         const embed = createEnhancedEmbed({
-          title: '✅ Autoresponder Added',
+          title: '${emojis.success} Autoresponder Added',
           description: 'Successfully created autoresponder!',
           color: 'success'
         })
@@ -120,13 +120,13 @@ export default class AutoresponderModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Successfully deleted autoresponder with trigger \`${trigger}\`!`,
+          content: `${emojis.success} Successfully deleted autoresponder with trigger \`${trigger}\`!`,
           flags: 64
         });
       }
@@ -149,7 +149,7 @@ export default class AutoresponderModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x667eea)
-          .setTitle('📋 Autoresponders')
+          .setTitle('${emojis.copy} Autoresponders')
           .setDescription(
             `This guild has **${autoresponders.length}** autoresponder(s).\n\n` +
             autoresponders
@@ -180,14 +180,14 @@ export default class AutoresponderModule {
 
         if (!autoresponder) {
           return interaction.reply({
-            content: `❌ No autoresponder found with trigger \`${trigger}\``,
+            content: `${emojis.error} No autoresponder found with trigger \`${trigger}\``,
             flags: 64
           });
         }
 
         const embed = new EmbedBuilder()
           .setColor(0x667eea)
-          .setTitle('🔍 Autoresponder Details')
+          .setTitle('${emojis.search} Autoresponder Details')
           .addFields(
             { name: 'Trigger', value: `\`${autoresponder.trigger}\``, inline: true },
             { name: 'Mode', value: autoresponder.mode, inline: true },
@@ -239,13 +239,13 @@ export default class AutoresponderModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Successfully updated match mode to **${mode}** for trigger \`${trigger}\`!`,
+          content: `${emojis.success} Successfully updated match mode to **${mode}** for trigger \`${trigger}\`!`,
           flags: 64
         });
       }
@@ -263,7 +263,7 @@ export default class AutoresponderModule {
           .setDescription('Use these placeholders in your autoresponder responses:')
           .addFields(
             {
-              name: '👤 User Placeholders',
+              name: '${emojis.user} User Placeholders',
               value: 
                 '`{user}` - Username\n' +
                 '`{user.mention}` - Mention user\n' +
@@ -278,7 +278,7 @@ export default class AutoresponderModule {
                 '`{server.name}` - Server name'
             },
             {
-              name: '💬 Channel & Message Placeholders',
+              name: '${emojis.message} Channel & Message Placeholders',
               value: 
                 '`{channel}` - Channel name\n' +
                 '`{channel.name}` - Channel name\n' +

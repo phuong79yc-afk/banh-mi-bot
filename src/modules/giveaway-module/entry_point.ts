@@ -27,10 +27,10 @@ export default class GiveawayModule {
   }
 
   async initialize() {
-    console.log('🎁 Giveaway module initialized');
+    console.log(`${emojis.gift} Giveaway module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Giveaway module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Giveaway module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -38,7 +38,7 @@ export default class GiveawayModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-migrate')
-        .setDescription('🔄 Chuyển giveaway sang server khác')
+        .setDescription('${emojis.refresh} Chuyển giveaway sang server khác')
         .addStringOption(option =>
           option
             .setName('target-guild-id')
@@ -56,7 +56,7 @@ export default class GiveawayModule {
           
           if (!targetGuild) {
             return interaction.editReply({
-              content: '❌ Bot is not in that server!'
+              content: '${emojis.error} Bot is not in that server!'
             });
           }
 
@@ -67,7 +67,7 @@ export default class GiveawayModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
-            .setTitle('✅ Migration Complete')
+            .setTitle('${emojis.success} Migration Complete')
             .setDescription(
               `Migrated **${migrated}** giveaway(s) from **${interaction.guild!.name}** to **${targetGuild.name}**`
             )
@@ -77,7 +77,7 @@ export default class GiveawayModule {
 
         } catch (error) {
           await interaction.editReply({
-            content: `❌ Error: ${error instanceof Error ? error.message : 'Migration failed'}`
+            content: `${emojis.error} Error: ${error instanceof Error ? error.message : 'Migration failed'}`
           });
         }
       }
@@ -97,21 +97,21 @@ export default class GiveawayModule {
 
         if (!giveaway) {
           return interaction.reply({
-            content: '❌ This giveaway no longer exists!',
+            content: '${emojis.error} This giveaway no longer exists!',
             flags: 64
           });
         }
 
         if (giveaway.ended) {
           return interaction.reply({
-            content: '❌ This giveaway has ended!',
+            content: '${emojis.error} This giveaway has ended!',
             flags: 64
           });
         }
 
         if (Date.now() > giveaway.endsAt) {
           return interaction.reply({
-            content: '❌ This giveaway has expired!',
+            content: '${emojis.error} This giveaway has expired!',
             flags: 64
           });
         }
@@ -120,12 +120,12 @@ export default class GiveawayModule {
 
         if (added) {
           await interaction.reply({
-            content: `✅ You've entered the giveaway for **${giveaway.prize}**!`,
+            content: `${emojis.success} You've entered the giveaway for **${giveaway.prize}**!`,
             flags: 64
           });
         } else {
           await interaction.reply({
-            content: '⚠️ You\'re already entered in this giveaway!',
+            content: '${emojis.warning} You\'re already entered in this giveaway!',
             flags: 64
           });
         }

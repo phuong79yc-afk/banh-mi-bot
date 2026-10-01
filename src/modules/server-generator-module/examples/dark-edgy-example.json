@@ -1,0 +1,51 @@
+{
+  "serverName": "║█║ Dark Realm ☠",
+  "categories": [
+    {
+      "name": "🖤 ENTRANCE",
+      "emoji": "🖤",
+      "channels": [
+        {"name": "⚡ welcome", "type": 0, "emoji": "👋"},
+        {"name": "║█║ rules", "type": 0, "emoji": "📜"},
+        {"name": "▓ announcements", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "💀 COMMUNITY",
+      "emoji": "💀",
+      "channels": [
+        {"name": "☠ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "║█║ dark-talk", "type": 0, "emoji": "🌑"},
+        {"name": "⛧ occult", "type": 0, "emoji": "🔮"},
+        {"name": "▓ art-gallery", "type": 0, "emoji": "🎨"},
+        {"name": "⚡ memes", "type": 0, "emoji": "😈"}
+      ]
+    },
+    {
+      "name": "🔥 GAMING",
+      "emoji": "🔥",
+      "channels": [
+        {"name": "╠═ gaming", "type": 0, "emoji": "🎮"},
+        {"name": "▌horror-games", "type": 0, "emoji": "👻"},
+        {"name": "☠ competitive", "type": 0, "emoji": "🏆"}
+      ]
+    },
+    {
+      "name": "🎙️ VOICE",
+      "emoji": "🎙️",
+      "channels": [
+        {"name": "【💀 Voice Lobby】", "type": 2, "emoji": "🎙️"},
+        {"name": "║█║ Gaming Room", "type": 2, "emoji": "🎮"},
+        {"name": "▓ Chill Zone", "type": 2, "emoji": "🌑"},
+        {"name": "☠ AFK", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#000000", "permissions": []},
+    {"name": "Admin", "emoji": "☠", "color": "#2C2C2C", "permissions": []},
+    {"name": "Moderator", "emoji": "⚡", "color": "#404040", "permissions": []},
+    {"name": "Dark Lord", "emoji": "💀", "color": "#8B0000", "permissions": []},
+    {"name": "Member", "emoji": "🖤", "color": "#696969", "permissions": []}
+  ]
+}

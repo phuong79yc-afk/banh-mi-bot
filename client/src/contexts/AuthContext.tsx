@@ -44,11 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    console.log('🚪 Logging out...')
+    
+    // Clear all auth data
     localStorage.removeItem('auth_token')
     localStorage.removeItem('user_role')
     localStorage.removeItem('username')
+    
+    // Clear user state
     setUser(null)
-    navigate('/login')
+    
+    console.log('✅ Auth cleared, redirecting to login...')
+    
+    // Force reload to login page to completely reset state
+    window.location.href = '/login'
   }
 
   return (

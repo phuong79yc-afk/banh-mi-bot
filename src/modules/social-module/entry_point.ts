@@ -104,7 +104,7 @@ export default class SocialModule {
   async initialize() {
     console.log('🎭 Social Interactions module initialized');
     this.registerCommands();
-    console.log(`✅ Social Interactions module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Social Interactions module registered ${this.commands.size} commands`);
   }
 
   private async getGif(searchTerm: string): Promise<string> {
@@ -151,7 +151,7 @@ export default class SocialModule {
           // Prevent interacting with bots (except self-interaction)
           if (targetUser && targetUser.bot && targetUser.id !== cmdInteraction.user.id) {
             return cmdInteraction.reply({
-              content: '❌ You cannot interact with bots!',
+              content: '${emojis.error} You cannot interact with bots!',
               flags: 64
             });
           }
@@ -179,7 +179,7 @@ export default class SocialModule {
           } catch (error) {
             console.error(`Error executing ${interaction.name} command:`, error);
             await cmdInteraction.editReply({
-              content: '❌ Failed to load interaction GIF. Please try again!'
+              content: '${emojis.error} Failed to load interaction GIF. Please try again!'
             });
           }
         }

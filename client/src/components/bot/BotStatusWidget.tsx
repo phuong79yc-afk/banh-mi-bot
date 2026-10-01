@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, Cpu, Wifi } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
-import axios from 'axios'
+import api, { apiEndpoints } from '../../lib/api'
 
 interface BotStatus {
   status: 'online' | 'offline' | 'idle'
@@ -27,8 +27,14 @@ export default function BotStatusWidget() {
 
   const fetchStatus = async () => {
     try {
-      const response = await axios.get('/api/bot/status')
-      setStatus(response.data)
+      // Get full stats from enhanced endpoint
+      const response = await api.get(apiEndpoints.botStats)
+      setStatus({
+        status: response.data.servers > 0 ? 'online' : 'offline',
+        memory: response.data.memory || 0,
+        cpu: Math.min(Math.round((response.data.memory / 512) * 100), 100), // Estimate CPU from memory
+        ping: response.data.ping || 0
+      })
     } catch (error) {
       console.error('Failed to fetch bot status:', error)
       setStatus(prev => ({ ...prev, status: 'offline' }))

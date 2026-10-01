@@ -1,0 +1,64 @@
+{
+  "serverName": "</> Dev Community { }",
+  "categories": [
+    {
+      "name": "💻 WELCOME",
+      "emoji": "💻",
+      "channels": [
+        {"name": "> welcome", "type": 0, "emoji": "👋"},
+        {"name": "{ } rules", "type": 0, "emoji": "📜"},
+        {"name": "⟨📢 announcements⟩", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "⌨️ DEVELOPMENT",
+      "emoji": "⌨️",
+      "channels": [
+        {"name": "▸ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "</> code-help", "type": 0, "emoji": "💡"},
+        {"name": "{ } dev-talk", "type": 0, "emoji": "💻"},
+        {"name": "~$ terminal-chat", "type": 0, "emoji": "⌨️"},
+        {"name": "# issues", "type": 0, "emoji": "🐛"}
+      ]
+    },
+    {
+      "name": "📚 RESOURCES",
+      "emoji": "📚",
+      "channels": [
+        {"name": "▸ tutorials", "type": 0, "emoji": "📖"},
+        {"name": "⟨🔗 links⟩", "type": 0, "emoji": "🔗"},
+        {"name": "[ ] snippets", "type": 0, "emoji": "📝"},
+        {"name": "{ projects }", "type": 0, "emoji": "🚀"}
+      ]
+    },
+    {
+      "name": "🔧 TECH STACK",
+      "emoji": "🔧",
+      "channels": [
+        {"name": "▸ frontend", "type": 0, "emoji": "🎨"},
+        {"name": "▸ backend", "type": 0, "emoji": "⚙️"},
+        {"name": "▸ database", "type": 0, "emoji": "🗃️"},
+        {"name": "▸ devops", "type": 0, "emoji": "🐳"},
+        {"name": "▸ mobile", "type": 0, "emoji": "📱"}
+      ]
+    },
+    {
+      "name": "🎙️ VOICE",
+      "emoji": "🎙️",
+      "channels": [
+        {"name": "【💻 Code Review】", "type": 2, "emoji": "👁️"},
+        {"name": "▸ Pair Programming", "type": 2, "emoji": "⌨️"},
+        {"name": "{ } Study Session", "type": 2, "emoji": "📚"},
+        {"name": "~$ AFK", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#FFD700", "permissions": []},
+    {"name": "Admin", "emoji": "⚙️", "color": "#FF6347", "permissions": []},
+    {"name": "Senior Dev", "emoji": "💻", "color": "#4169E1", "permissions": []},
+    {"name": "Developer", "emoji": "⌨️", "color": "#32CD32", "permissions": []},
+    {"name": "Junior Dev", "emoji": "🔰", "color": "#87CEEB", "permissions": []},
+    {"name": "Member", "emoji": "▸", "color": "#A9A9A9", "permissions": []}
+  ]
+}

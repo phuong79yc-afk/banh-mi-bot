@@ -1,7 +1,0 @@
-{
-  "name": "afk-module",
-  "version": "1.0.0",
-  "description": "AFK System - Set yourself AFK with auto welcome back",
-  "enabled": true,
-  "priority": 12
-}

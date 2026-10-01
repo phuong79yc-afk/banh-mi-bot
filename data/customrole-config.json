@@ -1,7 +1,7 @@
 {
   "1482354951689605150": {
     "guildId": "1482354951689605150",
-    "enabled": false,
+    "enabled": true,
     "maxRoles": 1,
     "allowedColors": [
       "#FF0000"

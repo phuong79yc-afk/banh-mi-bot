@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { TrendingUp, Music, Command, Activity, AlertCircle } from 'lucide-react'
+import { TrendingUp, Command, Activity, AlertCircle, MessageSquare } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import GlassCard from '../components/GlassCard'
-import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
+import api, { apiEndpoints } from '../lib/api'
 
 interface StatsData {
   totalCommands: number
@@ -58,7 +57,7 @@ export default function Statistics() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/api/stats/analytics')
+      const response = await api.get(apiEndpoints.analytics)
       setStats(response.data)
       setLoading(false)
     } catch (err: any) {
@@ -104,12 +103,11 @@ export default function Statistics() {
     )
   }
 
-  const musicGenresData = [
-    { name: 'Pop', value: 35, color: colors.primary },
-    { name: 'Rock', value: 25, color: colors.secondary },
-    { name: 'Hip Hop', value: 20, color: colors.accent },
-    { name: 'EDM', value: 12, color: '#f59e0b' },
-    { name: 'Other', value: 8, color: colors.textSecondary },
+  const emojiUsageData = [
+    { name: 'Custom', value: 45, color: colors.primary },
+    { name: 'Unicode', value: 30, color: colors.secondary },
+    { name: 'Animated', value: 15, color: colors.accent },
+    { name: 'Stickers', value: 10, color: '#f59e0b' },
   ]
 
   return (
@@ -125,18 +123,6 @@ export default function Statistics() {
       {/* Background Overlay */}
       <div className="fixed inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/20 pointer-events-none" />
       
-      {/* Liquid Glass Background */}
-      <LiquidGlass 
-        width="100vw" 
-        height="100vh" 
-        position="fixed"
-        top="0"
-        left="0"
-        glassFrost={0.06}
-        glassSaturation={1.1}
-        borderRadius="0"
-        className="pointer-events-none"
-      />
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
@@ -179,24 +165,24 @@ export default function Statistics() {
           color="bg-gradient-to-br from-[#C67D4D] to-[#A0653E]"
         />
         <StatCard
-          icon={Music}
-          label="Songs Played"
-          value={stats?.songsPlayed?.toLocaleString() || '0'}
-          trend={stats?.songsTrend || '+0%'}
-          color="bg-gradient-to-br from-[#8B5A3C] to-[#6B4423]"
-        />
-        <StatCard
           icon={Activity}
           label="Active Users"
           value={stats?.activeUsers?.toLocaleString() || '0'}
           trend={stats?.usersTrend || '+0%'}
-          color="bg-gradient-to-br from-[#F5B342] to-[#E89F3C]"
+          color="bg-gradient-to-br from-[#8B5A3C] to-[#6B4423]"
         />
         <StatCard
           icon={TrendingUp}
           label="Total Servers"
           value={stats?.totalServers?.toLocaleString() || '0'}
           trend={stats?.serversTrend || '+0%'}
+          color="bg-gradient-to-br from-[#F5B342] to-[#E89F3C]"
+        />
+        <StatCard
+          icon={Activity}
+          label="AI Messages"
+          value={stats?.aiMessages?.toLocaleString() || '0'}
+          trend={stats?.aiTrend || '+0%'}
           color="bg-gradient-to-br from-[#D4A574] to-[#B8925A]"
         />
       </div>
@@ -277,15 +263,15 @@ export default function Statistics() {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Music Genres */}
+        {/* Emoji Usage */}
         <GlassCard className="rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-            Music Genres Distribution
+            Emoji Usage Distribution
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={musicGenresData}
+                data={emojiUsageData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -294,7 +280,7 @@ export default function Statistics() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {musicGenresData.map((entry, index) => (
+                {emojiUsageData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>

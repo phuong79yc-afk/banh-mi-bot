@@ -33,10 +33,10 @@ export default class StickyMessagesModule {
   }
 
   async initialize() {
-    console.log('📌 Sticky Messages module initialized');
+    console.log(`${emojis.pin} Sticky Messages module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Sticky Messages module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Sticky Messages module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -59,7 +59,7 @@ export default class StickyMessagesModule {
         const existing = stickyManager.get(interaction.guildId!, channel.id);
         if (existing) {
           return interaction.reply({
-            content: `❌ Channel <#${channel.id}> already has a sticky message! Remove it first with \`/sticky-remove\`.`,
+            content: `${emojis.error} Channel <#${channel.id}> already has a sticky message! Remove it first with \`/sticky-remove\`.`,
             flags: 64
           });
         }
@@ -103,7 +103,7 @@ export default class StickyMessagesModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
@@ -121,7 +121,7 @@ export default class StickyMessagesModule {
         }
 
         await interaction.reply({
-          content: `✅ Successfully removed sticky message from <#${channel.id}>!`,
+          content: `${emojis.success} Successfully removed sticky message from <#${channel.id}>!`,
           flags: 64
         });
       }
@@ -157,13 +157,13 @@ export default class StickyMessagesModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Changed sticky mode to **${mode === 'threshold' ? 'Message Threshold' : 'Chat Inactive Delay'}** for <#${channel.id}>!`,
+          content: `${emojis.success} Changed sticky mode to **${mode === 'threshold' ? 'Message Threshold' : 'Chat Inactive Delay'}** for <#${channel.id}>!`,
           flags: 64
         });
       }
@@ -197,13 +197,13 @@ export default class StickyMessagesModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Set message threshold to **${threshold}** for <#${channel.id}>!`,
+          content: `${emojis.success} Set message threshold to **${threshold}** for <#${channel.id}>!`,
           flags: 64
         });
       }
@@ -237,13 +237,13 @@ export default class StickyMessagesModule {
 
         if (!result.success) {
           return interaction.reply({
-            content: `❌ ${result.error}`,
+            content: `${emojis.error} ${result.error}`,
             flags: 64
           });
         }
 
         await interaction.reply({
-          content: `✅ Set inactive delay to **${delay} seconds** for <#${channel.id}>!`,
+          content: `${emojis.success} Set inactive delay to **${delay} seconds** for <#${channel.id}>!`,
           flags: 64
         });
       }
@@ -266,14 +266,14 @@ export default class StickyMessagesModule {
 
         if (!sticky) {
           return interaction.reply({
-            content: `❌ No sticky message found in <#${channel.id}>!`,
+            content: `${emojis.error} No sticky message found in <#${channel.id}>!`,
             flags: 64
           });
         }
 
         const embed = new EmbedBuilder()
           .setColor(0x667eea)
-          .setTitle(`📌 Sticky Message Configuration`)
+          .setTitle(`${emojis.pin} Sticky Message Configuration`)
           .setDescription(`Configuration for <#${channel.id}>`)
           .addFields(
             { name: 'Mode', value: sticky.mode === 'threshold' ? 'Message Threshold' : 'Chat Inactive Delay', inline: true },
@@ -307,7 +307,7 @@ export default class StickyMessagesModule {
 
         const embed = new EmbedBuilder()
           .setColor(0x667eea)
-          .setTitle('📌 Sticky Messages')
+          .setTitle('${emojis.pin} Sticky Messages')
           .setDescription(
             `This guild has **${stickies.length}** sticky message(s).\n\n` +
             stickies
@@ -354,7 +354,7 @@ export default class StickyMessagesModule {
 
       if (!result.success) {
         return interaction.reply({
-          content: `❌ ${result.error}`,
+          content: `${emojis.error} ${result.error}`,
           flags: 64
         });
       }
@@ -370,13 +370,13 @@ export default class StickyMessagesModule {
         stickyManager.updateLastMessageId(interaction.guildId!, channelId, sent.id);
 
         await interaction.reply({
-          content: `✅ Successfully created sticky message in <#${channelId}>!`,
+          content: `${emojis.success} Successfully created sticky message in <#${channelId}>!`,
           flags: 64
         });
       } catch (error) {
         console.error('Error posting sticky:', error);
         await interaction.reply({
-          content: '❌ Failed to post sticky message!',
+          content: '${emojis.error} Failed to post sticky message!',
           flags: 64
         });
       }

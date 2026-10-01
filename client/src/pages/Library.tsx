@@ -3,7 +3,7 @@ import { Search, Music, Play, Clock, TrendingUp } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import GlassCard from '../components/GlassCard'
 import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
+import api, { apiEndpoints } from '../lib/api'
 
 interface Song {
   id: string
@@ -37,7 +37,7 @@ export default function Library() {
     setSongs(getFallbackSongs())
     
     try {
-      const response = await axios.get('/api/music/library', { 
+      const response = await api.get(apiEndpoints.musicLibrary, { 
         timeout: 30000 // 30 seconds
       })
       
@@ -110,7 +110,7 @@ export default function Library() {
   const handlePlay = async (song: Song) => {
     try {
       const query = song.url || `${song.artist} - ${song.title}`
-      await axios.post('/api/music/play', { query })
+      await api.post('/music/play', { query })
     } catch (error) {
       console.error('Failed to play song:', error)
     }

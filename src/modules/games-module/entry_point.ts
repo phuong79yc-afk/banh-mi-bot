@@ -28,7 +28,7 @@ export default class GamesModule {
     console.log('🎮 Games module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Games module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Games module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -64,7 +64,7 @@ export default class GamesModule {
         // Check if game already running
         if (gtnManager.hasGame(channelId)) {
           return interaction.reply({
-            content: '❌ A game is already running in this channel! Wait for it to finish.',
+            content: '${emojis.error} A game is already running in this channel! Wait for it to finish.',
             flags: 64
           });
         }
@@ -93,7 +93,7 @@ export default class GamesModule {
           fields: [
             { name: '⏱️ Duration', value: `${game.duration} seconds`, inline: true },
             { name: '🎯 Range', value: `${game.minRange}-${game.maxRange}`, inline: true },
-            { name: '🔄 Rounds', value: `${game.currentRound}/${game.rounds}`, inline: true }
+            { name: '${emojis.refresh} Rounds', value: `${game.currentRound}/${game.rounds}`, inline: true }
           ],
           footer: `Started by ${interaction.user.username}`,
         });
@@ -108,13 +108,13 @@ export default class GamesModule {
           const stats = gtnManager.getStats(endedGame);
 
           const endEmbed = createEnhancedEmbed({
-            title: '⏰ Time\'s Up!',
+            title: '${emojis.clock} Time\'s Up!',
             description: `The game has ended! Nobody guessed the number.\n\n` +
               `The correct number was: **${endedGame.targetNumber}**`,
             color: 'error',
             fields: [
-              { name: '📊 Total Guesses', value: stats.totalGuesses.toString(), inline: true },
-              { name: '👥 Participants', value: stats.totalParticipants.toString(), inline: true },
+              { name: '${emojis.chart} Total Guesses', value: stats.totalGuesses.toString(), inline: true },
+              { name: '${emojis.users} Participants', value: stats.totalParticipants.toString(), inline: true },
               { name: '⏱️ Duration', value: `${stats.elapsedTime}s`, inline: true }
             ],
           });
@@ -169,11 +169,11 @@ export default class GamesModule {
             description: `**${message.author.username}** guessed the correct number: **${guess}**!`,
             color: 'success',
             fields: [
-              { name: '🏆 Winner', value: `<@${message.author.id}>`, inline: true },
+              { name: '${emojis.trophy} Winner', value: `<@${message.author.id}>`, inline: true },
               { name: '🎯 Attempts', value: result.game!.winnerAttempts!.toString(), inline: true },
               { name: '⏱️ Time', value: `${stats.elapsedTime}s`, inline: true },
-              { name: '📊 Total Guesses', value: stats.totalGuesses.toString(), inline: true },
-              { name: '👥 Participants', value: stats.totalParticipants.toString(), inline: true },
+              { name: '${emojis.chart} Total Guesses', value: stats.totalGuesses.toString(), inline: true },
+              { name: '${emojis.users} Participants', value: stats.totalParticipants.toString(), inline: true },
               { name: '📈 Avg Attempts', value: stats.avgAttempts.toString(), inline: true }
             ],
           });

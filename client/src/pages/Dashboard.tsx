@@ -2,13 +2,11 @@ import { useState, useEffect, memo, useMemo } from 'react'
 import { Server, Users, Zap, HardDrive, Clock, Command } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BotStatsWidget from '@/components/BotStatsWidget'
-import BotControlWidget from '@/components/bot/BotControlWidget'
 import BotStatusWidget from '@/components/bot/BotStatusWidget'
-import QueueWidget from '@/components/bot/QueueWidget'
+import BotStatus from '../components/BotStatus'
 import { useTheme } from '../contexts/ThemeContext'
 import GlassCard from '../components/GlassCard'
-import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
+import api, { apiEndpoints } from '../lib/api'
 
 interface BotStats {
   botName: string
@@ -85,7 +83,8 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/api/bot/stats/enhanced')
+      // Use /api/bot/stats/enhanced endpoint
+      const response = await api.get(apiEndpoints.botStats)
       setStats(response.data)
       setLoading(false)
     } catch (error) {
@@ -129,24 +128,6 @@ export default function Dashboard() {
       {/* Soft Overlay */}
       <div className="fixed inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/20" style={{ zIndex: 0 }} />
       
-      {/* Liquid Glass Background Effect - Optimized */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: -1 }}
-      >
-        <LiquidGlass 
-          width="100vw" 
-          height="100vh" 
-          position="fixed"
-          top="0"
-          left="0"
-          transform="none"
-          glassFrost={0.06}
-          glassSaturation={1.1}
-          borderRadius="0"
-          className="pointer-events-none"
-        />
-      </div>
       <style>{`
         * {
           -webkit-font-smoothing: antialiased;
@@ -218,6 +199,11 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Bot Real-time Status */}
+      <div className={`${mounted ? 'animate-fade-in-up' : 'opacity-0'}`} style={{ animationDelay: '0.15s' }}>
+        <BotStatus />
+      </div>
+
       {/* Bot Info Card */}
       {stats && (
         <GlassCard variant="strong" className="rounded-2xl p-6">
@@ -277,12 +263,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Animata Components Showcase */}
+      {/* Bot Statistics Overview */}
       <div className="space-y-4 mb-12">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Dashboard Widgets</h2>
+          <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Statistics Overview</h2>
           <p className="text-sm" style={{ color: colors.textSecondary }}>
-            Interactive components with real bot data
+            Detailed bot statistics and performance metrics
           </p>
         </div>
         
@@ -291,32 +277,23 @@ export default function Dashboard() {
             <BotStatsWidget 
               servers={stats.servers}
               users={stats.users}
-              messages={stats.commands * 150}
-              uptime={formatUptime(stats.uptime)}
+              commands={stats.commands}
             />
           )}
         </div>
       </div>
 
-      {/* More Widgets */}
+      {/* Interactive Controls */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Interactive Controls</h2>
+          <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Bot Controls</h2>
           <p className="text-sm" style={{ color: colors.textSecondary }}>
-            Control your bot and view live statistics
+            View live bot statistics and status
           </p>
         </div>
         
         <div className="flex flex-wrap justify-center gap-6">
-          {stats && (
-            <BotControlWidget 
-              currentSong={stats.currentSong}
-              isPlaying={stats.isPlaying}
-              volume={stats.volume}
-            />
-          )}
           <BotStatusWidget />
-          <QueueWidget />
         </div>
       </div>
 
@@ -348,10 +325,10 @@ export default function Dashboard() {
                 e.currentTarget.style.transform = 'translateX(0)'
               }}
             >
-              📊 View Detailed Analytics
+              📊 View Analytics
             </button>
             <button 
-              onClick={() => navigate('/dashboard/music')}
+              onClick={() => window.open(stats?.inviteUrl, '_blank')}
               className="w-full text-left px-4 py-2 rounded-xl transition-all backdrop-blur-xl cursor-pointer"
               style={{ 
                 color: colors.text,
@@ -367,10 +344,10 @@ export default function Dashboard() {
                 e.currentTarget.style.transform = 'translateX(0)'
               }}
             >
-              🎵 Manage Music Queue
+              ➕ Invite Bot
             </button>
             <button 
-              onClick={() => navigate('/dashboard/settings')}
+              onClick={() => navigate('/dashboard/documentation')}
               className="w-full text-left px-4 py-2 rounded-xl transition-all backdrop-blur-xl cursor-pointer"
               style={{ 
                 color: colors.text,
@@ -386,7 +363,7 @@ export default function Dashboard() {
                 e.currentTarget.style.transform = 'translateX(0)'
               }}
             >
-              ⚙️ Configure Bot Settings
+              📖 Documentation
             </button>
           </div>
         </div>
@@ -398,58 +375,35 @@ export default function Dashboard() {
             backgroundColor: 'rgba(255, 255, 255, 0.12)'
           }}
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>Recent Activity</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>Bot Information</h3>
           <div className="space-y-3">
-            <button
-              onClick={() => navigate('/dashboard/stats')}
-              className="w-full flex items-center gap-3 p-2 rounded-lg transition-all cursor-pointer"
-              style={{ 
-                backgroundColor: 'transparent',
-                border: 'none'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.secondary }}></div>
-              <div className="flex-1 text-left">
-                <p className="text-sm" style={{ color: colors.text }}>Bot started successfully</p>
-                <p className="text-xs" style={{ color: colors.textSecondary }}>2 minutes ago</p>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full flex items-center gap-3 p-2 rounded-lg transition-all cursor-pointer"
-              style={{ 
-                backgroundColor: 'transparent',
-                border: 'none'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.primaryLight }}></div>
-              <div className="flex-1 text-left">
-                <p className="text-sm" style={{ color: colors.text }}>New server joined</p>
-                <p className="text-xs" style={{ color: colors.textSecondary }}>15 minutes ago</p>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => navigate('/dashboard/commands')}
-              className="w-full flex items-center gap-3 p-2 rounded-lg transition-all cursor-pointer"
-              style={{ 
-                backgroundColor: 'transparent',
-                border: 'none'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.primary }}></div>
-              <div className="flex-1 text-left">
-                <p className="text-sm" style={{ color: colors.text }}>Commands deployed</p>
-                <p className="text-xs" style={{ color: colors.textSecondary }}>1 hour ago</p>
-              </div>
-            </button>
+            {stats && (
+              <>
+                <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${colors.primary}10` }}>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: '#10b981' }}></div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium" style={{ color: colors.text }}>Status: Online</p>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>Running on {stats.servers} server(s)</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: 'transparent' }}>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.primary }}></div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm" style={{ color: colors.text }}>Uptime: {formatUptime(stats.uptime)}</p>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>Since last restart</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: 'transparent' }}>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.secondary }}></div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm" style={{ color: colors.text }}>Serving {stats.users} users</p>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>Across all servers</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

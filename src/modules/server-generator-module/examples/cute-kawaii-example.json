@@ -1,0 +1,42 @@
+{
+  "serverName": "✿ Kawaii Community ♡",
+  "categories": [
+    {
+      "name": "🌸 WELCOME",
+      "emoji": "🌸",
+      "channels": [
+        {"name": "✿ welcome", "type": 0, "emoji": "👋"},
+        {"name": "「💕 rules」", "type": 0, "emoji": "📜"},
+        {"name": "⟨🎀 announcements⟩", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "💬 COMMUNITY",
+      "emoji": "💬",
+      "channels": [
+        {"name": "♡ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "✿ selfies", "type": 0, "emoji": "📸"},
+        {"name": "🍰 food-pics", "type": 0, "emoji": "🍰"},
+        {"name": "❀ art-share", "type": 0, "emoji": "🎨"},
+        {"name": "🦄 memes", "type": 0, "emoji": "😂"}
+      ]
+    },
+    {
+      "name": "🎀 VOICE",
+      "emoji": "🎀",
+      "channels": [
+        {"name": "「✿ Voice Lobby」", "type": 2, "emoji": "🎙️"},
+        {"name": "【💕 Chill Zone】", "type": 2, "emoji": "🌸"},
+        {"name": "⟨🧁 Gaming Room⟩", "type": 2, "emoji": "🎮"},
+        {"name": "♡ AFK Room", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#FF69B4", "permissions": []},
+    {"name": "Admin", "emoji": "✨", "color": "#FFC0CB", "permissions": []},
+    {"name": "Moderator", "emoji": "🌸", "color": "#FFB6C1", "permissions": []},
+    {"name": "VIP", "emoji": "💖", "color": "#FF1493", "permissions": []},
+    {"name": "Member", "emoji": "🎀", "color": "#FFD1DC", "permissions": []}
+  ]
+}

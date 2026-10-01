@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Play, Pause, SkipForward, Volume2, Music2, Users, Repeat, Repeat1 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
+import api, { apiEndpoints } from '../lib/api'
 
 interface Track {
   title: string
@@ -106,7 +106,7 @@ export default function MusicPlayer() {
 
   const fetchMusicData = async () => {
     try {
-      const response = await axios.get('/api/music/current')
+      const response = await api.get(apiEndpoints.musicCurrent)
       if (response.data.playing && response.data.guilds && response.data.guilds.length > 0) {
         const data = {
           playing: true,
@@ -162,7 +162,7 @@ export default function MusicPlayer() {
     }
     
     try {
-      await axios.post(`/api/music/control/${guildId}`, { action })
+      await api.post(apiEndpoints.musicControl(guildId), { action })
       setTimeout(() => {
         fetchMusicData()
         setIsControlling(false)
@@ -181,7 +181,7 @@ export default function MusicPlayer() {
     setLocalVolume(value)
     
     try {
-      await axios.post(`/api/music/control/${guildId}`, { 
+      await api.post(apiEndpoints.musicControl(guildId), { 
         action: 'volume',
         volume: value 
       })
@@ -200,7 +200,7 @@ export default function MusicPlayer() {
     setIsControlling(true)
     
     try {
-      await axios.post(`/api/music/control/${guildId}`, { 
+      await api.post(apiEndpoints.musicControl(guildId), { 
         action: 'loop',
         mode: nextMode
       })
@@ -220,7 +220,7 @@ export default function MusicPlayer() {
     setIsControlling(true)
     
     try {
-      await axios.post(`/api/music/control/${guildId}`, { 
+      await api.post(apiEndpoints.musicControl(guildId), { 
         action: 'jump',
         trackIndex
       })

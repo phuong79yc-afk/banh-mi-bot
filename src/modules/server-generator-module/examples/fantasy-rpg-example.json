@@ -1,0 +1,51 @@
+{
+  "serverName": "⚔ Mystic Realm ✦",
+  "categories": [
+    {
+      "name": "🏰 KINGDOM GATES",
+      "emoji": "🏰",
+      "channels": [
+        {"name": "✦ welcome", "type": 0, "emoji": "👋"},
+        {"name": "⚔═ rules", "type": 0, "emoji": "📜"},
+        {"name": "◆ announcements", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "⚔️ GUILD HALL",
+      "emoji": "⚔️",
+      "channels": [
+        {"name": "◈ guild-hall", "type": 0, "emoji": "💬"},
+        {"name": "⚔ quests", "type": 0, "emoji": "📜"},
+        {"name": "✦ tavern", "type": 0, "emoji": "🍺"},
+        {"name": "◆ trading-post", "type": 0, "emoji": "💰"},
+        {"name": "◇ character-showcase", "type": 0, "emoji": "🎭"}
+      ]
+    },
+    {
+      "name": "🎮 BATTLEGROUNDS",
+      "emoji": "🎮",
+      "channels": [
+        {"name": "⚔ pvp-arena", "type": 0, "emoji": "⚔️"},
+        {"name": "◈ dungeons", "type": 0, "emoji": "🏰"},
+        {"name": "✦ raids", "type": 0, "emoji": "🐉"}
+      ]
+    },
+    {
+      "name": "🎙️ VOICE CHANNELS",
+      "emoji": "🎙️",
+      "channels": [
+        {"name": "【⚡ Battle Arena】", "type": 2, "emoji": "⚔️"},
+        {"name": "◆ Party Voice", "type": 2, "emoji": "🎙️"},
+        {"name": "✦ Tavern Chat", "type": 2, "emoji": "🍻"},
+        {"name": "◇ AFK Inn", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "King", "emoji": "👑", "color": "#FFD700", "permissions": []},
+    {"name": "Knight", "emoji": "⚔️", "color": "#C0C0C0", "permissions": []},
+    {"name": "Mage", "emoji": "🔮", "color": "#9370DB", "permissions": []},
+    {"name": "Warrior", "emoji": "🛡️", "color": "#CD853F", "permissions": []},
+    {"name": "Adventurer", "emoji": "◆", "color": "#8B4513", "permissions": []}
+  ]
+}

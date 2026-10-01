@@ -52,7 +52,7 @@ export default class MinecraftModule {
   async initialize() {
     console.log('⛏️ Minecraft module initialized');
     this.registerCommands();
-    console.log(`✅ Minecraft module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Minecraft module registered ${this.commands.size} commands`);
     
     // Cache command ID for clickable mentions
     this.cacheCommandId();
@@ -70,9 +70,9 @@ export default class MinecraftModule {
             const customBannerCmd = commands?.find(cmd => cmd.name === 'minecraft-custom-server-banner');
             if (customBannerCmd) {
               this.cachedCommandId = customBannerCmd.id;
-              console.log(`✅ Cached guild command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
+              console.log(`${emojis.success} Cached guild command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
             } else {
-              console.log('⚠️ Command minecraft-custom-server-banner not found in guild commands');
+              console.log(`${emojis.warning} Command minecraft-custom-server-banner not found in guild commands`);
             }
           } else {
             // Fallback to global commands if no guild ID
@@ -80,15 +80,15 @@ export default class MinecraftModule {
             const customBannerCmd = commands?.find(cmd => cmd.name === 'minecraft-custom-server-banner');
             if (customBannerCmd) {
               this.cachedCommandId = customBannerCmd.id;
-              console.log(`✅ Cached global command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
+              console.log(`${emojis.success} Cached global command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
             }
           }
         } catch (err) {
-          console.error('❌ Failed to cache command ID:', err);
+          console.error('${emojis.error} Failed to cache command ID:', err);
         }
       }, 5000); // Wait 5s for bot to be fully ready
     } catch (err) {
-      console.error('❌ Failed to setup command ID caching:', err);
+      console.error('${emojis.error} Failed to setup command ID caching:', err);
     }
   }
 
@@ -243,19 +243,19 @@ export default class MinecraftModule {
     try {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
-      console.log('✅ Loaded Minecraft.ttf');
+      console.log(`${emojis.success} Loaded Minecraft.ttf`);
     } catch (e) {
       try {
         const officialPath = path.resolve(__dirname, '../../../assets/fonts/minecraft_official.otf');
         GlobalFonts.registerFromPath(officialPath, 'Minecraft');
-        console.log('✅ Loaded minecraft_official.otf');
+        console.log(`${emojis.success} Loaded minecraft_official.otf`);
       } catch (e2) {
         try {
           const monocraftPath = path.resolve(__dirname, '../../../assets/fonts/Monocraft.ttf');
           GlobalFonts.registerFromPath(monocraftPath, 'Minecraft');
-          console.log('✅ Loaded Monocraft.ttf');
+          console.log(`${emojis.success} Loaded Monocraft.ttf`);
         } catch (e3) {
-          console.log('⚠️ No Minecraft font found, using default');
+          console.log(`${emojis.warning} No Minecraft font found, using default`);
         }
       }
     }
@@ -281,7 +281,7 @@ export default class MinecraftModule {
       ctx.fillStyle = 'rgba(15, 18, 10, 0.35)';
       ctx.fillRect(0, 0, finalWidth, finalHeight);
       
-      console.log('✅ Loaded End Stone texture');
+      console.log(`${emojis.success} Loaded End Stone texture`);
     } catch (e) {
       ctx.fillStyle = '#8a8560';
       ctx.fillRect(0, 0, finalWidth, finalHeight);
@@ -289,7 +289,7 @@ export default class MinecraftModule {
 
     // Parse MOTD and add color codes
     const motd = status.motd?.clean || 'A Minecraft Server';
-    console.log('🔍 MOTD raw:', motd);
+    console.log('${emojis.search} MOTD raw:', motd);
     
     let motdWithColors = motd
       .replace(/\s*Hypixel\s+Network/gi, '§fHYPIXEL §6NETWORK§r')
@@ -298,7 +298,7 @@ export default class MinecraftModule {
       .replace(/\[(\d+\.\d+)-(\d+\.\d+)\.x\]/g, ' §8[§4$1-$2.x§8]§r')
       .replace(/SB\s+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r');
     
-    console.log('🔍 MOTD with colors:', motdWithColors);
+    console.log('${emojis.search} MOTD with colors:', motdWithColors);
     const motdLines = motdWithColors.split('\n').map(line => line.trim());
     
     // ============================================
@@ -402,7 +402,7 @@ export default class MinecraftModule {
             ? `</minecraft-custom-server-banner:${this.cachedCommandId}>`
             : `</minecraft-custom-server-banner:1552677727327359011>`;
           
-          console.log('🔗 Command mention:', commandMention);
+          console.log('${emojis.link} Command mention:', commandMention);
 
           // Build embed
           const embed = new EmbedBuilder()
@@ -421,7 +421,7 @@ export default class MinecraftModule {
                 inline: true
               },
               {
-                name: '👥 Số lượng người chơi',
+                name: '${emojis.users} Số lượng người chơi',
                 value: `\`\`\`\n${status.players?.online || 0}/${status.players?.max || 0}\n\`\`\``,
                 inline: true
               },
@@ -452,7 +452,7 @@ export default class MinecraftModule {
     const customBannerCommand = {
       data: new SlashCommandBuilder()
         .setName('minecraft-custom-server-banner')
-        .setDescription('🎨 Tạo banner Minecraft server tùy chỉnh')
+        .setDescription('${emojis.art} Tạo banner Minecraft server tùy chỉnh')
         .addStringOption(option =>
           option
             .setName('address')
@@ -507,12 +507,12 @@ export default class MinecraftModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
-            .setTitle('🎨 Custom Minecraft Banner')
+            .setTitle('${emojis.art} Custom Minecraft Banner')
             .setDescription(
               `**Server:** ${status.host}\n` +
               `**Style:** ${style}\n` +
               `**Text Color:** ${textColor}\n\n` +
-              `✨ *Feature đang được phát triển - Preview banner chuẩn*`
+              `${emojis.sparkles} *Feature đang được phát triển - Preview banner chuẩn*`
             )
             .setImage('attachment://custom-banner.png')
             .setFooter({ text: 'Tính năng tùy chỉnh nâng cao sắp ra mắt!' })

@@ -1,28 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Palette, Bell, Shield, Database, Globe, Users, Music, Coins, Search, Plus, Edit2, Trash2, Save, X, AlertCircle, CheckCircle } from 'lucide-react'
+import { Palette, Bell, Shield, X, AlertCircle, CheckCircle, Volume2, VolumeX, Terminal, Power } from 'lucide-react'
 import { useTheme, type AccentColor } from '../contexts/ThemeContext'
 import GlassCard from '../components/GlassCard'
-import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
-
-interface User {
-  userId: string
-  username: string
-  balance: number
-  level: number
-  xp: number
-  lastDaily: string
-}
-
-interface LyricEntry {
-  id: string
-  query: string
-  lyrics: string
-  createdAt: string
-}
+import PermissionDenied from '../components/PermissionDenied'
+import { usePermissions } from '../hooks/usePermissions'
+import api, { apiEndpoints } from '../lib/api'
+import { soundManager } from '../utils/soundManager'
 
 export default function Settings() {
   const { accentColor, setAccentColor, darkMode, toggleDarkMode, colors } = useTheme()
+  const { canChangeSettings, isAdmin } = usePermissions()
   const [mounted, setMounted] = useState(false)
   
   // Notification settings
@@ -31,228 +18,192 @@ export default function Settings() {
     serverAlerts: true,
     errorReports: true,
     commandUsage: false,
-    musicUpdates: true,
     maintenance: true,
     emailNotifications: false
   })
   
-  // Music settings
-  const [defaultVolume, setDefaultVolume] = useState(50)
-  const [audioQuality, setAudioQuality] = useState<'high' | 'medium' | 'low'>('high')
-  const [musicPreferences, setMusicPreferences] = useState({
-    autoplay: true,
-    saveQueue: true,
-    crossfade: false,
-    equalizer: 'off' as 'off' | 'bass' | 'treble' | 'vocal'
+  const [notificationSound, setNotificationSound] = useState(() => {
+    return soundManager.isEnabled()
   })
   
-  // Data Management states
-  const [dataTab, setDataTab] = useState<'users' | 'lyrics'>('users')
-  const [dataExpanded, setDataExpanded] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [soundTheme, setSoundTheme] = useState(() => {
+    return soundManager.getSoundTheme() as 'modern' | 'classic' | 'gaming' | 'minimal'
+  })
+  
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   
-  // Security states
-  const [showChangePassword, setShowChangePassword] = useState(false)
-  const [showActiveSessions, setShowActiveSessions] = useState(false)
-  const [show2FA, setShow2FA] = useState(false)
-  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' })
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+  // Bot Configuration states
+  const [botStatus, setBotStatus] = useState<'online' | 'idle' | 'dnd' | 'invisible'>('online')
+  const [botActivity, setBotActivity] = useState({ type: 'playing', text: '🎵 Music & Fun' })
+  const [defaultPrefix, setDefaultPrefix] = useState('!')
+  const [showToken, setShowToken] = useState(false)
   
-  // Users data
-  const [users, setUsers] = useState<User[]>([])
-  const [editingUser, setEditingUser] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<Partial<User>>({})
-
-  // Lyrics data
-  const [lyrics, setLyrics] = useState<LyricEntry[]>([])
-  const [showAddLyric, setShowAddLyric] = useState(false)
-  const [newLyric, setNewLyric] = useState({ query: '', lyrics: '' })
+  // Command toggles
+  const [commandStates, setCommandStates] = useState<Record<string, boolean>>({})
+  const [loadingCommands, setLoadingCommands] = useState(true)
 
   useEffect(() => {
     setMounted(true)
     
-    // Load saved music preferences from localStorage
-    const savedVolume = localStorage.getItem('musicVolume')
-    const savedQuality = localStorage.getItem('audioQuality')
-    const savedPreferences = localStorage.getItem('musicPreferences')
+    // Load saved settings from localStorage
     const savedNotifications = localStorage.getItem('notificationSettings')
+    const savedBotConfig = localStorage.getItem('botConfiguration')
     
-    if (savedVolume) setDefaultVolume(Number(savedVolume))
-    if (savedQuality) setAudioQuality(savedQuality as 'high' | 'medium' | 'low')
-    if (savedPreferences) setMusicPreferences(JSON.parse(savedPreferences))
     if (savedNotifications) setNotificationSettings(JSON.parse(savedNotifications))
+    if (savedBotConfig) {
+      const config = JSON.parse(savedBotConfig)
+      if (config.status) setBotStatus(config.status)
+      if (config.activity) setBotActivity(config.activity)
+      if (config.prefix) setDefaultPrefix(config.prefix)
+    }
+    
+    // Load command states
+    fetchCommandStates()
   }, [])
-
-  useEffect(() => {
-    if (dataExpanded) {
-      fetchData()
-    }
-  }, [dataTab, dataExpanded])
-
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      if (dataTab === 'users') {
-        const response = await axios.get('/api/data/users')
-        setUsers(response.data)
-      } else if (dataTab === 'lyrics') {
-        const response = await axios.get('/api/data/lyrics')
-        setLyrics(response.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-      showNotification('error', 'Failed to load data')
-    }
-    setLoading(false)
-  }
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3000)
   }
 
-  const handleEditUser = (user: User) => {
-    setEditingUser(user.userId)
-    setEditForm(user)
-  }
-
-  const handleSaveUser = async () => {
+  const fetchCommandStates = async () => {
     try {
-      await axios.put(`/api/data/users/${editingUser}`, editForm)
-      showNotification('success', 'User updated successfully')
-      setEditingUser(null)
-      fetchData()
+      setLoadingCommands(true)
+      const response = await api.get('/bot/commands/states')
+      setCommandStates(response.data.commands || {})
     } catch (error) {
-      showNotification('error', 'Failed to update user')
+      console.error('Failed to fetch command states:', error)
+      // Default state: all enabled
+      setCommandStates({
+        'music': true,
+        'moderation': true,
+        'utility': true,
+        'fun': true,
+        'economy': true,
+        'customrole': true,
+        'donation': true,
+        'quickreport': true,
+        'ticket': true,
+        'giveaway': true,
+      })
+    } finally {
+      setLoadingCommands(false)
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
-    try {
-      await axios.delete(`/api/data/users/${userId}`)
-      showNotification('success', 'User deleted successfully')
-      fetchData()
-    } catch (error) {
-      showNotification('error', 'Failed to delete user')
-    }
-  }
-
-  const handleAddLyric = async () => {
-    if (!newLyric.query || !newLyric.lyrics) {
-      showNotification('error', 'Please fill all fields')
-      return
-    }
-    try {
-      await axios.post('/api/data/lyrics', newLyric)
-      showNotification('success', 'Lyric added successfully')
-      setShowAddLyric(false)
-      setNewLyric({ query: '', lyrics: '' })
-      fetchData()
-    } catch (error) {
-      showNotification('error', 'Failed to add lyric')
-    }
-  }
-
-  const handleDeleteLyric = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this lyric?')) return
-    try {
-      await axios.delete(`/api/data/lyrics/${id}`)
-      showNotification('success', 'Lyric deleted successfully')
-      fetchData()
-    } catch (error) {
-      showNotification('error', 'Failed to delete lyric')
-    }
-  }
-
-  const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.userId.includes(searchQuery)
-  )
-
-  const filteredLyrics = lyrics.filter(lyric =>
-    lyric.query.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const handleChangePassword = async () => {
-    if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
-      showNotification('error', 'Please fill all fields')
-      return
-    }
-    if (passwordForm.new !== passwordForm.confirm) {
-      showNotification('error', 'New passwords do not match')
-      return
-    }
-    if (passwordForm.new.length < 6) {
-      showNotification('error', 'Password must be at least 6 characters')
-      return
-    }
+  const handleCommandToggle = async (commandName: string) => {
+    const newState = !commandStates[commandName]
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    showNotification('success', 'Password changed successfully')
-    setShowChangePassword(false)
-    setPasswordForm({ current: '', new: '', confirm: '' })
+    // Optimistic update
+    setCommandStates(prev => ({ ...prev, [commandName]: newState }))
+    
+    try {
+      await api.post('/bot/commands/toggle', {
+        command: commandName,
+        enabled: newState
+      })
+      
+      if (notificationSound) {
+        soundManager.play('success')
+      }
+      
+      showNotification('success', `✅ ${newState ? 'Đã bật' : 'Đã tắt'} lệnh ${commandName}`)
+    } catch (error) {
+      // Revert on error
+      setCommandStates(prev => ({ ...prev, [commandName]: !newState }))
+      
+      if (notificationSound) {
+        soundManager.play('error')
+      }
+      
+      showNotification('error', `❌ Không thể ${newState ? 'bật' : 'tắt'} lệnh ${commandName}`)
+    }
   }
 
-  const handleEnable2FA = async () => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setTwoFactorEnabled(!twoFactorEnabled)
-    showNotification('success', twoFactorEnabled ? '2FA disabled' : '2FA enabled successfully')
-    setShow2FA(false)
+  const handleBotStatusChange = async (status: typeof botStatus) => {
+    try {
+      setBotStatus(status)
+      const config = { status, activity: botActivity, prefix: defaultPrefix }
+      localStorage.setItem('botConfiguration', JSON.stringify(config))
+      
+      // Call API to update bot status
+      await api.post('/bot/config/status', { status })
+      
+      // Play success sound
+      if (notificationSound) {
+        soundManager.play('success')
+      }
+      
+      // Show detailed notification
+      const statusNames: Record<string, string> = {
+        'online': '🟢 Trực Tuyến',
+        'idle': '🟡 Nghỉ',
+        'dnd': '🔴 Không Làm Phiền',
+        'invisible': '⚫ Ẩn'
+      }
+      showNotification('success', `✅ Đã đổi trạng thái bot sang ${statusNames[status]}`)
+    } catch (error) {
+      if (notificationSound) {
+        soundManager.play('error')
+      }
+      showNotification('error', '❌ Không thể cập nhật trạng thái bot')
+    }
   }
 
-  const activeSessions = [
-    { id: '1', device: 'Windows - Chrome', location: 'Hanoi, Vietnam', ip: '192.168.1.1', lastActive: '2 minutes ago', current: true },
-    { id: '2', device: 'iPhone 15 - Safari', location: 'Ho Chi Minh, Vietnam', ip: '192.168.1.5', lastActive: '1 hour ago', current: false },
-    { id: '3', device: 'MacBook - Firefox', location: 'Da Nang, Vietnam', ip: '192.168.1.10', lastActive: '3 hours ago', current: false },
-  ]
-
-  const handleRevokeSession = (sessionId: string) => {
-    if (!confirm('Are you sure you want to revoke this session?')) return
-    showNotification('success', 'Session revoked successfully')
+  const handleActivityChange = async () => {
+    try {
+      const config = { status: botStatus, activity: botActivity, prefix: defaultPrefix }
+      localStorage.setItem('botConfiguration', JSON.stringify(config))
+      
+      await api.post('/bot/config/activity', botActivity)
+      
+      // Play success sound
+      if (notificationSound) {
+        soundManager.play('success')
+      }
+      
+      // Show detailed notification with activity info
+      const activityIcons: Record<string, string> = {
+        'playing': '🎮',
+        'listening': '🎵',
+        'watching': '📺',
+        'competing': '🏆'
+      }
+      showNotification('success', `✅ Hoạt động bot: ${activityIcons[botActivity.type]} ${botActivity.text}`)
+    } catch (error) {
+      if (notificationSound) {
+        soundManager.play('error')
+      }
+      showNotification('error', '❌ Không thể cập nhật hoạt động bot')
+    }
   }
 
-  const handleVolumeChange = (value: number) => {
-    setDefaultVolume(value)
-    localStorage.setItem('musicVolume', value.toString())
-    showNotification('success', `Default volume set to ${value}%`)
+  const handlePrefixChange = async () => {
+    try {
+      const config = { status: botStatus, activity: botActivity, prefix: defaultPrefix }
+      localStorage.setItem('botConfiguration', JSON.stringify(config))
+      
+      await api.post('/bot/config/prefix', { prefix: defaultPrefix })
+      
+      // Play success sound
+      if (notificationSound) {
+        soundManager.play('success')
+      }
+      
+      showNotification('success', `✅ Prefix mới: "${defaultPrefix}" (Ví dụ: ${defaultPrefix}play)`)
+    } catch (error) {
+      if (notificationSound) {
+        soundManager.play('error')
+      }
+      showNotification('error', '❌ Không thể đổi prefix')
+    }
   }
-
-  const handleQualityChange = (quality: 'high' | 'medium' | 'low') => {
-    setAudioQuality(quality)
-    localStorage.setItem('audioQuality', quality)
-    showNotification('success', `Audio quality set to ${quality}`)
-  }
-
-  const handleMusicPreferenceChange = (key: keyof typeof musicPreferences, value: any) => {
-    const newPreferences = { ...musicPreferences, [key]: value }
-    setMusicPreferences(newPreferences)
-    localStorage.setItem('musicPreferences', JSON.stringify(newPreferences))
-    showNotification('success', 'Music preferences updated')
-  }
-
-  const qualityOptions = [
-    { value: 'high', label: 'High (320kbps)', description: 'Best quality, more data' },
-    { value: 'medium', label: 'Medium (192kbps)', description: 'Balanced quality' },
-    { value: 'low', label: 'Low (128kbps)', description: 'Lower quality, less data' },
-  ]
-
-  const equalizerOptions = [
-    { value: 'off', label: 'Off', icon: '─' },
-    { value: 'bass', label: 'Bass Boost', icon: '🔊' },
-    { value: 'treble', label: 'Treble Boost', icon: '🎵' },
-    { value: 'vocal', label: 'Vocal Enhance', icon: '🎤' },
-  ]
 
   const handleNotificationChange = (key: keyof typeof notificationSettings) => {
     const newSettings = { ...notificationSettings, [key]: !notificationSettings[key] }
     setNotificationSettings(newSettings)
     localStorage.setItem('notificationSettings', JSON.stringify(newSettings))
-    showNotification('success', 'Notification preferences updated')
+    showNotification('success', 'Đã cập nhật tùy chọn thông báo')
     
     // Add bounce animation to toggle
     const element = document.querySelector(`[data-notification="${key}"]`)
@@ -265,51 +216,44 @@ export default function Settings() {
   const notificationOptions = [
     { 
       key: 'pushNotifications' as keyof typeof notificationSettings, 
-      label: 'Push Notifications', 
-      description: 'Receive browser notifications for bot events',
+      label: 'Thông Báo Đẩy', 
+      description: 'Nhận thông báo trình duyệt về các sự kiện của bot',
       icon: '🔔'
     },
     { 
       key: 'serverAlerts' as keyof typeof notificationSettings, 
-      label: 'Server Alerts', 
-      description: 'Get notified when bot joins/leaves servers',
+      label: 'Cảnh Báo Máy Chủ', 
+      description: 'Thông báo khi bot tham gia/rời khỏi máy chủ',
       icon: '🌐'
     },
     { 
       key: 'errorReports' as keyof typeof notificationSettings, 
-      label: 'Error Reports', 
-      description: 'Receive alerts for bot errors and crashes',
+      label: 'Báo Cáo Lỗi', 
+      description: 'Nhận cảnh báo về lỗi và sự cố của bot',
       icon: '⚠️'
     },
     { 
       key: 'commandUsage' as keyof typeof notificationSettings, 
-      label: 'Command Usage', 
-      description: 'Notifications when commands are used',
+      label: 'Sử Dụng Lệnh', 
+      description: 'Thông báo khi các lệnh được sử dụng',
       icon: '⚡'
     },
     { 
-      key: 'musicUpdates' as keyof typeof notificationSettings, 
-      label: 'Music Updates', 
-      description: 'Now playing and queue notifications',
-      icon: '🎵'
-    },
-    { 
       key: 'maintenance' as keyof typeof notificationSettings, 
-      label: 'Maintenance Alerts', 
-      description: 'Updates about bot maintenance and downtime',
+      label: 'Bảo Trì Hệ Thống', 
+      description: 'Cập nhật về bảo trì và thời gian ngừng hoạt động',
       icon: '🔧'
     },
     { 
       key: 'emailNotifications' as keyof typeof notificationSettings, 
-      label: 'Email Notifications', 
-      description: 'Receive notifications via email',
+      label: 'Thông Báo Email', 
+      description: 'Nhận thông báo qua email',
       icon: '📧'
     },
   ]
 
   const accentColors = [
     { name: 'Caramel', color: 'bg-[#8B5A3C]', value: 'caramel' as AccentColor },
-    { name: 'Slate', color: 'bg-slate-500', value: 'slate' as AccentColor },
     { name: 'Purple', color: 'bg-purple-500', value: 'purple' as AccentColor },
     { name: 'Blue', color: 'bg-blue-500', value: 'blue' as AccentColor },
     { name: 'Green', color: 'bg-green-500', value: 'green' as AccentColor },
@@ -329,10 +273,25 @@ export default function Settings() {
     { name: 'Sky', color: 'bg-sky-500', value: 'sky' as AccentColor },
     { name: 'Slate', color: 'bg-slate-500', value: 'slate' as AccentColor },
     { name: 'Stone', color: 'bg-stone-500', value: 'stone' as AccentColor },
+    { name: 'Crimson', color: 'bg-[#DC143C]', value: 'crimson' as AccentColor },
+    { name: 'Coral', color: 'bg-[#FF6B6B]', value: 'coral' as AccentColor },
+    { name: 'Lavender', color: 'bg-[#B57EDC]', value: 'lavender' as AccentColor },
+    { name: 'Mint', color: 'bg-[#3EB489]', value: 'mint' as AccentColor },
+    { name: 'Peach', color: 'bg-[#FFAB91]', value: 'peach' as AccentColor },
+    { name: 'Navy', color: 'bg-[#001F3F]', value: 'navy' as AccentColor },
+    { name: 'Burgundy', color: 'bg-[#800020]', value: 'burgundy' as AccentColor },
+    { name: 'Gold', color: 'bg-[#FFD700]', value: 'gold' as AccentColor },
+    { name: 'Chocolate', color: 'bg-[#7B3F00]', value: 'chocolate' as AccentColor },
+    { name: 'Olive', color: 'bg-[#6B8E23]', value: 'olive' as AccentColor },
   ]
 
   const changeAccentColor = (colorValue: AccentColor) => {
     setAccentColor(colorValue)
+  }
+
+  // Check permissions
+  if (!canChangeSettings) {
+    return <PermissionDenied message="Chỉ Admin mới có quyền thay đổi cài đặt hệ thống." />
   }
 
   return (
@@ -348,18 +307,6 @@ export default function Settings() {
       {/* Background Overlay */}
       <div className="fixed inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/20 pointer-events-none" />
       
-      {/* Liquid Glass Background */}
-      <LiquidGlass 
-        width="100vw" 
-        height="100vh" 
-        position="fixed"
-        top="0"
-        left="0"
-        glassFrost={0.06}
-        glassSaturation={1.1}
-        borderRadius="0"
-        className="pointer-events-none"
-      />
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translate3d(0, 20px, 0); }
@@ -369,6 +316,10 @@ export default function Settings() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
         @keyframes scaleIn {
           from { opacity: 0; transform: scale3d(0.95, 0.95, 1); }
           to { opacity: 1; transform: scale3d(1, 1, 1); }
@@ -376,6 +327,16 @@ export default function Settings() {
         @keyframes slideIn {
           from { opacity: 0; transform: translate3d(-10px, 0, 0); }
           to { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+        @keyframes slideInRight {
+          from { 
+            opacity: 0; 
+            transform: translate3d(100px, 0, 0) scale3d(0.95, 0.95, 1);
+          }
+          to { 
+            opacity: 1; 
+            transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+          }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
@@ -504,28 +465,50 @@ export default function Settings() {
       {/* Notification */}
       {notification && (
         <div 
-          className="fixed top-4 right-4 z-50 rounded-lg p-4 shadow-lg animate-slide-in flex items-center gap-3"
+          className="fixed top-4 right-4 z-50 rounded-xl p-4 shadow-2xl animate-slide-in flex items-center gap-3 min-w-[320px]"
           style={{
             backgroundColor: notification.type === 'success' 
-              ? (darkMode ? '#065f4620' : '#d1fae5')
-              : (darkMode ? '#7f1d1d20' : '#fef2f2'),
-            border: `2px solid ${notification.type === 'success' ? '#10b981' : '#ef4444'}`
+              ? (darkMode ? '#065f4630' : '#d1fae5')
+              : (darkMode ? '#7f1d1d30' : '#fee2e2'),
+            border: `2px solid ${notification.type === 'success' ? '#10b981' : '#ef4444'}`,
+            backdropFilter: 'blur(12px)',
+            animation: 'slideInRight 0.3s ease-out, fadeOut 0.3s ease-in 2.7s'
           }}
         >
-          {notification.type === 'success' ? (
-            <CheckCircle className="h-5 w-5 text-green-500" />
-          ) : (
-            <AlertCircle className="h-5 w-5 text-red-500" />
-          )}
-          <span style={{ color: colors.text }}>{notification.message}</span>
+          <div 
+            className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: notification.type === 'success' ? '#10b98120' : '#ef444420'
+            }}
+          >
+            {notification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-500" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-500" />
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-sm" style={{ color: colors.text }}>
+              {notification.type === 'success' ? 'Thành công' : 'Lỗi'}
+            </div>
+            <div className="text-sm mt-0.5" style={{ color: colors.textSecondary }}>
+              {notification.message}
+            </div>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center hover:bg-black hover:bg-opacity-10 transition-colors"
+          >
+            <X className="h-4 w-4" style={{ color: colors.textSecondary }} />
+          </button>
         </div>
       )}
 
       {/* Header */}
       <div className={`relative z-10 ${mounted ? 'animate-fade-in-up stagger-1' : 'opacity-0'}`} style={{ color: colors.text }}>
-        <h1 className="text-3xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold">Cài Đặt</h1>
         <p className="mt-1" style={{ color: colors.textSecondary }}>
-          Tùy chỉnh dashboard và bot preferences
+          Tùy chỉnh giao diện và tính năng bot
         </p>
       </div>
 
@@ -537,16 +520,16 @@ export default function Settings() {
         <div className="p-6" style={{ borderBottom: `1px solid ${colors.border}` }}>
           <div className="flex items-center gap-3">
             <Palette className="h-5 w-5" style={{ color: colors.primary }} />
-            <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Appearance</h2>
+            <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Giao Diện</h2>
           </div>
         </div>
         <div className="p-6 space-y-6">
           {/* Dark Mode Toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium" style={{ color: colors.text }}>Dark Mode</p>
+              <p className="font-medium" style={{ color: colors.text }}>Chế Độ Tối</p>
               <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Toggle between light and dark theme
+                Chuyển đổi giữa giao diện sáng và tối
               </p>
             </div>
             <button
@@ -563,8 +546,8 @@ export default function Settings() {
 
           {/* Accent Color */}
           <div>
-            <p className="font-medium mb-3" style={{ color: colors.text }}>Accent Color</p>
-            <div className="grid grid-cols-5 gap-3">
+            <p className="font-medium mb-3" style={{ color: colors.text }}>Màu Chủ Đạo</p>
+            <div className="grid grid-cols-6 gap-3">
               {accentColors.map((color, index) => (
                 <button
                   key={color.name}
@@ -587,7 +570,7 @@ export default function Settings() {
               ))}
             </div>
             <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
-              Selected: <span className="font-semibold capitalize">{accentColor}</span>
+              Đã chọn: <span className="font-semibold capitalize">{accentColor}</span>
             </p>
           </div>
         </div>
@@ -602,11 +585,11 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Bell className="h-5 w-5" style={{ color: colors.primary }} />
-              <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Notifications</h2>
+              <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Thông Báo</h2>
             </div>
             <div className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
               <span>
-                {Object.values(notificationSettings).filter(Boolean).length} / {Object.keys(notificationSettings).length} enabled
+                {Object.values(notificationSettings).filter(Boolean).length} / {Object.keys(notificationSettings).length} đã bật
               </span>
             </div>
           </div>
@@ -652,6 +635,140 @@ export default function Settings() {
             </div>
           ))}
 
+          {/* Notification Sound Toggle */}
+          <div 
+            className={`p-4 rounded-lg transition-all duration-200 hover:translate-x-2 hover:scale-[1.01] ${mounted ? 'animate-slide-in stagger-7' : 'opacity-0'}`}
+            style={{
+              backgroundColor: notificationSound ? `${colors.primary}10` : colors.background,
+              border: `2px solid ${notificationSound ? `${colors.primary}40` : colors.border}`,
+              marginTop: '1rem',
+              transform: 'translateZ(0)'
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3 flex-1">
+                {notificationSound ? (
+                  <Volume2 className="h-6 w-6 mt-0.5" style={{ color: colors.primary }} />
+                ) : (
+                  <VolumeX className="h-6 w-6 mt-0.5" style={{ color: colors.textSecondary }} />
+                )}
+                <div className="flex-1">
+                  <p className="font-medium" style={{ color: colors.text }}>Âm Thanh Thông Báo</p>
+                  <p className="text-sm mt-0.5" style={{ color: colors.textSecondary }}>
+                    Phát âm thanh cảnh báo khi có thông báo mới
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        soundManager.playNotificationSound('default');
+                        showNotification('success', 'Đã phát âm thanh test!');
+                      }}
+                      className="text-xs px-3 py-1 rounded-lg transition-all duration-200 hover:scale-105"
+                      style={{
+                        backgroundColor: `${colors.primary}20`,
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}`
+                      }}
+                    >
+                      🔔 Test Mặc Định
+                    </button>
+                    <button
+                      onClick={() => {
+                        soundManager.playNotificationSound('serverAlerts');
+                        showNotification('success', 'Âm thanh cảnh báo máy chủ!');
+                      }}
+                      className="text-xs px-3 py-1 rounded-lg transition-all duration-200 hover:scale-105"
+                      style={{
+                        backgroundColor: `${colors.primary}20`,
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}`
+                      }}
+                    >
+                      🌐 Cảnh Báo Máy Chủ
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const newState = !notificationSound;
+                  setNotificationSound(newState);
+                  soundManager.setEnabled(newState);
+                  if (newState) {
+                    soundManager.playSuccess();
+                    showNotification('success', 'Đã bật âm thanh thông báo');
+                  } else {
+                    showNotification('success', 'Đã tắt âm thanh thông báo');
+                  }
+                }}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ml-4"
+                style={{ 
+                  backgroundColor: notificationSound ? colors.primary : `${colors.primary}40`,
+                  transform: 'translateZ(0)'
+                }}
+              >
+                <span
+                  className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200"
+                  style={{ 
+                    transform: notificationSound ? 'translate3d(1.5rem, 0, 0)' : 'translate3d(0.25rem, 0, 0)',
+                    willChange: 'transform'
+                  }}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Sound Theme Selector */}
+          {notificationSound && (
+            <div 
+              className="p-4 rounded-lg animate-slide-in"
+              style={{
+                backgroundColor: `${colors.primary}05`,
+                border: `2px solid ${colors.border}`,
+                marginTop: '1rem'
+              }}
+            >
+              <p className="font-medium mb-3" style={{ color: colors.text }}>🎨 Chủ Đề Âm Thanh</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'modern', label: 'Hiện Đại', icon: '✨', desc: 'Hòa âm & giai điệu hài hòa' },
+                  { value: 'gaming', label: 'Game', icon: '🎮', desc: 'Power-up & thành tích' },
+                  { value: 'classic', label: 'Cổ Điển', icon: '🔔', desc: 'Tiếng bíp đơn giản sạch' },
+                  { value: 'minimal', label: 'Tối Giản', icon: '⚡', desc: 'Âm thanh nhẹ nhàng' }
+                ].map((theme) => (
+                  <button
+                    key={theme.value}
+                    onClick={() => {
+                      setSoundTheme(theme.value as any);
+                      soundManager.setSoundTheme(theme.value as any);
+                      soundManager.playNotificationSound('default');
+                      showNotification('success', `Đã chọn chủ đề ${theme.label}`);
+                    }}
+                    className="p-3 rounded-lg transition-all duration-200 hover:scale-105 text-left"
+                    style={{
+                      backgroundColor: soundTheme === theme.value ? `${colors.primary}20` : colors.background,
+                      border: `2px solid ${soundTheme === theme.value ? colors.primary : colors.border}`,
+                      transform: 'translateZ(0)'
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">{theme.icon}</span>
+                      <span className="font-semibold" style={{ color: colors.text }}>
+                        {theme.label}
+                      </span>
+                      {soundTheme === theme.value && (
+                        <span className="ml-auto">✓</span>
+                      )}
+                    </div>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>
+                      {theme.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="flex gap-3 pt-4" style={{ borderTop: `1px solid ${colors.border}` }}>
             <button
@@ -662,7 +779,7 @@ export default function Settings() {
                 }), {} as typeof notificationSettings)
                 setNotificationSettings(allEnabled)
                 localStorage.setItem('notificationSettings', JSON.stringify(allEnabled))
-                showNotification('success', 'All notifications enabled')
+                showNotification('success', 'Đã bật tất cả thông báo')
               }}
               className="flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
               style={{ 
@@ -672,7 +789,7 @@ export default function Settings() {
                 transform: 'translateZ(0)'
               }}
             >
-              Enable All
+              Bật Tất Cả
             </button>
             <button
               onClick={() => {
@@ -682,7 +799,7 @@ export default function Settings() {
                 }), {} as typeof notificationSettings)
                 setNotificationSettings(allDisabled)
                 localStorage.setItem('notificationSettings', JSON.stringify(allDisabled))
-                showNotification('success', 'All notifications disabled')
+                showNotification('success', 'Đã tắt tất cả thông báo')
               }}
               className="flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
               style={{ 
@@ -692,7 +809,7 @@ export default function Settings() {
                 transform: 'translateZ(0)'
               }}
             >
-              Disable All
+              Tắt Tất Cả
             </button>
           </div>
 
@@ -705,199 +822,14 @@ export default function Settings() {
             }}
           >
             <p className="text-sm" style={{ color: colors.text }}>
-              📱 <strong>Browser Permissions:</strong> Make sure to allow notifications in your browser settings 
-              to receive push notifications.
+              📱 <strong>Quyền Trình Duyệt:</strong> Hãy cho phép thông báo trong cài đặt trình duyệt 
+              để nhận thông báo đẩy.
             </p>
           </div>
         </div>
       </GlassCard>
 
-      {/* Music Settings */}
-      <GlassCard 
-        variant="default"
-        className={`hover-lift card-shine relative z-10 ${mounted ? 'animate-scale-in stagger-4' : 'opacity-0'}`}
-      >
-        <div className="p-6" style={{ borderBottom: `1px solid ${colors.border}` }}>
-          <div className="flex items-center gap-3">
-            <Globe className="h-5 w-5" style={{ color: colors.primary }} />
-            <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Music Settings</h2>
-          </div>
-        </div>
-        <div className="p-6 space-y-6">
-          {/* Auto-play Toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium" style={{ color: colors.text }}>Auto-play</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Automatically play recommended songs when queue ends
-              </p>
-            </div>
-            <button
-              onClick={() => handleMusicPreferenceChange('autoplay', !musicPreferences.autoplay)}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300"
-              style={{ backgroundColor: musicPreferences.autoplay ? colors.primary : `${colors.primary}40` }}
-            >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300"
-                style={{ transform: musicPreferences.autoplay ? 'translateX(1.5rem)' : 'translateX(0.25rem)' }}
-              />
-            </button>
-          </div>
-
-          {/* Save Queue Toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium" style={{ color: colors.text }}>Save Queue</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Remember queue between sessions
-              </p>
-            </div>
-            <button
-              onClick={() => handleMusicPreferenceChange('saveQueue', !musicPreferences.saveQueue)}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300"
-              style={{ backgroundColor: musicPreferences.saveQueue ? colors.primary : `${colors.primary}40` }}
-            >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300"
-                style={{ transform: musicPreferences.saveQueue ? 'translateX(1.5rem)' : 'translateX(0.25rem)' }}
-              />
-            </button>
-          </div>
-
-          {/* Crossfade Toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium" style={{ color: colors.text }}>Crossfade</p>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Smooth transition between tracks (5 seconds)
-              </p>
-            </div>
-            <button
-              onClick={() => handleMusicPreferenceChange('crossfade', !musicPreferences.crossfade)}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300"
-              style={{ backgroundColor: musicPreferences.crossfade ? colors.primary : `${colors.primary}40` }}
-            >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300"
-                style={{ transform: musicPreferences.crossfade ? 'translateX(1.5rem)' : 'translateX(0.25rem)' }}
-              />
-            </button>
-          </div>
-
-          {/* Default Volume Slider */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="block font-medium" style={{ color: colors.text }}>
-                Default Volume
-              </label>
-              <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ 
-                backgroundColor: `${colors.primary}20`,
-                color: colors.primary 
-              }}>
-                {defaultVolume}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={defaultVolume}
-              onChange={(e) => setDefaultVolume(Number(e.target.value))}
-              onMouseUp={(e) => handleVolumeChange(Number((e.target as HTMLInputElement).value))}
-              onTouchEnd={(e) => handleVolumeChange(Number((e.target as HTMLInputElement).value))}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-              style={{ 
-                accentColor: colors.primary,
-                background: `linear-gradient(to right, ${colors.primary} 0%, ${colors.primary} ${defaultVolume}%, ${colors.border} ${defaultVolume}%, ${colors.border} 100%)`
-              }}
-            />
-            <div className="flex justify-between text-xs mt-1" style={{ color: colors.textSecondary }}>
-              <span>🔇 Mute</span>
-              <span>🔊 Max</span>
-            </div>
-          </div>
-
-          {/* Audio Quality Selector */}
-          <div>
-            <label className="block font-medium mb-3" style={{ color: colors.text }}>
-              Audio Quality
-            </label>
-            <div className="space-y-2">
-              {qualityOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleQualityChange(option.value as 'high' | 'medium' | 'low')}
-                  className="w-full p-4 rounded-lg transition-all duration-300 text-left hover:scale-[1.02]"
-                  style={{
-                    border: `2px solid ${audioQuality === option.value ? colors.primary : colors.border}`,
-                    backgroundColor: audioQuality === option.value ? `${colors.primary}15` : colors.background,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium" style={{ color: colors.text }}>{option.label}</p>
-                      <p className="text-sm" style={{ color: colors.textSecondary }}>{option.description}</p>
-                    </div>
-                    {audioQuality === option.value && (
-                      <div 
-                        className="h-6 w-6 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: colors.primary }}
-                      >
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Equalizer Presets */}
-          <div>
-            <label className="block font-medium mb-3" style={{ color: colors.text }}>
-              Equalizer Preset
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {equalizerOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleMusicPreferenceChange('equalizer', option.value)}
-                  className="p-4 rounded-lg transition-all duration-300 hover:scale-105"
-                  style={{
-                    border: `2px solid ${musicPreferences.equalizer === option.value ? colors.primary : colors.border}`,
-                    backgroundColor: musicPreferences.equalizer === option.value ? `${colors.primary}15` : colors.background,
-                  }}
-                >
-                  <div className="text-2xl mb-2">{option.icon}</div>
-                  <p className="text-sm font-medium" style={{ 
-                    color: musicPreferences.equalizer === option.value ? colors.primary : colors.text 
-                  }}>
-                    {option.label}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Info Box */}
-          <div 
-            className="p-4 rounded-lg"
-            style={{
-              backgroundColor: `${colors.primary}10`,
-              border: `2px solid ${colors.primary}30`
-            }}
-          >
-            <p className="text-sm" style={{ color: colors.text }}>
-              💡 <strong>Tip:</strong> These settings will be applied to all music playback. 
-              Changes are saved automatically and synced across your devices.
-            </p>
-          </div>
-        </div>
-      </GlassCard>
-
-      {/* Security */}
+      {/* Bot Configuration */}
       <GlassCard 
         variant="default"
         className={`hover-lift card-shine relative z-10 ${mounted ? 'animate-scale-in stagger-5' : 'opacity-0'}`}
@@ -905,754 +837,301 @@ export default function Settings() {
         <div className="p-6" style={{ borderBottom: `1px solid ${colors.border}` }}>
           <div className="flex items-center gap-3">
             <Shield className="h-5 w-5" style={{ color: colors.primary }} />
-            <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Security</h2>
+            <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Cấu Hình Bot</h2>
           </div>
         </div>
-        <div className="p-6 space-y-4">
-          <button 
-            onClick={() => setShowChangePassword(true)}
-            className="w-full px-4 py-3 rounded-lg transition-all text-left hover:opacity-80 flex items-center justify-between"
-            style={{ 
-              border: `2px solid ${colors.border}`,
-              color: colors.text,
-              backgroundColor: `${colors.primary}10`
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}20`}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-          >
-            <span>Change Password</span>
-            <span className="text-sm" style={{ color: colors.textSecondary }}>▶</span>
-          </button>
-          <button 
-            onClick={() => setShow2FA(true)}
-            className="w-full px-4 py-3 rounded-lg transition-all text-left hover:opacity-80 flex items-center justify-between"
-            style={{ 
-              border: `2px solid ${colors.border}`,
-              color: colors.text,
-              backgroundColor: `${colors.primary}10`
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}20`}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-          >
-            <div>
-              <div>Two-Factor Authentication</div>
-              <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                {twoFactorEnabled ? '✓ Enabled' : 'Not enabled'}
-              </div>
-            </div>
-            <span className="text-sm" style={{ color: colors.textSecondary }}>▶</span>
-          </button>
-          <button 
-            onClick={() => setShowActiveSessions(true)}
-            className="w-full px-4 py-3 rounded-lg transition-all text-left hover:opacity-80 flex items-center justify-between"
-            style={{ 
-              border: `2px solid ${colors.border}`,
-              color: colors.text,
-              backgroundColor: `${colors.primary}10`
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}20`}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
-          >
-            <div>
-              <div>View Active Sessions</div>
-              <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                {activeSessions.length} active devices
-              </div>
-            </div>
-            <span className="text-sm" style={{ color: colors.textSecondary }}>▶</span>
-          </button>
-        </div>
-      </GlassCard>
-
-      {/* Change Password Modal */}
-      {showChangePassword && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in"
-          onClick={() => setShowChangePassword(false)}
-        >
-          <div 
-            className="rounded-xl p-6 max-w-md w-full animate-scale-in"
-            style={{
-              backgroundColor: colors.surface,
-              border: `2px solid ${colors.border}`,
-              animationDuration: '0.4s'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold" style={{ color: colors.text }}>Change Password</h3>
-              <button 
-                onClick={() => setShowChangePassword(false)}
-                className="p-2 rounded-lg hover:bg-opacity-50"
-                style={{ color: colors.textSecondary }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.current}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg outline-none"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`,
-                    color: colors.text
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.new}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg outline-none"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`,
-                    color: colors.text
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirm}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg outline-none"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`,
-                    color: colors.text
-                  }}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
+        <div className="p-6 space-y-6">
+          {/* Bot Status */}
+          <div>
+            <p className="font-medium mb-3" style={{ color: colors.text }}>Trạng Thái Bot</p>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { value: 'online', label: 'Online', icon: '🟢', color: '#10b981' },
+                { value: 'idle', label: 'Idle', icon: '🟡', color: '#f59e0b' },
+                { value: 'dnd', label: 'DND', icon: '🔴', color: '#ef4444' },
+                { value: 'invisible', label: 'Ẩn', icon: '⚫', color: '#6b7280' },
+              ].map((status) => (
                 <button
-                  onClick={handleChangePassword}
-                  className="flex-1 py-3 rounded-lg font-medium transition-all duration-300 hover:scale-105"
-                  style={{ backgroundColor: colors.primary, color: 'white' }}
-                >
-                  Change Password
-                </button>
-                <button
-                  onClick={() => setShowChangePassword(false)}
-                  className="px-6 py-3 rounded-lg font-medium transition-all duration-300"
-                  style={{ backgroundColor: colors.border, color: colors.textSecondary }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Two-Factor Authentication Modal */}
-      {show2FA && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in"
-          onClick={() => setShow2FA(false)}
-        >
-          <div 
-            className="rounded-xl p-6 max-w-md w-full animate-scale-in"
-            style={{
-              backgroundColor: colors.surface,
-              border: `2px solid ${colors.border}`,
-              animationDuration: '0.4s'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold" style={{ color: colors.text }}>Two-Factor Authentication</h3>
-              <button 
-                onClick={() => setShow2FA(false)}
-                className="p-2 rounded-lg hover:bg-opacity-50"
-                style={{ color: colors.textSecondary }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div 
-                className="p-4 rounded-lg"
-                style={{
-                  backgroundColor: twoFactorEnabled ? '#10b98120' : `${colors.primary}10`,
-                  border: `2px solid ${twoFactorEnabled ? '#10b981' : colors.border}`
-                }}
-              >
-                <p className="text-sm" style={{ color: colors.text }}>
-                  {twoFactorEnabled 
-                    ? '✓ Two-factor authentication is currently enabled. Your account is protected with an extra layer of security.'
-                    : 'Enable two-factor authentication to add an extra layer of security to your account. You will need to enter a code from your authenticator app when logging in.'}
-                </p>
-              </div>
-
-              {!twoFactorEnabled && (
-                <div className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
-                  <p className="font-medium" style={{ color: colors.text }}>How it works:</p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>Download an authenticator app (Google Authenticator, Authy)</li>
-                    <li>Scan the QR code with your app</li>
-                    <li>Enter the 6-digit code to verify</li>
-                  </ol>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleEnable2FA}
-                  className="flex-1 py-3 rounded-lg font-medium transition-all duration-300 hover:scale-105"
-                  style={{ 
-                    backgroundColor: twoFactorEnabled ? '#ef4444' : colors.primary, 
-                    color: 'white' 
-                  }}
-                >
-                  {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
-                </button>
-                <button
-                  onClick={() => setShow2FA(false)}
-                  className="px-6 py-3 rounded-lg font-medium transition-all duration-300"
-                  style={{ backgroundColor: colors.border, color: colors.textSecondary }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Active Sessions Modal */}
-      {showActiveSessions && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in"
-          onClick={() => setShowActiveSessions(false)}
-        >
-          <div 
-            className="rounded-xl p-6 max-w-2xl w-full animate-scale-in"
-            style={{
-              backgroundColor: colors.surface,
-              border: `2px solid ${colors.border}`,
-              animationDuration: '0.4s'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold" style={{ color: colors.text }}>Active Sessions</h3>
-              <button 
-                onClick={() => setShowActiveSessions(false)}
-                className="p-2 rounded-lg hover:bg-opacity-50"
-                style={{ color: colors.textSecondary }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {activeSessions.map((session, index) => (
-                <div
-                  key={session.id}
-                  className={`rounded-lg p-4 hover:scale-[1.01] transition-all duration-200 ${mounted ? 'animate-slide-in' : 'opacity-0'}`}
+                  key={status.value}
+                  onClick={() => handleBotStatusChange(status.value as any)}
+                  className="p-3 rounded-lg transition-all duration-200 hover:scale-105"
                   style={{
-                    backgroundColor: session.current ? `${colors.primary}15` : colors.background,
-                    border: `2px solid ${session.current ? colors.primary : colors.border}`,
-                    animationDelay: `${index * 0.08}s`,
-                    transform: 'translateZ(0)'
+                    backgroundColor: botStatus === status.value ? `${status.color}20` : colors.background,
+                    border: `2px solid ${botStatus === status.value ? status.color : colors.border}`,
                   }}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold" style={{ color: colors.text }}>
-                          {session.device}
-                        </h4>
-                        {session.current && (
-                          <span 
-                            className="text-xs px-2 py-1 rounded-full font-medium"
-                            style={{ 
-                              backgroundColor: colors.primary,
-                              color: 'white'
-                            }}
-                          >
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm space-y-1" style={{ color: colors.textSecondary }}>
-                        <p>📍 {session.location}</p>
-                        <p>🌐 {session.ip}</p>
-                        <p>🕒 Last active: {session.lastActive}</p>
-                      </div>
-                    </div>
-                    {!session.current && (
-                      <button
-                        onClick={() => handleRevokeSession(session.id)}
-                        className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 hover:scale-105"
-                        style={{ 
-                          backgroundColor: '#ef444420', 
-                          color: '#ef4444',
-                          border: '2px solid #ef4444'
-                        }}
-                      >
-                        Revoke
-                      </button>
-                    )}
+                  <div className="text-2xl mb-1">{status.icon}</div>
+                  <div className="text-sm font-medium" style={{ color: colors.text }}>
+                    {status.label}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
-
-            <div className="flex justify-end gap-3 pt-4 mt-4" style={{ borderTop: `1px solid ${colors.border}` }}>
-              <button
-                onClick={() => setShowActiveSessions(false)}
-                className="px-6 py-3 rounded-lg font-medium transition-all duration-300"
-                style={{ backgroundColor: colors.primary, color: 'white' }}
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
 
-      {/* Data Management */}
-      <div 
-        className={`rounded-xl hover-lift card-shine relative z-10 ${mounted ? 'animate-scale-in stagger-6' : 'opacity-0'}`}
-        style={{ 
-          border: `2px solid ${colors.border}`,
-          backgroundColor: colors.surface
-        }}
-      >
-        <div 
-          className="p-6 cursor-pointer"
-          style={{ borderBottom: dataExpanded ? `1px solid ${colors.border}` : 'none' }}
-          onClick={() => setDataExpanded(!dataExpanded)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Database className="h-5 w-5" style={{ color: colors.primary }} />
-              <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Data Management</h2>
-            </div>
-            <span 
-              className="text-sm font-medium transition-all duration-300"
-              style={{ 
-                color: colors.primary,
-                transform: dataExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                display: 'inline-block'
-              }}
-            >
-              {dataExpanded ? '▼' : '▶'}
-            </span>
-          </div>
-        </div>
-        
-        {dataExpanded && (
-          <div className="p-6 space-y-4">
-            {/* Tabs */}
-            <div 
-              className="flex gap-2 p-2 rounded-xl"
-              style={{ 
-                backgroundColor: colors.background,
-                border: `2px solid ${colors.border}`
-              }}
-            >
-              <button
-                onClick={() => setDataTab('users')}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-300"
-                style={{
-                  backgroundColor: dataTab === 'users' ? colors.primary : 'transparent',
-                  color: dataTab === 'users' ? 'white' : colors.textSecondary,
-                }}
-              >
-                <Users className="h-5 w-5" />
-                Users
-              </button>
-              <button
-                onClick={() => setDataTab('lyrics')}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-300"
-                style={{
-                  backgroundColor: dataTab === 'lyrics' ? colors.primary : 'transparent',
-                  color: dataTab === 'lyrics' ? 'white' : colors.textSecondary,
-                }}
-              >
-                <Music className="h-5 w-5" />
-                Lyrics
-              </button>
-            </div>
-
-            {/* Search & Actions */}
-            <div className="flex gap-4">
-              <div className="flex-1 relative">
-                <Search 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" 
-                  style={{ color: colors.textSecondary }}
-                />
-                <input
-                  type="text"
-                  placeholder={`Search ${dataTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg outline-none transition-all duration-300"
+          {/* Bot Activity */}
+          <div>
+            <p className="font-medium mb-3" style={{ color: colors.text }}>Hoạt Động Hiển Thị</p>
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <select
+                  value={botActivity.type}
+                  onChange={(e) => setBotActivity({ ...botActivity, type: e.target.value })}
+                  className="px-4 py-2 rounded-lg outline-none"
                   style={{
                     backgroundColor: colors.background,
                     border: `2px solid ${colors.border}`,
                     color: colors.text,
                   }}
-                  onFocus={(e) => e.currentTarget.style.borderColor = colors.primary}
-                  onBlur={(e) => e.currentTarget.style.borderColor = colors.border}
+                >
+                  <option value="playing">🎮 Playing</option>
+                  <option value="listening">🎵 Listening</option>
+                  <option value="watching">👀 Watching</option>
+                  <option value="competing">🏆 Competing</option>
+                </select>
+                <input
+                  type="text"
+                  value={botActivity.text}
+                  onChange={(e) => setBotActivity({ ...botActivity, text: e.target.value })}
+                  placeholder="Văn bản hoạt động..."
+                  className="flex-1 px-4 py-2 rounded-lg outline-none"
+                  style={{
+                    backgroundColor: colors.background,
+                    border: `2px solid ${colors.border}`,
+                    color: colors.text,
+                  }}
                 />
               </div>
-              
-              {dataTab === 'lyrics' && (
-                <button
-                  onClick={() => setShowAddLyric(true)}
-                  className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300 hover:scale-105"
-                  style={{ backgroundColor: colors.primary, color: 'white' }}
-                >
-                  <Plus className="h-5 w-5" />
-                  Add
-                </button>
-              )}
+              <button
+                onClick={handleActivityChange}
+                className="w-full px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: colors.primary, color: 'white' }}
+              >
+                Cập Nhật Hoạt Động
+              </button>
             </div>
+          </div>
 
-            {/* Users Table */}
-            {dataTab === 'users' && (
-              <div 
-                className="rounded-xl overflow-hidden"
-                style={{ 
+          {/* Default Prefix */}
+          <div>
+            <p className="font-medium mb-3" style={{ color: colors.text }}>Prefix Mặc Định</p>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={defaultPrefix}
+                onChange={(e) => setDefaultPrefix(e.target.value)}
+                placeholder="!"
+                maxLength={3}
+                className="w-24 px-4 py-2 rounded-lg outline-none text-center text-2xl font-bold"
+                style={{
                   backgroundColor: colors.background,
-                  border: `2px solid ${colors.border}`
+                  border: `2px solid ${colors.border}`,
+                  color: colors.primary,
+                }}
+              />
+              <button
+                onClick={handlePrefixChange}
+                className="flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: colors.primary, color: 'white' }}
+              >
+                Lưu Prefix
+              </button>
+            </div>
+            <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+              Prefix được dùng để gọi lệnh bot (ví dụ: !play, !help)
+            </p>
+          </div>
+
+          {/* Bot Token (View Only) */}
+          <div>
+            <p className="font-medium mb-3" style={{ color: colors.text }}>Bot Token</p>
+            <div className="flex gap-3">
+              <input
+                type={showToken ? 'text' : 'password'}
+                value="••••••••••••••••••••••••••••••••••••••••"
+                readOnly
+                className="flex-1 px-4 py-2 rounded-lg outline-none"
+                style={{
+                  backgroundColor: colors.background,
+                  border: `2px solid ${colors.border}`,
+                  color: colors.textSecondary,
+                }}
+              />
+              <button
+                onClick={() => setShowToken(!showToken)}
+                className="px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                style={{ 
+                  backgroundColor: `${colors.primary}20`,
+                  color: colors.primary,
+                  border: `2px solid ${colors.primary}`
                 }}
               >
-                <div className="overflow-x-auto max-h-96">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ borderBottom: `2px solid ${colors.border}` }}>
-                        <th className="text-left p-3 font-semibold text-sm" style={{ color: colors.text }}>Username</th>
-                        <th className="text-left p-3 font-semibold text-sm" style={{ color: colors.text }}>Balance</th>
-                        <th className="text-left p-3 font-semibold text-sm" style={{ color: colors.text }}>Level</th>
-                        <th className="text-right p-3 font-semibold text-sm" style={{ color: colors.text }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <td colSpan={4} className="text-center p-8">
-                            <div 
-                              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-                              style={{ borderColor: colors.primary }}
-                            />
-                          </td>
-                        </tr>
-                      ) : filteredUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="text-center p-8" style={{ color: colors.textSecondary }}>
-                            No users found
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredUsers.map((user, index) => (
-                          <tr 
-                            key={user.userId}
-                            style={{ 
-                              borderBottom: index < filteredUsers.length - 1 ? `1px solid ${colors.border}` : 'none'
-                            }}
-                          >
-                            {editingUser === user.userId ? (
-                              <>
-                                <td className="p-3">
-                                  <input
-                                    type="text"
-                                    value={editForm.username || ''}
-                                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                                    className="px-2 py-1 rounded border text-sm w-full"
-                                    style={{ 
-                                      backgroundColor: colors.surface,
-                                      borderColor: colors.border,
-                                      color: colors.text
-                                    }}
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <input
-                                    type="number"
-                                    value={editForm.balance || 0}
-                                    onChange={(e) => setEditForm({ ...editForm, balance: Number(e.target.value) })}
-                                    className="px-2 py-1 rounded border text-sm w-20"
-                                    style={{ 
-                                      backgroundColor: colors.surface,
-                                      borderColor: colors.border,
-                                      color: colors.text
-                                    }}
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <input
-                                    type="number"
-                                    value={editForm.level || 0}
-                                    onChange={(e) => setEditForm({ ...editForm, level: Number(e.target.value) })}
-                                    className="px-2 py-1 rounded border text-sm w-16"
-                                    style={{ 
-                                      backgroundColor: colors.surface,
-                                      borderColor: colors.border,
-                                      color: colors.text
-                                    }}
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <div className="flex justify-end gap-2">
-                                    <button
-                                      onClick={handleSaveUser}
-                                      className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
-                                      style={{ backgroundColor: '#10b98120', color: '#10b981' }}
-                                    >
-                                      <Save className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingUser(null)}
-                                      className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
-                                      style={{ backgroundColor: colors.border, color: colors.textSecondary }}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="p-3 font-medium text-sm" style={{ color: colors.text }}>{user.username}</td>
-                                <td className="p-3">
-                                  <span className="font-semibold text-sm" style={{ color: colors.primary }}>
-                                    {user.balance.toLocaleString()} 🪙
-                                  </span>
-                                </td>
-                                <td className="p-3 text-sm" style={{ color: colors.text }}>Lv. {user.level}</td>
-                                <td className="p-3">
-                                  <div className="flex justify-end gap-2">
-                                    <button
-                                      onClick={() => handleEditUser(user)}
-                                      className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
-                                      style={{ backgroundColor: colors.primary + '20', color: colors.primary }}
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteUser(user.userId)}
-                                      className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
-                                      style={{ backgroundColor: '#ef444420', color: '#ef4444' }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                {showToken ? '🙈 Ẩn' : '👁️ Hiện'}
+              </button>
+            </div>
+            <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+              ⚠️ Không chia sẻ token với bất kỳ ai!
+            </p>
+          </div>
+        </div>
+      </GlassCard>
 
-            {/* Lyrics List */}
-            {dataTab === 'lyrics' && (
-              <>
-                {showAddLyric && (
-                  <div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in"
-                    onClick={() => setShowAddLyric(false)}
-                  >
-                    <div 
-                      className="rounded-xl p-6 max-w-2xl w-full animate-scale-in"
-                      style={{
-                        backgroundColor: colors.surface,
-                        border: `2px solid ${colors.border}`,
-                        animationDuration: '0.4s'
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <h3 className="text-xl font-bold mb-4" style={{ color: colors.text }}>Add New Lyric</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                            Song Query
-                          </label>
-                          <input
-                            type="text"
-                            value={newLyric.query}
-                            onChange={(e) => setNewLyric({ ...newLyric, query: e.target.value })}
-                            placeholder="e.g., never gonna give you up"
-                            className="w-full px-4 py-2 rounded-lg outline-none"
-                            style={{
-                              backgroundColor: colors.background,
-                              border: `2px solid ${colors.border}`,
-                              color: colors.text
-                            }}
-                          />
+      {/* Command Management */}
+      <GlassCard 
+        variant="default"
+        className={`hover-lift card-shine relative z-10 ${mounted ? 'animate-scale-in stagger-4' : 'opacity-0'}`}
+      >
+        <div className="p-6" style={{ borderBottom: `1px solid ${colors.border}` }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Terminal className="h-5 w-5" style={{ color: colors.primary }} />
+              <h2 className="text-xl font-semibold" style={{ color: colors.text }}>Quản Lý Lệnh</h2>
+            </div>
+            <div className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
+              <Power className="h-4 w-4" />
+              <span>
+                {Object.values(commandStates).filter(Boolean).length} / {Object.keys(commandStates).length} đã bật
+              </span>
+            </div>
+          </div>
+          <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>
+            Bật/tắt các module lệnh của bot
+          </p>
+        </div>
+        <div className="p-6">
+          {loadingCommands ? (
+            <div className="flex items-center justify-center py-12">
+              <div
+                className="animate-spin h-12 w-12 border-4 border-t-transparent rounded-full"
+                style={{ borderColor: colors.primary }}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { key: 'moderation', label: 'Moderation', icon: '🛡️', description: 'Ban, kick, mute, warn' },
+                { key: 'utility', label: 'Utility', icon: '🔧', description: 'Info, avatar, serverinfo' },
+                { key: 'fun', label: 'Games', icon: '🎮', description: 'Mini games, fun commands' },
+                { key: 'customrole', label: 'Custom Role', icon: '🎨', description: 'Tạo role tùy chỉnh' },
+                { key: 'donation', label: 'Donation', icon: '💝', description: 'Quản lý donate' },
+                { key: 'quickreport', label: 'Quick Report', icon: '📋', description: 'Báo cáo nhanh' },
+                { key: 'ticket', label: 'Ticket', icon: '🎫', description: 'Hệ thống ticket' },
+                { key: 'giveaway', label: 'Giveaway', icon: '🎁', description: 'Tổ chức giveaway' },
+                { key: 'ai', label: 'AI Chat', icon: '🤖', description: 'Chat AI với Groq/Gemini' },
+                { key: 'verify', label: 'Verify', icon: '✅', description: 'Xác minh thành viên' },
+              ].map((command, index) => (
+                <div
+                  key={command.key}
+                  className={`p-4 rounded-xl transition-all duration-200 hover:scale-[1.02] ${mounted ? 'animate-slide-in' : 'opacity-0'}`}
+                  style={{
+                    backgroundColor: commandStates[command.key] ? `${colors.primary}10` : colors.background,
+                    border: `2px solid ${commandStates[command.key] ? `${colors.primary}40` : colors.border}`,
+                    animationDelay: `${0.1 + index * 0.03}s`,
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <span className="text-2xl">{command.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold" style={{ color: colors.text }}>
+                            {command.label}
+                          </p>
+                          {commandStates[command.key] && (
+                            <span 
+                              className="px-2 py-0.5 text-[10px] font-bold rounded-full"
+                              style={{
+                                backgroundColor: `${colors.primary}30`,
+                                color: colors.primary
+                              }}
+                            >
+                              ACTIVE
+                            </span>
+                          )}
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-                            Lyrics
-                          </label>
-                          <textarea
-                            value={newLyric.lyrics}
-                            onChange={(e) => setNewLyric({ ...newLyric, lyrics: e.target.value })}
-                            placeholder="Enter lyrics here..."
-                            rows={10}
-                            className="w-full px-4 py-2 rounded-lg outline-none resize-none"
-                            style={{
-                              backgroundColor: colors.background,
-                              border: `2px solid ${colors.border}`,
-                              color: colors.text
-                            }}
-                          />
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={handleAddLyric}
-                            className="flex-1 py-3 rounded-lg font-medium transition-all duration-300 hover:scale-105"
-                            style={{ backgroundColor: colors.primary, color: 'white' }}
-                          >
-                            Add Lyric
-                          </button>
-                          <button
-                            onClick={() => setShowAddLyric(false)}
-                            className="px-6 py-3 rounded-lg font-medium transition-all duration-300"
-                            style={{ backgroundColor: colors.border, color: colors.textSecondary }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                        <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                          {command.description}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                )}
-
-                <div 
-                  className="rounded-xl overflow-hidden max-h-96 overflow-y-auto"
-                  style={{ 
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`
-                  }}
-                >
-                  <div className="grid gap-3 p-3">
-                    {loading ? (
-                      <div className="text-center p-8">
-                        <div 
-                          className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-                          style={{ borderColor: colors.primary }}
-                        />
-                      </div>
-                    ) : filteredLyrics.length === 0 ? (
-                      <div className="text-center p-8" style={{ color: colors.textSecondary }}>
-                        No lyrics found
-                      </div>
-                    ) : (
-                      filteredLyrics.map((lyric) => (
-                        <div
-                          key={lyric.id}
-                          className="rounded-lg p-4"
-                          style={{
-                            backgroundColor: colors.surface,
-                            border: `2px solid ${colors.border}`
-                          }}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Music className="h-4 w-4" style={{ color: colors.primary }} />
-                                <h4 className="font-semibold text-sm" style={{ color: colors.text }}>{lyric.query}</h4>
-                              </div>
-                              <p 
-                                className="text-xs whitespace-pre-line line-clamp-2" 
-                                style={{ color: colors.textSecondary }}
-                              >
-                                {lyric.lyrics}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteLyric(lyric.id)}
-                              className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
-                              style={{ backgroundColor: '#ef444420', color: '#ef4444' }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                    <button
+                      onClick={() => handleCommandToggle(command.key)}
+                      className="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ml-3 flex-shrink-0"
+                      style={{ 
+                        backgroundColor: commandStates[command.key] ? colors.primary : `${colors.primary}40`,
+                      }}
+                    >
+                      <span
+                        className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-lg"
+                        style={{ 
+                          transform: commandStates[command.key] ? 'translateX(1.5rem)' : 'translateX(0.25rem)',
+                        }}
+                      />
+                    </button>
                   </div>
                 </div>
-              </>
-            )}
-
-            {/* Economy Stats (only for users tab) */}
-            {dataTab === 'users' && !loading && users.length > 0 && (
-              <div className="grid grid-cols-3 gap-3 mt-4">
-                <div 
-                  className="rounded-lg p-4 text-center"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`
-                  }}
-                >
-                  <Coins className="h-6 w-6 mx-auto mb-2" style={{ color: colors.primary }} />
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>Total Economy</p>
-                  <p className="text-lg font-bold mt-1" style={{ color: colors.text }}>
-                    {users.reduce((sum, u) => sum + u.balance, 0).toLocaleString()} 🪙
-                  </p>
-                </div>
-                
-                <div 
-                  className="rounded-lg p-4 text-center"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`
-                  }}
-                >
-                  <Users className="h-6 w-6 mx-auto mb-2" style={{ color: colors.secondary }} />
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>Richest User</p>
-                  <p className="text-sm font-bold mt-1 truncate" style={{ color: colors.text }}>
-                    {users.reduce((max, u) => u.balance > max.balance ? u : max).username}
-                  </p>
-                </div>
-                
-                <div 
-                  className="rounded-lg p-4 text-center"
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `2px solid ${colors.border}`
-                  }}
-                >
-                  <Database className="h-6 w-6 mx-auto mb-2" style={{ color: colors.accent }} />
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>Avg Balance</p>
-                  <p className="text-lg font-bold mt-1" style={{ color: colors.text }}>
-                    {Math.round(users.reduce((sum, u) => sum + u.balance, 0) / users.length).toLocaleString()} 🪙
-                  </p>
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
+          )}
+          
+          {/* Quick Actions */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={async () => {
+                const allKeys = Object.keys(commandStates)
+                const newStates: Record<string, boolean> = {}
+                allKeys.forEach(key => newStates[key] = true)
+                setCommandStates(newStates)
+                try {
+                  await api.post('/bot/commands/toggle-all', { enabled: true })
+                  showNotification('success', '✅ Đã bật tất cả lệnh')
+                  if (notificationSound) soundManager.play('success')
+                } catch (error) {
+                  fetchCommandStates() // Revert
+                  showNotification('error', '❌ Không thể bật tất cả lệnh')
+                  if (notificationSound) soundManager.play('error')
+                }
+              }}
+              className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: `${colors.primary}20`,
+                color: colors.primary,
+                border: `2px solid ${colors.primary}`
+              }}
+            >
+              <Power className="h-4 w-4" />
+              Bật Tất Cả
+            </button>
+            <button
+              onClick={async () => {
+                const allKeys = Object.keys(commandStates)
+                const newStates: Record<string, boolean> = {}
+                allKeys.forEach(key => newStates[key] = false)
+                setCommandStates(newStates)
+                try {
+                  await api.post('/bot/commands/toggle-all', { enabled: false })
+                  showNotification('success', '✅ Đã tắt tất cả lệnh')
+                  if (notificationSound) soundManager.play('success')
+                } catch (error) {
+                  fetchCommandStates() // Revert
+                  showNotification('error', '❌ Không thể tắt tất cả lệnh')
+                  if (notificationSound) soundManager.play('error')
+                }
+              }}
+              className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '2px solid rgba(239, 68, 68, 0.3)'
+              }}
+            >
+              <Power className="h-4 w-4" />
+              Tắt Tất Cả
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      </GlassCard>
+
     </div>
   )
 }
-
-

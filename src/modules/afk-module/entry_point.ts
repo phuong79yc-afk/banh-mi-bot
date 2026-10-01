@@ -28,7 +28,7 @@ export default class AFKModule {
     console.log('💤 AFK module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ AFK module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} AFK module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -79,7 +79,7 @@ export default class AFKModule {
 
         if (!afkUser) {
           return interaction.reply({
-            content: '❌ You are not AFK!',
+            content: '${emojis.error} You are not AFK!',
             flags: 64
           });
         }
@@ -87,7 +87,7 @@ export default class AFKModule {
         const duration = afkManager.getTimeElapsed(afkUser.timestamp);
 
         await interaction.reply({
-          content: `✅ Welcome back! You were AFK for **${duration}**.`,
+          content: `${emojis.success} Welcome back! You were AFK for **${duration}**.`,
           flags: 64
         });
       }

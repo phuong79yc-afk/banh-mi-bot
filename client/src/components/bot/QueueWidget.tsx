@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Music, Trash2 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
-import axios from 'axios'
+import api, { apiEndpoints } from '../../lib/api'
 
 interface QueueSong {
   id: string
@@ -24,8 +24,8 @@ export default function QueueWidget() {
 
   const fetchQueue = async () => {
     try {
-      const response = await axios.get('/api/music/queue')
-      setQueue(response.data.queue || [])
+      // Queue API not implemented yet, return empty for now
+      setQueue([])
       setLoading(false)
     } catch (error) {
       console.error('Failed to fetch queue:', error)
@@ -35,7 +35,7 @@ export default function QueueWidget() {
 
   const removeFromQueue = async (songId: string) => {
     try {
-      await axios.delete(`/api/music/queue/${songId}`)
+      // Queue removal not implemented yet
       setQueue(queue.filter(song => song.id !== songId))
     } catch (error) {
       console.error('Failed to remove song:', error)
@@ -137,7 +137,7 @@ export default function QueueWidget() {
         <button
           onClick={async () => {
             try {
-              await axios.delete('/api/music/queue')
+              await api.delete(apiEndpoints.musicQueue)
               setQueue([])
             } catch (error) {
               console.error('Failed to clear queue:', error)

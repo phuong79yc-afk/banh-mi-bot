@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Play, Pause, SkipForward, Volume2 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
-import axios from 'axios'
+import api, { apiEndpoints } from '../../lib/api'
 
 interface BotControlWidgetProps {
   currentSong?: {
@@ -23,10 +23,10 @@ export default function BotControlWidget({ currentSong, isPlaying: initialPlayin
     setLoading(true)
     try {
       if (isPlaying) {
-        await axios.post('/api/music/pause')
+        await api.post(apiEndpoints.musicPause)
         setIsPlaying(false)
       } else {
-        await axios.post('/api/music/resume')
+        await api.post(apiEndpoints.musicResume)
         setIsPlaying(true)
       }
     } catch (error) {
@@ -39,7 +39,7 @@ export default function BotControlWidget({ currentSong, isPlaying: initialPlayin
   const handleSkip = async () => {
     setLoading(true)
     try {
-      await axios.post('/api/music/skip')
+      await api.post(apiEndpoints.musicSkip)
     } catch (error) {
       console.error('Failed to skip song:', error)
     } finally {
@@ -50,7 +50,7 @@ export default function BotControlWidget({ currentSong, isPlaying: initialPlayin
   const handleVolumeChange = async (newVolume: number) => {
     setVolume(newVolume)
     try {
-      await axios.post('/api/music/volume', { volume: newVolume })
+      await api.post(apiEndpoints.musicVolume, { volume: newVolume })
     } catch (error) {
       console.error('Failed to change volume:', error)
     }

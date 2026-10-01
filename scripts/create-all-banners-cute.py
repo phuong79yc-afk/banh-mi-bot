@@ -35,28 +35,74 @@ def create_gradient_bg(width, height, color1, color2):
             img.putpixel((x, y), (r, g, b))
     return img
 
-def draw_round_character(size, face_color, cheek_color, accessory=None, acc_param=None):
-    """Draw cute round character"""
+def draw_round_character(size, face_color, cheek_color, accessory=None, acc_param=None, animal='cat'):
+    """Draw cute round character with animal ears"""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     center = size // 2
     radius = size // 2 - 4
     
+    # Animal ears BEFORE body
+    if animal == 'cat':
+        # Cat triangle ears
+        for sx in (-1, 1):
+            ear_pts = [(center + sx * 13, center - radius), 
+                      (center + sx * 25, center - radius - 15),
+                      (center + sx * 9, center - radius + 5)]
+            draw.polygon(ear_pts, fill=face_color, outline=OUTLINE, width=3)
+            # Inner ear
+            inner_pts = [(center + sx * 14, center - radius + 2),
+                        (center + sx * 20, center - radius - 8),
+                        (center + sx * 12, center - radius + 5)]
+            draw.polygon(inner_pts, fill=cheek_color, outline=None)
+    
+    elif animal == 'bunny':
+        # Long bunny ears
+        for sx in (-1, 1):
+            draw.ellipse([center + sx * 10 - 6, center - radius - 25, 
+                         center + sx * 10 + 6, center - radius + 5],
+                        fill=face_color, outline=OUTLINE, width=3)
+            # Inner ear
+            draw.ellipse([center + sx * 10 - 3, center - radius - 20,
+                         center + sx * 10 + 3, center - radius + 2],
+                        fill=cheek_color, outline=None)
+    
+    elif animal == 'bear':
+        # Round bear ears
+        for sx in (-1, 1):
+            draw.ellipse([center + sx * 20 - 8, center - radius - 8,
+                         center + sx * 20 + 8, center - radius + 8],
+                        fill=face_color, outline=OUTLINE, width=3)
+            # Inner ear
+            draw.ellipse([center + sx * 20 - 4, center - radius - 4,
+                         center + sx * 20 + 4, center - radius + 4],
+                        fill=cheek_color, outline=None)
+    
+    elif animal == 'frog':
+        # Frog eyes on top
+        for sx in (-1, 1):
+            draw.ellipse([center + sx * 15 - 8, center - radius - 10,
+                         center + sx * 15 + 8, center - radius + 6],
+                        fill=face_color, outline=OUTLINE, width=3)
+            # Eye
+            draw.ellipse([center + sx * 15 - 4, center - radius - 6,
+                         center + sx * 15 + 4, center - radius + 2],
+                        fill=OUTLINE)
+    
     # Body circle
     draw.ellipse([center - radius, center - radius, center + radius, center + radius],
                 fill=face_color, outline=OUTLINE, width=3)
     
-    # Eyes (happy closed if blinking)
-    eye_y = center - 8
-    if acc_param and acc_param.get('blink'):
-        # Closed eyes (happy arcs)
-        for eye_x in [center - 12, center + 12]:
-            draw.arc([eye_x - 4, eye_y - 2, eye_x + 4, eye_y + 2],
-                    start=0, end=180, fill=OUTLINE, width=2)
-    else:
-        # Open eyes
-        for eye_x in [center - 12, center + 12]:
-            draw.ellipse([eye_x - 3, eye_y - 3, eye_x + 3, eye_y + 3], fill=OUTLINE)
+    # Eyes (skip if frog - eyes are on top)
+    if animal != 'frog':
+        eye_y = center - 8
+        if acc_param and acc_param.get('blink'):
+            for eye_x in [center - 12, center + 12]:
+                draw.arc([eye_x - 4, eye_y - 2, eye_x + 4, eye_y + 2],
+                        start=0, end=180, fill=OUTLINE, width=2)
+        else:
+            for eye_x in [center - 12, center + 12]:
+                draw.ellipse([eye_x - 3, eye_y - 3, eye_x + 3, eye_y + 3], fill=OUTLINE)
     
     # Mouth (happy)
     draw.arc([center - 10, center - 5, center + 10, center + 8],
@@ -152,13 +198,13 @@ def create_shop_banner():
         bounce2 = int(8 * abs(math.sin(TAU * (t + 0.33))))
         bounce3 = int(8 * abs(math.sin(TAU * (t + 0.66))))
         
-        char1 = draw_round_character(char_size, LAVENDER, (180, 160, 220), 'gift')
+        char1 = draw_round_character(char_size, LAVENDER, (180, 160, 220), 'gift', None, 'cat')
         img.paste(char1, (60, y_base - bounce1), char1)
         
-        char2 = draw_round_character(char_size, PINK, (255, 160, 180), 'coin')
+        char2 = draw_round_character(char_size, PINK, (255, 160, 180), 'coin', None, 'bunny')
         img.paste(char2, (WIDTH // 2 - char_size // 2, y_base - bounce2), char2)
         
-        char3 = draw_round_character(char_size, MINT, (150, 220, 190), 'gift')
+        char3 = draw_round_character(char_size, MINT, (150, 220, 190), 'gift', None, 'bear')
         img.paste(char3, (WIDTH - 140, y_base - bounce3), char3)
         
         # Text
@@ -229,13 +275,13 @@ def create_daily_banner():
         
         blink = 0.83 <= t < 0.92
         
-        char1 = draw_round_character(char_size, SKY, (140, 190, 240), 'calendar', {'blink': blink})
+        char1 = draw_round_character(char_size, SKY, (140, 190, 240), 'calendar', {'blink': blink}, 'bear')
         img.paste(char1, (60, y_base - bounce1), char1)
         
-        char2 = draw_round_character(char_size, PEACH, (255, 180, 140), 'flame')
+        char2 = draw_round_character(char_size, PEACH, (255, 180, 140), 'flame', None, 'cat')
         img.paste(char2, (WIDTH // 2 - char_size // 2, y_base - bounce2), char2)
         
-        char3 = draw_round_character(char_size, YELLOW, (255, 220, 120), 'coin')
+        char3 = draw_round_character(char_size, YELLOW, (255, 220, 120), 'coin', None, 'bunny')
         img.paste(char3, (WIDTH - 140, y_base - bounce3), char3)
         
         # Text

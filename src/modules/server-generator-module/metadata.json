@@ -1,0 +1,10 @@
+{
+  "name": "server-generator-module",
+  "version": "1.0.0",
+  "description": "AI-powered Discord server setup generator",
+  "enabled": true,
+  "priority": 15,
+  "type": 1,
+  "author": "Your Name",
+  "slashCommands": ["/generator"]
+}

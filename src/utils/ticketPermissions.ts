@@ -77,6 +77,6 @@ export async function sendBlockedMessage(interaction: ChatInputCommandInteractio
       },
       timestamp: new Date().toISOString()
     }],
-    ephemeral: true
+    flags: 64
   });
 }

@@ -30,7 +30,7 @@ export default class SnipeModule {
     console.log('👀 Snipe module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Snipe module registered ${this.commands.size} commands`);
+    console.log(`${emojis.success} Snipe module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -79,7 +79,7 @@ export default class SnipeModule {
         const timeAgo = Math.floor((Date.now() - (msg.deletedAt || 0)) / 1000);
 
         const embed = createEnhancedEmbed({
-          title: `🗑️ Recent Deleted Message`,
+          title: `${emojis.delete} Recent Deleted Message`,
           description: `Recent deleted message for <#${channelId}>`,
           color: 'error',
           fields: [
@@ -158,7 +158,7 @@ export default class SnipeModule {
         const msg = messages[0];
 
         const embed = createEnhancedEmbed({
-          title: `✏️ Recent Edited Message`,
+          title: `${emojis.edit} Recent Edited Message`,
           description: `Recent edited message for <#${channelId}>`,
           color: 'warning',
           fields: [

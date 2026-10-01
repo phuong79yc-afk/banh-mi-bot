@@ -5,3 +5,8 @@ dist/
 *.log
 .vscode/
 .idea/
+docs-archive/
+data/
+logs/
+temp/
+backups/

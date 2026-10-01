@@ -1,0 +1,51 @@
+{
+  "serverName": "︻デ═一 Anime Squad",
+  "categories": [
+    {
+      "name": "⚔️ WELCOME",
+      "emoji": "⚔️",
+      "channels": [
+        {"name": "「🎌 welcome」", "type": 0, "emoji": "👋"},
+        {"name": "⌈📜 rules⌋", "type": 0, "emoji": "📜"},
+        {"name": "【🏮 announcements】", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "🎌 ANIME TALK",
+      "emoji": "🎌",
+      "channels": [
+        {"name": "◆ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "⚔ anime-discussion", "type": 0, "emoji": "📺"},
+        {"name": "︻manga-talk", "type": 0, "emoji": "📖"},
+        {"name": "「◇ fan-art」", "type": 0, "emoji": "🎨"},
+        {"name": "⟨🌸 waifu-husbando⟩", "type": 0, "emoji": "💕"}
+      ]
+    },
+    {
+      "name": "🎮 GAMING",
+      "emoji": "🎮",
+      "channels": [
+        {"name": "︻デ═一 gaming-general", "type": 0, "emoji": "🎮"},
+        {"name": "◈ gacha-games", "type": 0, "emoji": "🎲"},
+        {"name": "✦ esports", "type": 0, "emoji": "🏆"}
+      ]
+    },
+    {
+      "name": "🎙️ VOICE",
+      "emoji": "🎙️",
+      "channels": [
+        {"name": "【⚡ Voice Lobby】", "type": 2, "emoji": "🎙️"},
+        {"name": "︻ Gaming Room", "type": 2, "emoji": "🎮"},
+        {"name": "「🌸 Chill Zone」", "type": 2, "emoji": "🌺"},
+        {"name": "⚔ AFK", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#FF0000", "permissions": []},
+    {"name": "Admin", "emoji": "⚔️", "color": "#FF6347", "permissions": []},
+    {"name": "Moderator", "emoji": "🎌", "color": "#FF7F50", "permissions": []},
+    {"name": "Senpai", "emoji": "🌸", "color": "#FFB6C1", "permissions": []},
+    {"name": "Member", "emoji": "◆", "color": "#B0C4DE", "permissions": []}
+  ]
+}

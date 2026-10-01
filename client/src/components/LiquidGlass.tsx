@@ -73,6 +73,16 @@ const LiquidGlass = memo(function LiquidGlass({
       sky: { hue: 200, saturation: 0.7 },
       slate: { hue: 215, saturation: 0.2 },
       stone: { hue: 30, saturation: 0.1 },
+      crimson: { hue: 350, saturation: 0.85 },
+      coral: { hue: 10, saturation: 0.75 },
+      lavender: { hue: 280, saturation: 0.5 },
+      mint: { hue: 160, saturation: 0.55 },
+      peach: { hue: 20, saturation: 0.6 },
+      navy: { hue: 215, saturation: 0.9 },
+      burgundy: { hue: 345, saturation: 0.8 },
+      gold: { hue: 45, saturation: 0.95 },
+      chocolate: { hue: 25, saturation: 0.7 },
+      olive: { hue: 75, saturation: 0.5 },
     }
 
     const colorConfig = colorMap[accentColor] || { hue: 30, saturation: 0.4 }

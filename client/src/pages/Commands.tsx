@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
-import { Search, Music, Shield, Zap, Laugh, DollarSign, Info } from 'lucide-react'
+import { Search, Shield, Zap, Laugh, DollarSign, Info } from 'lucide-react'
 import GlassCard from '../components/GlassCard'
-import LiquidGlass from '../components/LiquidGlass'
-import axios from 'axios'
+import PermissionDenied from '../components/PermissionDenied'
+import { usePermissions } from '../hooks/usePermissions'
+import api, { apiEndpoints } from '../lib/api'
 
 interface Command {
   name: string
@@ -14,25 +15,48 @@ interface Command {
 }
 
 const categoryIcons = {
-  music: Music,
+  ai: Zap,
+  afk: Info,
   moderation: Shield,
+  autoresponder: Zap,
+  sticky: Info,
+  snipe: Info,
+  report: Shield,
+  donation: DollarSign,
+  generator: Zap,
+  social: Laugh,
+  games: Laugh,
+  customrole: Info,
+  giveaway: DollarSign,
+  minecraft: Laugh,
+  ticket: Shield,
   utility: Zap,
-  fun: Laugh,
-  economy: DollarSign,
-  info: Info
+  other: Info
 }
 
 const categoryColors = {
-  music: { light: '#8b5cf6', dark: '#a78bfa' },
+  ai: { light: '#10b981', dark: '#34d399' },
+  afk: { light: '#6366f1', dark: '#818cf8' },
   moderation: { light: '#ef4444', dark: '#f87171' },
+  autoresponder: { light: '#3b82f6', dark: '#60a5fa' },
+  sticky: { light: '#f59e0b', dark: '#fbbf24' },
+  snipe: { light: '#ec4899', dark: '#f472b6' },
+  report: { light: '#ef4444', dark: '#f87171' },
+  donation: { light: '#10b981', dark: '#34d399' },
+  generator: { light: '#8b5cf6', dark: '#a78bfa' },
+  social: { light: '#f59e0b', dark: '#fbbf24' },
+  games: { light: '#f59e0b', dark: '#fbbf24' },
+  customrole: { light: '#6366f1', dark: '#818cf8' },
+  giveaway: { light: '#10b981', dark: '#34d399' },
+  minecraft: { light: '#10b981', dark: '#34d399' },
+  ticket: { light: '#ef4444', dark: '#f87171' },
   utility: { light: '#3b82f6', dark: '#60a5fa' },
-  fun: { light: '#f59e0b', dark: '#fbbf24' },
-  economy: { light: '#10b981', dark: '#34d399' },
-  info: { light: '#6366f1', dark: '#818cf8' }
+  other: { light: '#6366f1', dark: '#818cf8' }
 }
 
 export default function Commands() {
   const { colors, darkMode } = useTheme()
+  const { canExecuteCommands } = usePermissions()
   const [commands, setCommands] = useState<Command[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,8 +70,16 @@ export default function Commands() {
 
   const fetchCommands = async () => {
     try {
-      const response = await axios.get('/api/commands')
-      setCommands(response.data.commands || [])
+      const response = await api.get(apiEndpoints.commands)
+      const commands = response.data.commands || []
+      
+      // If API returns empty, use static data
+      if (commands.length === 0) {
+        console.log('API returned empty, using static data')
+        setCommands(getStaticCommands())
+      } else {
+        setCommands(commands)
+      }
       setLoading(false)
     } catch (error) {
       console.error('Failed to fetch commands:', error)
@@ -59,67 +91,132 @@ export default function Commands() {
 
   const getStaticCommands = (): Command[] => {
     return [
-      // Music Commands
-      { name: 'play', description: 'Play a song from YouTube or search query', category: 'music', usage: '/play <song name or URL>', example: '/play never gonna give you up' },
-      { name: 'pause', description: 'Pause the current song', category: 'music', usage: '/pause' },
-      { name: 'resume', description: 'Resume playback', category: 'music', usage: '/resume' },
-      { name: 'skip', description: 'Skip to the next song', category: 'music', usage: '/skip' },
-      { name: 'stop', description: 'Stop playing and clear queue', category: 'music', usage: '/stop' },
-      { name: 'queue', description: 'Show the current music queue', category: 'music', usage: '/queue' },
-      { name: 'nowplaying', description: 'Show currently playing song', category: 'music', usage: '/nowplaying' },
-      { name: 'volume', description: 'Set playback volume (0-100)', category: 'music', usage: '/volume <number>', example: '/volume 50' },
-      { name: 'loop', description: 'Toggle loop mode', category: 'music', usage: '/loop' },
-      { name: 'shuffle', description: 'Shuffle the queue', category: 'music', usage: '/shuffle' },
-      { name: 'lyrics', description: 'Get lyrics for current song', category: 'music', usage: '/lyrics' },
+      // AFK Module (3)
+      { name: 'afk', description: 'Đặt trạng thái AFK', category: 'afk', usage: '/afk [lý do]' },
+      { name: 'afk-remove', description: 'Xóa trạng thái AFK', category: 'afk', usage: '/afk-remove' },
+      { name: 'afk-list', description: 'Xem danh sách người AFK', category: 'afk', usage: '/afk-list' },
       
-      // Moderation Commands
-      { name: 'kick', description: 'Kick a member from the server', category: 'moderation', usage: '/kick <user> [reason]', example: '/kick @user Spamming' },
-      { name: 'ban', description: 'Ban a member from the server', category: 'moderation', usage: '/ban <user> [reason]', example: '/ban @user Breaking rules' },
-      { name: 'unban', description: 'Unban a user from the server', category: 'moderation', usage: '/unban <user ID>', example: '/unban 123456789' },
-      { name: 'mute', description: 'Mute a member', category: 'moderation', usage: '/mute <user> [duration] [reason]', example: '/mute @user 10m Spamming' },
-      { name: 'unmute', description: 'Unmute a member', category: 'moderation', usage: '/unmute <user>' },
-      { name: 'warn', description: 'Warn a member', category: 'moderation', usage: '/warn <user> [reason]', example: '/warn @user Please follow rules' },
-      { name: 'warnings', description: 'View warnings for a user', category: 'moderation', usage: '/warnings <user>' },
-      { name: 'clear', description: 'Clear messages in channel', category: 'moderation', usage: '/clear <amount>', example: '/clear 10' },
-      { name: 'lock', description: 'Lock a channel', category: 'moderation', usage: '/lock [channel]' },
-      { name: 'unlock', description: 'Unlock a channel', category: 'moderation', usage: '/unlock [channel]' },
-      { name: 'slowmode', description: 'Set slowmode delay', category: 'moderation', usage: '/slowmode <seconds>', example: '/slowmode 5' },
-      { name: 'timeout', description: 'Timeout a member', category: 'moderation', usage: '/timeout <user> <duration>', example: '/timeout @user 1h' },
-      { name: 'nuke', description: 'Delete and recreate channel', category: 'moderation', usage: '/nuke' },
+      // AI Module (3)
+      { name: 'ai', description: 'Chat với AI', category: 'ai', usage: '/ai <message>' },
+      { name: 'ai-memory', description: 'Quản lý bộ nhớ AI', category: 'ai', usage: '/ai-memory' },
+      { name: 'ai-models', description: 'Xem danh sách AI models', category: 'ai', usage: '/ai-models' },
       
-      // Utility Commands
-      { name: 'help', description: 'Show all available commands', category: 'utility', usage: '/help [command]' },
-      { name: 'ping', description: 'Check bot latency', category: 'utility', usage: '/ping' },
-      { name: 'serverinfo', description: 'Show server information', category: 'utility', usage: '/serverinfo' },
-      { name: 'userinfo', description: 'Show user information', category: 'utility', usage: '/userinfo [user]' },
-      { name: 'avatar', description: 'Get user avatar', category: 'utility', usage: '/avatar [user]' },
-      { name: 'stats', description: 'Show bot statistics', category: 'utility', usage: '/stats' },
-      { name: 'uptime', description: 'Show bot uptime', category: 'utility', usage: '/uptime' },
-      { name: 'invite', description: 'Get bot invite link', category: 'utility', usage: '/invite' },
-      { name: 'support', description: 'Get support server link', category: 'utility', usage: '/support' },
+      // Autoresponder Module (6)
+      { name: 'autoresponder-add', description: 'Thêm auto response', category: 'autoresponder', usage: '/autoresponder-add' },
+      { name: 'autoresponder-remove', description: 'Xóa auto response', category: 'autoresponder', usage: '/autoresponder-remove' },
+      { name: 'autoresponder-list', description: 'Xem danh sách auto responses', category: 'autoresponder', usage: '/autoresponder-list' },
+      { name: 'autoresponder-view', description: 'Xem chi tiết auto response', category: 'autoresponder', usage: '/autoresponder-view' },
+      { name: 'autoresponder-matchmode', description: 'Đổi chế độ match', category: 'autoresponder', usage: '/autoresponder-matchmode' },
+      { name: 'autoresponder-placeholders', description: 'Xem placeholders', category: 'autoresponder', usage: '/autoresponder-placeholders' },
       
-      // Fun Commands
-      { name: '8ball', description: 'Ask the magic 8ball', category: 'fun', usage: '/8ball <question>', example: '/8ball Will I win?' },
-      { name: 'joke', description: 'Get a random joke', category: 'fun', usage: '/joke' },
-      { name: 'meme', description: 'Get a random meme', category: 'fun', usage: '/meme' },
-      { name: 'coinflip', description: 'Flip a coin', category: 'fun', usage: '/coinflip' },
-      { name: 'roll', description: 'Roll a dice', category: 'fun', usage: '/roll [sides]', example: '/roll 6' },
+      // Custom Role Module (7)
+      { name: 'customrole-admin-enable', description: 'Bật custom role', category: 'customrole', usage: '/customrole-admin-enable' },
+      { name: 'customrole-admin-disable', description: 'Tắt custom role', category: 'customrole', usage: '/customrole-admin-disable' },
+      { name: 'customrole-admin-color-palette', description: 'Thiết lập bảng màu', category: 'customrole', usage: '/customrole-admin-color-palette' },
+      { name: 'customrole-admin-create', description: 'Tạo custom role', category: 'customrole', usage: '/customrole-admin-create' },
+      { name: 'customrole-admin-manage', description: 'Quản lý custom roles', category: 'customrole', usage: '/customrole-admin-manage' },
+      { name: 'customrole-admin-migrate', description: 'Di chuyển custom roles', category: 'customrole', usage: '/customrole-admin-migrate' },
+      { name: 'customrole-admin-terminate', description: 'Xóa custom role system', category: 'customrole', usage: '/customrole-admin-terminate' },
       
-      // Economy Commands
-      { name: 'balance', description: 'Check your balance', category: 'economy', usage: '/balance [user]' },
-      { name: 'daily', description: 'Claim daily reward', category: 'economy', usage: '/daily' },
-      { name: 'shop', description: 'View the shop', category: 'economy', usage: '/shop' },
-      { name: 'giveaway', description: 'Start a giveaway', category: 'economy', usage: '/giveaway <duration> <winners> <prize>', example: '/giveaway 1h 1 Nitro' },
+      // Donation Module (7)
+      { name: 'donation-enable', description: 'Bật donation tracking', category: 'donation', usage: '/donation-enable' },
+      { name: 'donation-disable', description: 'Tắt donation tracking', category: 'donation', usage: '/donation-disable' },
+      { name: 'donation-add', description: 'Thêm donation', category: 'donation', usage: '/donation-add' },
+      { name: 'donation-subtract', description: 'Trừ donation', category: 'donation', usage: '/donation-subtract' },
+      { name: 'donation-leaderboard', description: 'Xem bảng xếp hạng', category: 'donation', usage: '/donation-leaderboard' },
+      { name: 'donation-stats', description: 'Xem thống kê donation', category: 'donation', usage: '/donation-stats' },
+      { name: 'donation-config', description: 'Cấu hình donation', category: 'donation', usage: '/donation-config' },
+      
+      // Games Module (1)
+      { name: 'gtn-start', description: 'Chơi Guess The Number', category: 'games', usage: '/gtn-start' },
+      
+      // Giveaway Module (1)
+      { name: 'giveaway-migrate', description: 'Di chuyển giveaway data', category: 'giveaway', usage: '/giveaway-migrate' },
+      
+      // Minecraft Module (2)
+      { name: 'minecraft-server', description: 'Xem thông tin Minecraft server', category: 'minecraft', usage: '/minecraft-server <address>' },
+      { name: 'minecraft-custom-server-banner', description: 'Tạo banner Minecraft server', category: 'minecraft', usage: '/minecraft-custom-server-banner' },
+      
+      // Moderation Module (6)
+      { name: 'moderation-kick', description: 'Kick thành viên', category: 'moderation', usage: '/moderation-kick <user> [reason]' },
+      { name: 'moderation-ban', description: 'Ban thành viên', category: 'moderation', usage: '/moderation-ban <user> [reason]' },
+      { name: 'moderation-timeout', description: 'Timeout thành viên', category: 'moderation', usage: '/moderation-timeout <user> <duration>' },
+      { name: 'moderation-clear', description: 'Xóa tin nhắn', category: 'moderation', usage: '/moderation-clear <amount>' },
+      { name: 'moderation-lock', description: 'Khóa kênh', category: 'moderation', usage: '/moderation-lock' },
+      { name: 'moderation-unlock', description: 'Mở khóa kênh', category: 'moderation', usage: '/moderation-unlock' },
+      
+      // Quick Report Module (7)
+      { name: 'Report Message', description: 'Report tin nhắn (Context Menu)', category: 'report', usage: 'Right-click message' },
+      { name: 'quickreport-enable', description: 'Bật quick report', category: 'report', usage: '/quickreport-enable' },
+      { name: 'quickreport-disable', description: 'Tắt quick report', category: 'report', usage: '/quickreport-disable' },
+      { name: 'quickreport-config', description: 'Cấu hình report', category: 'report', usage: '/quickreport-config' },
+      { name: 'quickreport-update', description: 'Cập nhật report config', category: 'report', usage: '/quickreport-update' },
+      { name: 'quickreport-recent', description: 'Xem reports gần đây', category: 'report', usage: '/quickreport-recent' },
+      { name: 'quickreport-check', description: 'Kiểm tra report', category: 'report', usage: '/quickreport-check' },
+      
+      // Server Generator Module (1)
+      { name: 'generator', description: 'Tạo server structure với AI', category: 'generator', usage: '/generator' },
+      
+      // Snipe Module (2)
+      { name: 'snipe', description: 'Xem tin nhắn vừa bị xóa', category: 'snipe', usage: '/snipe' },
+      { name: 'editsnipe', description: 'Xem tin nhắn vừa bị edit', category: 'snipe', usage: '/editsnipe' },
+      
+      // Social Module (7)
+      { name: 'kiss', description: 'Hôn ai đó', category: 'social', usage: '/kiss <user>' },
+      { name: 'hug', description: 'Ôm ai đó', category: 'social', usage: '/hug <user>' },
+      { name: 'slap', description: 'Tát ai đó', category: 'social', usage: '/slap <user>' },
+      { name: 'bite', description: 'Cắn ai đó', category: 'social', usage: '/bite <user>' },
+      { name: 'pat', description: 'Vỗ đầu ai đó', category: 'social', usage: '/pat <user>' },
+      { name: 'punch', description: 'Đấm ai đó', category: 'social', usage: '/punch <user>' },
+      { name: 'handhold', description: 'Nắm tay ai đó', category: 'social', usage: '/handhold <user>' },
+      
+      // Sticky Messages Module (7)
+      { name: 'sticky-message', description: 'Tạo sticky message', category: 'sticky', usage: '/sticky-message' },
+      { name: 'sticky-remove', description: 'Xóa sticky message', category: 'sticky', usage: '/sticky-remove' },
+      { name: 'sticky-mode', description: 'Đổi chế độ sticky', category: 'sticky', usage: '/sticky-mode' },
+      { name: 'sticky-threshold', description: 'Đặt threshold', category: 'sticky', usage: '/sticky-threshold' },
+      { name: 'sticky-delay', description: 'Đặt delay', category: 'sticky', usage: '/sticky-delay' },
+      { name: 'sticky-config', description: 'Xem cấu hình sticky', category: 'sticky', usage: '/sticky-config' },
+      { name: 'sticky-list', description: 'Xem danh sách sticky messages', category: 'sticky', usage: '/sticky-list' },
+      
+      // Ticket Module (5)
+      { name: 'ticket-setup', description: 'Thiết lập ticket system', category: 'ticket', usage: '/ticket-setup' },
+      { name: 'ticket-close', description: 'Đóng ticket', category: 'ticket', usage: '/ticket-close' },
+      { name: 'ticket-add', description: 'Thêm người vào ticket', category: 'ticket', usage: '/ticket-add <user>' },
+      { name: 'ticket-remove', description: 'Xóa người khỏi ticket', category: 'ticket', usage: '/ticket-remove <user>' },
+      { name: 'ticket-stats', description: 'Xem thống kê ticket', category: 'ticket', usage: '/ticket-stats' },
+      
+      // Utility Module (9)
+      { name: 'poll', description: 'Tạo poll', category: 'utility', usage: '/poll' },
+      { name: 'calc', description: 'Máy tính', category: 'utility', usage: '/calc <expression>' },
+      { name: 'random', description: 'Số ngẫu nhiên', category: 'utility', usage: '/random <min> <max>' },
+      { name: 'choose', description: 'Chọn ngẫu nhiên', category: 'utility', usage: '/choose <options>' },
+      { name: 'help', description: 'Xem danh sách lệnh', category: 'utility', usage: '/help' },
+      { name: 'information', description: 'Thông tin bot', category: 'utility', usage: '/information' },
+      { name: 'rule', description: 'Xem rules', category: 'utility', usage: '/rule' },
+      { name: 'rule-setup', description: 'Thiết lập rules channel', category: 'utility', usage: '/rule-setup' },
+      { name: 'test-emoji', description: 'Test animated emoji', category: 'utility', usage: '/test-emoji' },
     ]
   }
 
   const categories = [
     { id: 'all', name: 'All Commands', icon: Info },
-    { id: 'music', name: 'Music', icon: Music },
+    { id: 'ai', name: 'AI', icon: Zap },
+    { id: 'afk', name: 'AFK', icon: Info },
+    { id: 'autoresponder', name: 'Auto Responder', icon: Zap },
+    { id: 'customrole', name: 'Custom Roles', icon: Info },
+    { id: 'donation', name: 'Donations', icon: DollarSign },
+    { id: 'games', name: 'Games', icon: Laugh },
+    { id: 'giveaway', name: 'Giveaway', icon: DollarSign },
+    { id: 'minecraft', name: 'Minecraft', icon: Laugh },
     { id: 'moderation', name: 'Moderation', icon: Shield },
+    { id: 'report', name: 'Reports', icon: Shield },
+    { id: 'generator', name: 'Generator', icon: Zap },
+    { id: 'snipe', name: 'Snipe', icon: Info },
+    { id: 'social', name: 'Social', icon: Laugh },
+    { id: 'sticky', name: 'Sticky Messages', icon: Info },
+    { id: 'ticket', name: 'Tickets', icon: Shield },
     { id: 'utility', name: 'Utility', icon: Zap },
-    { id: 'fun', name: 'Fun', icon: Laugh },
-    { id: 'economy', name: 'Economy', icon: DollarSign },
   ]
 
   const filteredCommands = commands.filter(cmd => {
@@ -148,6 +245,11 @@ export default function Commands() {
     )
   }
 
+  // Check permissions
+  if (!canExecuteCommands) {
+    return <PermissionDenied message="Chỉ Admin mới có quyền xem và thực thi commands." />
+  }
+
   return (
     <div 
       className="space-y-6 relative min-h-screen"
@@ -161,18 +263,6 @@ export default function Commands() {
       {/* Background Overlay */}
       <div className="fixed inset-0 bg-gradient-to-br from-white/30 via-transparent to-white/20 pointer-events-none" />
       
-      {/* Liquid Glass Background */}
-      <LiquidGlass 
-        width="100vw" 
-        height="100vh" 
-        position="fixed"
-        top="0"
-        left="0"
-        glassFrost={0.06}
-        glassSaturation={1.1}
-        borderRadius="0"
-        className="pointer-events-none"
-      />
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }

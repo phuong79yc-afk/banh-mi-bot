@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
-// import { Player } from 'discord-player';
+import { Player } from 'discord-player';
 // import { YoutubeiExtractor } from 'discord-player-youtubei';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -24,29 +24,18 @@ const client = new Client({
   ],
 });
 
+// Increase max listeners to prevent warning
+client.setMaxListeners(20);
+
 client.commands = new Collection();
 
-// Initialize music player (DISABLED - missing discord-player package)
-/*
+// Initialize music player
 const player = new Player(client);
 
-// Load YouTube extractor (suppress warnings)
-player.extractors.register(YoutubeiExtractor, {});
+// Load YouTube extractor (optional - requires discord-player-youtubei)
+// player.extractors.register(YoutubeiExtractor, {});
 
-// Suppress YouTube console warnings
-const originalConsoleWarn = console.warn;
-console.warn = (...args: any[]) => {
-  const message = args.join(' ');
-  // Suppress YouTube extractor warnings
-  if (message.includes('[YOUTUBEJS][Player]') || 
-      message.includes('Failed to extract signature') ||
-      message.includes('Failed to extract n decipher')) {
-    return;
-  }
-  originalConsoleWarn.apply(console, args);
-};
-
-console.log('✅ YouTube extractor loaded');
+console.log('✅ Music player initialized');
 
 // Player events
 player.events.on('playerStart', (queue: any, track: any) => {
@@ -69,7 +58,9 @@ player.events.on('error', (queue: any, error: any) => {
   const channel = queue.metadata.channel as any;
   channel?.send('❌ Có lỗi xảy ra khi phát nhạc!');
 });
-*/
+
+// Export player for dashboard API
+export { player };
 
 // ============================================
 // LOAD MODULES (New Module System)
@@ -79,6 +70,11 @@ import { ModuleLoader } from './core/ModuleLoader';
 // Load modules on ready
 let moduleLoader: ModuleLoader;
 
+// Export moduleLoader for external access
+export function getModuleLoader(): ModuleLoader | null {
+  return moduleLoader || null;
+}
+
 async function initializeModules() {
   try {
     // Pass absolute path to modules directory
@@ -87,6 +83,12 @@ async function initializeModules() {
     
     moduleLoader = new ModuleLoader(client, modulesPath);
     await moduleLoader.loadAllModules();
+    
+    // Set module loader reference for module-manager module
+    const moduleManagerModule = moduleLoader.getModuleInfo('module-manager-module');
+    if (moduleManagerModule && moduleManagerModule.instance) {
+      moduleManagerModule.instance.setModuleLoader(moduleLoader);
+    }
     
     // Register all module commands
     for (const [moduleName, loadedModule] of moduleLoader.getLoadedModules()) {
@@ -150,7 +152,7 @@ client.once('clientReady' as any, async () => {
     activities: [{ 
       name: 'Custom Status',
       type: 4, // Type 4 = Custom Status
-      state: '/help | http://localhost:5173/dashboard'
+      state: '/help | Bot Discord đa năng'
     }],
     status: 'idle', // idle = yellow/orange moon icon
   });
@@ -164,31 +166,78 @@ client.once('clientReady' as any, async () => {
   startWebServer(client, port);
 });
 
-// Interaction handler
+// Interaction handler - Optimized for fast response
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
-
+  // ⚡ Wrap entire handler in try-catch to prevent crashes
   try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(`Error executing ${interaction.commandName}:`, error);
-    
-    // Import emojis for error message
-    const { emojis } = require('./config/emojis');
-    
-    const reply = {
-      content: `${emojis.error} Có lỗi xảy ra khi thực hiện lệnh này!`,
-      ephemeral: true,
-    };
-    
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply);
-    } else {
-      await interaction.reply(reply);
+    // Handle autocomplete
+    if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      
+      if (command && command.autocomplete) {
+        try {
+          await command.autocomplete(interaction);
+        } catch (error) {
+          console.error(`Error in autocomplete for ${interaction.commandName}:`, error);
+        }
+      }
+      return;
     }
+    
+    // Handle slash commands
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      
+      if (!command) {
+        console.warn(`⚠️ Unknown command: ${interaction.commandName}`);
+        return;
+      }
+
+      // ⚡ EXECUTE IMMEDIATELY - Let command handle its own defer
+      try {
+        await command.execute(interaction);
+      } catch (error: any) {
+        console.error(`Error executing ${interaction.commandName}:`, error);
+        
+        // ⚡ Handle expired interaction
+        if (error.code === 10062 || error.rawError?.code === 10062) {
+          console.warn(`⚠️ Interaction expired for command: ${interaction.commandName}`);
+          return;
+        }
+        
+        // Send error message if possible
+        const { emojis } = require('./config/emojis');
+        const errorMessage = error.message === 'Command timeout' 
+          ? `${emojis.error} Lệnh này mất quá nhiều thời gian để thực thi!`
+          : `${emojis.error} Có lỗi xảy ra khi thực hiện lệnh này!`;
+        
+        const reply = { content: errorMessage, flags: 64 };
+        
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp(reply);
+          } else {
+            await interaction.reply(reply);
+          }
+        } catch (replyError: any) {
+          if (replyError.code !== 10062) {
+            console.error('Failed to send error reply:', replyError);
+          }
+        }
+      }
+    }
+    
+    // ⚡ Handle buttons, select menus, modals - let modules handle them
+    // Just catch errors to prevent crashes
+    
+  } catch (error: any) {
+    // ⚡ Top-level catch for ANY interaction error
+    if (error.code === 10062 || error.rawError?.code === 10062) {
+      console.warn(`⚠️ Expired interaction (${interaction.type}), ignoring`);
+      return;
+    }
+    
+    console.error('Uncaught interaction error:', error);
   }
 });
 
@@ -207,6 +256,7 @@ client.login(process.env.DISCORD_TOKEN);
 // ============================================
 import { aiChatService } from './utils/aiChatService';
 import { conversationManager } from './utils/conversationManager';
+import { aiChatRateLimiter } from './utils/rateLimiter';
 
 client.on('messageCreate', async (message) => {
   // Ignore bot messages
@@ -223,6 +273,12 @@ client.on('messageCreate', async (message) => {
   // Check if bot is mentioned
   const botMentioned = message.mentions.has(client.user!);
   if (!botMentioned) return;
+
+  // ⚡ Rate limiting - Prevent spam
+  if (!aiChatRateLimiter.check(message.author.id)) {
+    const info = aiChatRateLimiter.getInfo(message.author.id);
+    return message.reply(`⏱️ Bạn đang gửi tin nhắn quá nhanh! Vui lòng đợi ${info.resetIn}s nữa.`);
+  }
 
   // Check if user is blacklisted
   if (conversationManager.isUserBlacklisted(message.author.id)) return;
@@ -283,3 +339,70 @@ client.on('messageCreate', async (message) => {
 });
 
 console.log('✅ AI Chat auto-reply listener initialized');
+
+// ============================================
+// MEMORY OPTIMIZER - Auto cleanup every 30 minutes
+// ============================================
+import { memoryOptimizer } from './utils/memoryOptimizer';
+
+// Bắt đầu auto cleanup sau 5 phút bot chạy (đợi load xong)
+setTimeout(() => {
+  memoryOptimizer.startAutoCleanup(30); // Cleanup mỗi 30 phút
+}, 5 * 60 * 1000);
+
+console.log('✅ Memory optimizer scheduled');
+
+// ============================================
+// GLOBAL ERROR HANDLERS - Prevent crashes
+// ============================================
+
+// Throttle expired interaction warnings (max 1 per 5 seconds)
+let lastExpiredWarning = 0;
+const EXPIRED_WARNING_THROTTLE = 5000; // 5 seconds
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: any, promise) => {
+  // ⚠️ Silent ignore for expired interactions (with throttled logging)
+  if (reason?.code === 10062 || reason?.rawError?.code === 10062) {
+    const now = Date.now();
+    if (now - lastExpiredWarning > EXPIRED_WARNING_THROTTLE) {
+      console.warn('⚠️ Expired interactions detected (some logs omitted to reduce spam)');
+      lastExpiredWarning = now;
+    }
+    return;
+  }
+  
+  console.error('🚨 Unhandled Rejection at:', promise);
+  console.error('Reason:', reason);
+  console.error('Stack:', reason?.stack);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error: Error) => {
+  // ⚠️ Silent ignore for expired interactions (with throttled logging)
+  if ((error as any).code === 10062 || (error as any).rawError?.code === 10062) {
+    const now = Date.now();
+    if (now - lastExpiredWarning > EXPIRED_WARNING_THROTTLE) {
+      console.warn('⚠️ Expired interactions detected (some logs omitted to reduce spam)');
+      lastExpiredWarning = now;
+    }
+    return;
+  }
+  
+  console.error('🚨 Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  
+  // For other critical errors, log but don't exit (let nodemon restart)
+  console.error('💥 Critical error detected');
+});
+
+// Handle warnings (optional - helps debug)
+process.on('warning', (warning) => {
+  console.warn('⚠️ Process Warning:', warning.name);
+  console.warn('Message:', warning.message);
+  if (warning.stack) {
+    console.warn('Stack:', warning.stack);
+  }
+});
+
+console.log('✅ Global error handlers registered');

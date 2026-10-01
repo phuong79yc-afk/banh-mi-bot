@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test CORS</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #fff; }
+    button { padding: 10px 20px; margin: 10px; cursor: pointer; font-size: 16px; }
+    pre { background: #2d2d2d; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    .success { color: #4ec9b0; }
+    .error { color: #f48771; }
+  </style>
+</head>
+<body>
+  <h1>🧪 CORS Test - Bot API</h1>
+  
+  <button onclick="testStatus()">Test /api/status</button>
+  <button onclick="testStats()">Test /api/stats</button>
+  <button onclick="testBoth()">Test Both</button>
+  
+  <div id="result"></div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+    const resultDiv = document.getElementById('result');
+
+    async function testStatus() {
+      resultDiv.innerHTML = '<p>Testing /api/status...</p>';
+      try {
+        const response = await fetch(`${API_URL}/api/status`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        resultDiv.innerHTML = `
+          <p class="success">✅ /api/status SUCCESS</p>
+          <p>Status: ${response.status}</p>
+          <p>Headers:</p>
+          <pre>${[...response.headers.entries()].map(([k,v]) => `${k}: ${v}`).join('\n')}</pre>
+          <p>Response:</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ /api/status FAILED</p>
+          <pre>${error.message}\n${error.stack}</pre>
+        `;
+      }
+    }
+
+    async function testStats() {
+      resultDiv.innerHTML = '<p>Testing /api/stats...</p>';
+      try {
+        const response = await fetch(`${API_URL}/api/stats`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        resultDiv.innerHTML = `
+          <p class="success">✅ /api/stats SUCCESS</p>
+          <p>Status: ${response.status}</p>
+          <p>Response:</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ /api/stats FAILED</p>
+          <pre>${error.message}\n${error.stack}</pre>
+        `;
+      }
+    }
+
+    async function testBoth() {
+      resultDiv.innerHTML = '<p>Testing both endpoints...</p>';
+      try {
+        const [statusRes, statsRes] = await Promise.all([
+          fetch(`${API_URL}/api/status`),
+          fetch(`${API_URL}/api/stats`)
+        ]);
+        
+        const [statusData, statsData] = await Promise.all([
+          statusRes.json(),
+          statsRes.json()
+        ]);
+        
+        resultDiv.innerHTML = `
+          <p class="success">✅ Both endpoints SUCCESS</p>
+          <h3>/api/status:</h3>
+          <pre>${JSON.stringify(statusData, null, 2)}</pre>
+          <h3>/api/stats:</h3>
+          <pre>${JSON.stringify(statsData, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ Test FAILED</p>
+          <pre>${error.message}\n${error.stack}</pre>
+        `;
+      }
+    }
+
+    // Auto-run on load
+    window.onload = () => testBoth();
+  </script>
+</body>
+</html>

@@ -58,7 +58,7 @@ export default class AIModule {
   async initialize() {
     console.log('  🤖 AI Module initializing...');
     this.registerCommands();
-    console.log('  ✅ AI Module ready');
+    console.log(`  ${emojis.success} AI Module ready`);
   }
 
   private initializeAI() {
@@ -66,18 +66,18 @@ export default class AIModule {
     const groqKey = keyRotator.getGroqKey();
     if (groqKey) {
       this.groqClient = new Groq({ apiKey: groqKey });
-      console.log('  ✅ Groq initialized');
+      console.log(`  ${emojis.success} Groq initialized`);
     } else {
-      console.log('  ⚠️ No Groq keys available');
+      console.log(`  ${emojis.warning} No Groq keys available`);
     }
 
     // Initialize Gemini
     const geminiKey = keyRotator.getGeminiKey();
     if (geminiKey) {
       this.geminiAI = new GoogleGenerativeAI(geminiKey);
-      console.log('  ✅ Gemini initialized');
+      console.log(`  ${emojis.success} Gemini initialized`);
     } else {
-      console.log('  ⚠️ No Gemini keys available');
+      console.log(`  ${emojis.warning} No Gemini keys available`);
     }
   }
 
@@ -101,9 +101,9 @@ export default class AIModule {
             .addChoices(
               { name: '⚡ GPT-OSS 20B (Fastest)', value: 'groq:openai/gpt-oss-20b' },
               { name: '🧠 GPT-OSS 120B (Smart)', value: 'groq:openai/gpt-oss-120b' },
-              { name: '🚀 Llama 3.1 8B (Quick)', value: 'groq:llama-3.1-8b-instant' },
-              { name: '🚀 Llama 3.1 8B (Fast)', value: 'groq:llama-3.1-8b-instant' },
-              { name: '✨ Gemini 2.0 Flash (New)', value: 'gemini:gemini-2.0-flash-exp' },
+              { name: '${emojis.rocket} Llama 3.1 8B (Quick)', value: 'groq:llama-3.1-8b-instant' },
+              { name: '${emojis.rocket} Llama 3.1 8B (Fast)', value: 'groq:llama-3.1-8b-instant' },
+              { name: '${emojis.sparkles} Gemini 2.0 Flash (New)', value: 'gemini:gemini-2.0-flash-exp' },
               { name: '💎 Gemini 1.5 Pro', value: 'gemini:gemini-1.5-pro' },
               { name: '⚡ Gemini 1.5 Flash', value: 'gemini:gemini-1.5-flash' }
             )
@@ -115,10 +115,10 @@ export default class AIModule {
             .setRequired(false)
             .addChoices(
               { name: '📝 Default (Helpful)', value: 'default' },
-              { name: '🎨 Creative', value: 'creative' },
+              { name: '${emojis.art} Creative', value: 'creative' },
               { name: '💼 Professional', value: 'professional' },
               { name: '😄 Casual', value: 'casual' },
-              { name: '💻 Technical', value: 'technical' }
+              { name: '${emojis.terminal} Technical', value: 'technical' }
             )
         )
         .addBooleanOption(option =>
@@ -168,12 +168,13 @@ export default class AIModule {
   }
 
   private async handleAIChat(interaction: ChatInputCommandInteraction) {
+    // DEFER IMMEDIATELY to prevent timeout
+    await interaction.deferReply();
+    
     const message = interaction.options.getString('message', true);
     const modelOption = interaction.options.getString('model') || 'groq:openai/gpt-oss-20b';
     const style = interaction.options.getString('style') || 'default';
     const clearMemory = interaction.options.getBoolean('clear_memory') || false;
-
-    await interaction.deferReply();
 
     try {
       const channelId = interaction.channelId;
@@ -192,7 +193,7 @@ export default class AIModule {
         const embed = new EmbedBuilder()
           .setColor(0xef4444)
           .setTitle(`${getCustomEmoji('ERROR')} Rate Limit`)
-          .setDescription(`⏰ Bạn đã đạt giới hạn ${usage.limit} requests/ngày\n\n💎 Upgrade Premium để unlimited!`)
+          .setDescription(`${emojis.clock} Bạn đã đạt giới hạn ${usage.limit} requests/ngày\n\n💎 Upgrade Premium để unlimited!`)
           .setTimestamp();
         
         await interaction.editReply({ embeds: [embed] });
@@ -261,7 +262,7 @@ export default class AIModule {
       console.error('AI chat error:', error);
       
       await interaction.editReply({ 
-        content: `❌ **AI Error:**\n${error.message || 'Unknown error'}\n\n*Try using a different model with \`model:\` option*` 
+        content: `${emojis.error} **AI Error:**\n${error.message || 'Unknown error'}\n\n*Try using a different model with \`model:\` option*` 
       });
     }
   }
@@ -358,7 +359,7 @@ export default class AIModule {
         .map((msg, i) => {
           const preview = msg.content.substring(0, 150);
           const truncated = msg.content.length > 150 ? '...' : '';
-          return `**${i + 1}. ${msg.role === 'user' ? '👤 User' : '🤖 AI'}:**\n${preview}${truncated}`;
+          return `**${i + 1}. ${msg.role === 'user' ? '${emojis.user} User' : '🤖 AI'}:**\n${preview}${truncated}`;
         })
         .join('\n\n');
 
@@ -396,7 +397,7 @@ export default class AIModule {
 
     const text = `🤖 **Available AI Models**\n\n` +
       `**⚡ Groq Models** (${keyStatus.groq.active}/${keyStatus.groq.total} keys active)\n${groqModels}\n\n` +
-      `**✨ Gemini Models** (${keyStatus.gemini.active}/${keyStatus.gemini.total} keys active)\n${geminiModels}\n\n` +
+      `**${emojis.sparkles} Gemini Models** (${keyStatus.gemini.active}/${keyStatus.gemini.total} keys active)\n${geminiModels}\n\n` +
       `*Use: \`/ai message:... model:<name>\`*\n` +
       `*Keys rotate automatically on failure*`;
 

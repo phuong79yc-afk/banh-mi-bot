@@ -3,11 +3,11 @@
     {
       "guildId": "1482354951689605150",
       "enabled": true,
-      "categoryId": "1545719412299145256",
-      "staffRoleId": "1545719435401367642",
-      "ticketMessageChannelId": "1545719422625255484",
-      "ticketMessageId": "1545719428929429535",
-      "logChannelId": "1545719414509539418"
+      "categoryId": "1548936208409829427",
+      "staffRoleId": "1548936229398122567",
+      "ticketMessageChannelId": "1550370143933304942",
+      "ticketMessageId": "1550406768998350880",
+      "logChannelId": "1548936210989322342"
     },
     {
       "guildId": "1385551830855192670",
@@ -17,6 +17,15 @@
       "ticketMessageChannelId": "1545734445015896124",
       "ticketMessageId": "1545734451126997055",
       "logChannelId": "1545734438300815370"
+    },
+    {
+      "guildId": "1218129870786265148",
+      "enabled": true,
+      "categoryId": "1549773755578982480",
+      "staffRoleId": "1549773778609774678",
+      "ticketMessageChannelId": "1549773763946614844",
+      "ticketMessageId": "1549773771865464903",
+      "logChannelId": "1549773757642444891"
     }
   ],
   "tickets": [

@@ -1,0 +1,51 @@
+{
+  "serverName": "◢◣ CYBER HUB ⟪💎⟫",
+  "categories": [
+    {
+      "name": "🔮 ACCESS",
+      "emoji": "🔮",
+      "channels": [
+        {"name": "⚡ welcome", "type": 0, "emoji": "👋"},
+        {"name": "⟪▓ rules⟫", "type": 0, "emoji": "📜"},
+        {"name": "◢◣ announcements", "type": 5, "emoji": "📢"}
+      ]
+    },
+    {
+      "name": "💎 NETWORK",
+      "emoji": "💎",
+      "channels": [
+        {"name": "▓ general-chat", "type": 0, "emoji": "💬"},
+        {"name": "⟪🔮 cyber-talk⟫", "type": 0, "emoji": "🌐"},
+        {"name": "◢tech-discussion◣", "type": 0, "emoji": "💻"},
+        {"name": "▰ code-share", "type": 0, "emoji": "⌨️"},
+        {"name": "⌬ memes", "type": 0, "emoji": "😂"}
+      ]
+    },
+    {
+      "name": "🎮 GAMING",
+      "emoji": "🎮",
+      "channels": [
+        {"name": "◢◣ gaming-hub", "type": 0, "emoji": "🎮"},
+        {"name": "⟪⚡ esports⟫", "type": 0, "emoji": "🏆"},
+        {"name": "▓ tournaments", "type": 0, "emoji": "🎯"}
+      ]
+    },
+    {
+      "name": "🎙️ VOICE",
+      "emoji": "🎙️",
+      "channels": [
+        {"name": "【💎 Voice Lobby】", "type": 2, "emoji": "🎙️"},
+        {"name": "⟪⚡ Gaming Zone⟫", "type": 2, "emoji": "🎮"},
+        {"name": "◢◣ Lounge", "type": 2, "emoji": "🔮"},
+        {"name": "▓ AFK", "type": 2, "emoji": "💤"}
+      ]
+    }
+  ],
+  "roles": [
+    {"name": "Owner", "emoji": "👑", "color": "#00FFFF", "permissions": []},
+    {"name": "Admin", "emoji": "⚡", "color": "#00CED1", "permissions": []},
+    {"name": "Moderator", "emoji": "💎", "color": "#4169E1", "permissions": []},
+    {"name": "Elite", "emoji": "🔮", "color": "#7B68EE", "permissions": []},
+    {"name": "Member", "emoji": "▓", "color": "#6495ED", "permissions": []}
+  ]
+}

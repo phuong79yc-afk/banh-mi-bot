@@ -38,10 +38,10 @@ export default class TicketModule {
   }
 
   async initialize() {
-    console.log('🎫 Ticket module initializing...');
+    console.log(`${emojis.loading} Ticket module initializing...`);
     this.registerCommands();
     this.registerEvents();
-    console.log('✅ Ticket module registered', this.commands.size, 'commands');
+    console.log(`${emojis.success} Ticket module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
@@ -58,9 +58,10 @@ export default class TicketModule {
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const force = interaction.options.getBoolean('force') ?? false;
-
+        // DEFER IMMEDIATELY to prevent timeout
         await interaction.deferReply(); // Public message
+        
+        const force = interaction.options.getBoolean('force') ?? false;
 
         // Check if already configured
         const existingConfig = ticketManager.getConfig(interaction.guild!.id);
@@ -74,10 +75,10 @@ export default class TicketModule {
         const progressEmbed = createEnhancedEmbed({
           title: 'Thiết lập hệ thống ticket',
           description: 
-            `\`[1/4]\` ⏳ Khởi tạo config...\n` +
-            `\`[2/4]\` ⏳ Đang chuẩn bị...\n` +
-            `\`[3/4]\` ⏳ Đang chuẩn bị...\n` +
-            `\`[4/4]\` ⏳ Đang chuẩn bị...`,
+            `\`[1/4]\` ${emojis.loading} Khởi tạo config...\n` +
+            `\`[2/4]\` ${emojis.loading} Đang chuẩn bị...\n` +
+            `\`[3/4]\` ${emojis.loading} Đang chuẩn bị...\n` +
+            `\`[4/4]\` ${emojis.loading} Đang chuẩn bị...`,
           color: 0x1ABC9C, // Light purple
           timestamp: false,
         });
@@ -106,10 +107,10 @@ export default class TicketModule {
         });
 
         progressEmbed.setDescription(
-          `\`[1/4]\` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
-          `\`[2/4]\` ⏳ Tạo kênh hỗ trợ...\n` +
-          `\`[3/4]\` ⏳ Đang chuẩn bị...\n` +
-          `\`[4/4]\` ⏳ Đang chuẩn bị...`
+          `\`[1/4]\` ${emojis.success} Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
+          `\`[2/4]\` ${emojis.loading} Tạo kênh hỗ trợ...\n` +
+          `\`[3/4]\` ${emojis.loading} Đang chuẩn bị...\n` +
+          `\`[4/4]\` ${emojis.loading} Đang chuẩn bị...`
         );
         await interaction.editReply({ embeds: [progressEmbed] });
 
@@ -123,10 +124,10 @@ export default class TicketModule {
         });
 
         progressEmbed.setDescription(
-          `\`[1/4]\` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
-          `\`[2/4]\` ✅ Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
-          `\`[3/4]\` ⏳ Tạo ticket mặc định...\n` +
-          `\`[4/4]\` ⏳ Đang chuẩn bị...`
+          `\`[1/4]\` ${emojis.success} Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
+          `\`[2/4]\` ${emojis.success} Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
+          `\`[3/4]\` ${emojis.loading} Tạo ticket mặc định...\n` +
+          `\`[4/4]\` ${emojis.loading} Đang chuẩn bị...`
         );
         await interaction.editReply({ embeds: [progressEmbed] });
 
@@ -152,10 +153,10 @@ export default class TicketModule {
         const panelMessage = await supportChannel!.send({ embeds: [panelEmbed], components: [row] });
 
         progressEmbed.setDescription(
-          `\`[1/4]\` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
-          `\`[2/4]\` ✅ Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
-          `\`[3/4]\` ✅ Tạo ticket mặc định tại kênh <#${supportChannel!.id}> hoàn tất.\n` +
-          `\`[4/4]\` ⏳ Tạo role hỗ trợ...`
+          `\`[1/4]\` ${emojis.success} Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
+          `\`[2/4]\` ${emojis.success} Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
+          `\`[3/4]\` ${emojis.success} Tạo ticket mặc định tại kênh <#${supportChannel!.id}> hoàn tất.\n` +
+          `\`[4/4]\` ${emojis.loading} Tạo role hỗ trợ...`
         );
         await interaction.editReply({ embeds: [progressEmbed] });
 
@@ -193,10 +194,10 @@ export default class TicketModule {
         const successEmbed = createEnhancedEmbed({
           title: 'Thiết lập hệ thống ticket',
           description: 
-            `\`[1/4]\` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
-            `\`[2/4]\` ✅ Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
-            `\`[3/4]\` ✅ Tạo ticket mặc định tại kênh <#${supportChannel!.id}> hoàn tất.\n` +
-            `\`[4/4]\` ✅ Tạo role hỗ trợ <@&${supportRole!.id}> & gán quyền hoàn tất.\n\n` +
+            `\`[1/4]\` ${emojis.success} Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel!.id}>).\n` +
+            `\`[2/4]\` ${emojis.success} Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel!.id}>).\n` +
+            `\`[3/4]\` ${emojis.success} Tạo ticket mặc định tại kênh <#${supportChannel!.id}> hoàn tất.\n` +
+            `\`[4/4]\` ${emojis.success} Tạo role hỗ trợ <@&${supportRole!.id}> & gán quyền hoàn tất.\n\n` +
             `**Khởi tạo cài đặt mặc định hoàn tất.**\n` +
             `• Để quản lí hoặc thêm một danh mục hỗ trợ, sử dụng \`/ticket panel manage\`\n` +
             `• Để chỉnh sửa các cài đặt có sẵn, sử dụng \`/ticket configuration\``,
@@ -209,16 +210,16 @@ export default class TicketModule {
         if (force && existingConfig) {
           setTimeout(async () => {
             try {
-              console.log('🗑️ Starting cleanup of ALL old ticket resources...');
+              console.log(`${emojis.delete} Starting cleanup of ALL old ticket resources...`);
 
               // Delete ALL roles named "Hỗ trợ Ticket" (except the new one)
               const allRoles = await interaction.guild?.roles.fetch();
               const ticketRoles = allRoles?.filter(r => r.name === 'Hỗ trợ Ticket' && r.id !== supportRole!.id);
               if (ticketRoles && ticketRoles.size > 0) {
-                console.log(`🗑️ Found ${ticketRoles.size} old "Hỗ trợ Ticket" roles to delete`);
+                console.log(`${emojis.delete} Found ${ticketRoles.size} old "Hỗ trợ Ticket" roles to delete`);
                 for (const [, role] of ticketRoles) {
                   await role.delete('Ticket setup: cleanup old resources').catch(() => {});
-                  console.log(`  ✅ Deleted role: ${role.name} (${role.id})`);
+                  console.log(`  ${emojis.success} Deleted role: ${role.name} (${role.id})`);
                 }
               }
 
@@ -230,19 +231,19 @@ export default class TicketModule {
                 ch?.id !== category!.id
               );
               if (ticketCategories && ticketCategories.size > 0) {
-                console.log(`🗑️ Found ${ticketCategories.size} old "🎫 TICKETS" categories to delete`);
+                console.log(`${emojis.delete} Found ${ticketCategories.size} old "🎫 TICKETS" categories to delete`);
                 for (const [, cat] of ticketCategories) {
                   // Delete all channels inside this category first
                   const channelsInCat = allChannels?.filter(ch => ch?.parentId === cat!.id);
                   if (channelsInCat && channelsInCat.size > 0) {
-                    console.log(`  🗑️ Deleting ${channelsInCat.size} channels in category ${cat!.name}`);
+                    console.log(`  ${emojis.delete} Deleting ${channelsInCat.size} channels in category ${cat!.name}`);
                     for (const [, ch] of channelsInCat) {
                       await ch?.delete('Ticket setup: cleanup old resources').catch(() => {});
-                      console.log(`    ✅ Deleted channel: ${ch?.name}`);
+                      console.log(`    ${emojis.success} Deleted channel: ${ch?.name}`);
                     }
                   }
                   await cat?.delete('Ticket setup: cleanup old resources').catch(() => {});
-                  console.log(`  ✅ Deleted category: ${cat!.name} (${cat!.id})`);
+                  console.log(`  ${emojis.success} Deleted category: ${cat!.name} (${cat!.id})`);
                 }
               }
 
@@ -252,10 +253,10 @@ export default class TicketModule {
                 ch?.id !== transcriptChannel!.id
               );
               if (oldTranscripts && oldTranscripts.size > 0) {
-                console.log(`🗑️ Found ${oldTranscripts.size} old "transcripts" channels to delete`);
+                console.log(`${emojis.delete} Found ${oldTranscripts.size} old "transcripts" channels to delete`);
                 for (const [, ch] of oldTranscripts) {
                   await ch?.delete('Ticket setup: cleanup old resources').catch(() => {});
-                  console.log(`  ✅ Deleted channel: ${ch?.name} (${ch?.id})`);
+                  console.log(`  ${emojis.success} Deleted channel: ${ch?.name} (${ch?.id})`);
                 }
               }
 
@@ -264,16 +265,16 @@ export default class TicketModule {
                 ch?.id !== supportChannel!.id
               );
               if (oldSupports && oldSupports.size > 0) {
-                console.log(`🗑️ Found ${oldSupports.size} old "ticket-support" channels to delete`);
+                console.log(`${emojis.delete} Found ${oldSupports.size} old "ticket-support" channels to delete`);
                 for (const [, ch] of oldSupports) {
                   await ch?.delete('Ticket setup: cleanup old resources').catch(() => {});
-                  console.log(`  ✅ Deleted channel: ${ch?.name} (${ch?.id})`);
+                  console.log(`  ${emojis.success} Deleted channel: ${ch?.name} (${ch?.id})`);
                 }
               }
 
-              console.log('✅ Cleaned up ALL old ticket resources');
+              console.log(`${emojis.success} Cleaned up ALL old ticket resources`);
             } catch (error) {
-              console.error('❌ Error cleaning up old resources:', error);
+              console.error('${emojis.error} Error cleaning up old resources:', error);
             }
           }, 3000); // Wait 3 seconds after interaction completes
         }
@@ -284,7 +285,7 @@ export default class TicketModule {
     const closeCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-close')
-        .setDescription('🔒 Đóng ticket hiện tại')
+        .setDescription('${emojis.lock} Đóng ticket hiện tại')
         .addStringOption(option =>
           option
             .setName('reason')
@@ -296,7 +297,7 @@ export default class TicketModule {
         
         if (!ticket) {
           return interaction.reply({
-            content: '❌ Đây không phải là kênh ticket!',
+            content: '${emojis.error} Đây không phải là kênh ticket!',
             flags: 64 // ephemeral
           });
         }
@@ -318,7 +319,7 @@ export default class TicketModule {
 
         // Send closing embed
         const closeEmbed = createEnhancedEmbed({
-          title: '🔒 Ticket đã đóng',
+          title: '${emojis.lock} Ticket đã đóng',
           description: `Ticket này đã được đóng bởi <@${interaction.user.id}>`,
           color: 0x1ABC9C, // Light purple
           fields: [
@@ -338,7 +339,7 @@ export default class TicketModule {
             const logChannel = await interaction.guild?.channels.fetch(config.logChannelId) as TextChannel;
             
             const logEmbed = createEnhancedEmbed({
-              title: `📋 Transcript Ticket - ${ticket.ticketId}`,
+              title: `${emojis.copy} Transcript Ticket - ${ticket.ticketId}`,
               description: `**Tạo bởi:** <@${ticket.userId}>\n**Đóng bởi:** <@${interaction.user.id}>`,
           color: 0x1ABC9C, // Light purple
               fields: [
@@ -390,7 +391,7 @@ export default class TicketModule {
         
         if (!ticket) {
           return interaction.reply({
-            content: '❌ Đây không phải là kênh ticket!',
+            content: '${emojis.error} Đây không phải là kênh ticket!',
             flags: 64 // ephemeral
           });
         }
@@ -409,7 +410,7 @@ export default class TicketModule {
         ticketManager.addParticipant(interaction.channelId, user.id);
 
         await interaction.reply({
-          content: `✅ Đã thêm <@${user.id}> vào ticket`
+          content: `${emojis.success} Đã thêm <@${user.id}> vào ticket`
         });
       }
     };
@@ -430,7 +431,7 @@ export default class TicketModule {
         
         if (!ticket) {
           return interaction.reply({
-            content: '❌ Đây không phải là kênh ticket!',
+            content: '${emojis.error} Đây không phải là kênh ticket!',
             flags: 64 // ephemeral
           });
         }
@@ -439,7 +440,7 @@ export default class TicketModule {
         
         if (user.id === ticket.userId) {
           return interaction.reply({
-            content: '❌ Không thể xóa người tạo ticket!',
+            content: '${emojis.error} Không thể xóa người tạo ticket!',
             flags: 64 // ephemeral
           });
         }
@@ -453,7 +454,7 @@ export default class TicketModule {
         ticketManager.removeParticipant(interaction.channelId, user.id);
 
         await interaction.reply({
-          content: `✅ Đã xóa <@${user.id}> khỏi ticket`
+          content: `${emojis.success} Đã xóa <@${user.id}> khỏi ticket`
         });
       }
     };
@@ -462,12 +463,12 @@ export default class TicketModule {
     const statsCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-stats')
-        .setDescription('📊 Xem thống kê ticket'),
+        .setDescription('${emojis.chart} Xem thống kê ticket'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const stats = ticketManager.getStats(interaction.guildId!);
         
         await interaction.reply({ 
-          content: `📊 **Thống kê Ticket**\n📨 Tổng Ticket: ${stats.total}\n🟢 Đang mở: ${stats.open}\n🔴 Đã đóng: ${stats.closed}`,
+          content: `${emojis.chart} **Thống kê Ticket**\n📨 Tổng Ticket: ${stats.total}\n🟢 Đang mở: ${stats.open}\n🔴 Đã đóng: ${stats.closed}`,
           flags: 64 
         });
       }
@@ -534,7 +535,7 @@ export default class TicketModule {
     
     if (!config || !config.enabled) {
       return interaction.editReply({
-        content: '❌ Hệ thống ticket chưa được cấu hình!'
+        content: '${emojis.error} Hệ thống ticket chưa được cấu hình!'
       });
     }
 
@@ -542,7 +543,7 @@ export default class TicketModule {
     const existing = ticketManager.getTicketByUser(interaction.guildId!, interaction.user.id);
     if (existing) {
       return interaction.editReply({
-        content: `❌ Bạn đã có một ticket đang mở: <#${existing.channelId}>`
+        content: `${emojis.error} Bạn đã có một ticket đang mở: <#${existing.channelId}>`
       });
     }
 
@@ -605,7 +606,7 @@ export default class TicketModule {
       });
 
       const infoEmbed = createEnhancedEmbed({
-        title: '📋 Thông tin ticket',
+        title: '${emojis.copy} Thông tin ticket',
         description: `**Vấn đề của bạn**\n${issueDescription}`,
         color: 0xFEE75C,
         timestamp: false,
@@ -618,12 +619,12 @@ export default class TicketModule {
 
       const closeButton = new ButtonBuilder()
         .setCustomId('ticket_close_button')
-        .setLabel('🔒 Đóng ticket')
+        .setLabel('${emojis.lock} Đóng ticket')
         .setStyle(ButtonStyle.Primary);
 
       const closeWithReasonButton = new ButtonBuilder()
         .setCustomId('ticket_close_reason')
-        .setLabel('🔒 Đóng với lí do')
+        .setLabel('${emojis.lock} Đóng với lí do')
         .setStyle(ButtonStyle.Primary);
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -633,14 +634,14 @@ export default class TicketModule {
       );
 
       await channel.send({
-        content: `Cảm ơn <@${interaction.user.id}> đã mở ticket! <@&${config.staffRoleId}> sẽ hỗ trợ bạn sớm nhất có thể 🎨✨`,
+        content: `Cảm ơn <@${interaction.user.id}> đã mở ticket! <@&${config.staffRoleId}> sẽ hỗ trợ bạn sớm nhất có thể ${emojis.art}${emojis.sparkles}`,
         embeds: [welcomeEmbed, infoEmbed],
         components: [row]
       });
 
       // Reply to user
       const successEmbed = createEnhancedEmbed({
-        description: `✅ Ticket của bạn đã được tạo: <#${channel.id}>`,
+        description: `${emojis.success} Ticket của bạn đã được tạo: <#${channel.id}>`,
         color: 0x1ABC9C, // Discord blurple
       });
 
@@ -661,7 +662,7 @@ export default class TicketModule {
     const ticket = ticketManager.getTicket(interaction.channelId);
     if (!ticket) {
       return interaction.editReply({
-        content: '❌ Không tìm thấy ticket!'
+        content: '${emojis.error} Không tìm thấy ticket!'
       });
     }
 
@@ -697,7 +698,7 @@ export default class TicketModule {
         const buffer = Buffer.from(transcript, 'utf-8');
         
         await logChannel.send({
-          content: `📋 Transcript cho ${ticket.ticketId}`,
+          content: `${emojis.copy} Transcript cho ${ticket.ticketId}`,
           files: [{ attachment: buffer, name: `${ticket.ticketId}.txt` }]
         });
       } catch (e) {
@@ -744,7 +745,7 @@ export default class TicketModule {
     const ticket = ticketManager.getTicket(interaction.channelId!);
     if (!ticket) {
       return interaction.editReply({
-        content: '❌ Không tìm thấy ticket!'
+        content: '${emojis.error} Không tìm thấy ticket!'
       });
     }
 
@@ -762,7 +763,7 @@ export default class TicketModule {
     ticketManager.closeTicket(interaction.channelId!, interaction.user.id);
 
     const closeEmbed = createEnhancedEmbed({
-      title: '🔒 Ticket đã đóng',
+      title: '${emojis.lock} Ticket đã đóng',
       description: `Ticket này đã được đóng bởi <@${interaction.user.id}>`,
       color: 0x1ABC9C,
       fields: [
@@ -783,7 +784,7 @@ export default class TicketModule {
         const buffer = Buffer.from(transcript, 'utf-8');
         
         const logEmbed = createEnhancedEmbed({
-          title: `📋  **Transcript Ticket** - ${ticket.ticketId}`,
+          title: `${emojis.copy}  **Transcript Ticket** - ${ticket.ticketId}`,
           description: `**Tạo bởi:** <@${ticket.userId}>\n**Đóng bởi:** <@${interaction.user.id}>`,
           color: 'info',
           fields: [
@@ -820,12 +821,12 @@ export default class TicketModule {
     const ticket = ticketManager.getTicket(interaction.channelId);
     if (!ticket) {
       return interaction.editReply({
-        content: '❌ Không tìm thấy ticket!'
+        content: '${emojis.error} Không tìm thấy ticket!'
       });
     }
 
     const claimEmbed = createEnhancedEmbed({
-      description: `✅ <@${interaction.user.id}> đã nhận ticket này và sẽ** hỗ trợ **bạn!`,
+      description: `${emojis.success} <@${interaction.user.id}> đã nhận ticket này và sẽ** hỗ trợ **bạn!`,
       color: 0x1ABC9C, // Discord blurple
     });
 

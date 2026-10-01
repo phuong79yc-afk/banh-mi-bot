@@ -1,0 +1,15 @@
+{
+  "name": "moderation-module",
+  "version": "1.0.0",
+  "description": "Moderation Commands - Kick, Ban, Timeout, Clear, Lock/Unlock",
+  "enabled": true,
+  "priority": 10,
+  "type": 2,
+  "author": "Your Name",
+  "groupCommands": [
+    {
+      "name": "moderation",
+      "commands": ["kick", "ban", "timeout", "clear", "lock", "unlock"]
+    }
+  ]
+}

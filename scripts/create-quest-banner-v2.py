@@ -35,12 +35,42 @@ def create_gradient_bg(width, height):
             img.putpixel((x, y), (r, g, b))
     return img
 
-def draw_round_character(size, face_color, cheek_color, accessory=None):
-    """Draw cute round character"""
+def draw_round_character(size, face_color, cheek_color, accessory=None, animal='cat'):
+    """Draw cute round character with animal ears"""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     center = size // 2
     radius = size // 2 - 4
+    
+    # Animal ears BEFORE body
+    if animal == 'cat':
+        for sx in (-1, 1):
+            ear_pts = [(center + sx * 13, center - radius), 
+                      (center + sx * 25, center - radius - 15),
+                      (center + sx * 9, center - radius + 5)]
+            draw.polygon(ear_pts, fill=face_color, outline=OUTLINE, width=3)
+            inner_pts = [(center + sx * 14, center - radius + 2),
+                        (center + sx * 20, center - radius - 8),
+                        (center + sx * 12, center - radius + 5)]
+            draw.polygon(inner_pts, fill=cheek_color, outline=None)
+    
+    elif animal == 'bunny':
+        for sx in (-1, 1):
+            draw.ellipse([center + sx * 10 - 6, center - radius - 25, 
+                         center + sx * 10 + 6, center - radius + 5],
+                        fill=face_color, outline=OUTLINE, width=3)
+            draw.ellipse([center + sx * 10 - 3, center - radius - 20,
+                         center + sx * 10 + 3, center - radius + 2],
+                        fill=cheek_color, outline=None)
+    
+    elif animal == 'bear':
+        for sx in (-1, 1):
+            draw.ellipse([center + sx * 20 - 8, center - radius - 8,
+                         center + sx * 20 + 8, center - radius + 8],
+                        fill=face_color, outline=OUTLINE, width=3)
+            draw.ellipse([center + sx * 20 - 4, center - radius - 4,
+                         center + sx * 20 + 4, center - radius + 4],
+                        fill=cheek_color, outline=None)
     
     # Body circle
     draw.ellipse([center - radius, center - radius, center + radius, center + radius],
@@ -145,17 +175,17 @@ def create_frame(frame_num, total_frames):
     # Bounce animation offset
     bounce = int(8 * abs(math.sin(TAU * t)))
     
-    # Character 1: Pink with checkmark
-    char1 = draw_round_character(char_size, PINK, (255, 160, 180), 'checkmark')
+    # Character 1: Pink cat with checkmark
+    char1 = draw_round_character(char_size, PINK, (255, 160, 180), 'checkmark', animal='cat')
     img.paste(char1, (60, y_base - bounce), char1)
     
-    # Character 2: Lavender with star
-    char2 = draw_round_character(char_size, LAVENDER, (180, 160, 220), 'star')
+    # Character 2: Lavender bunny with star
+    char2 = draw_round_character(char_size, LAVENDER, (180, 160, 220), 'star', animal='bunny')
     bounce2 = int(8 * abs(math.sin(TAU * (t + 0.33))))
     img.paste(char2, (WIDTH // 2 - char_size // 2, y_base - bounce2), char2)
     
-    # Character 3: Mint with trophy
-    char3 = draw_round_character(char_size, MINT, (150, 220, 190), 'trophy')
+    # Character 3: Mint bear with trophy
+    char3 = draw_round_character(char_size, MINT, (150, 220, 190), 'trophy', animal='bear')
     bounce3 = int(8 * abs(math.sin(TAU * (t + 0.66))))
     img.paste(char3, (WIDTH - 140, y_base - bounce3), char3)
     
@@ -210,7 +240,7 @@ def create_quest_banner():
         frame = create_frame(i, FRAMES)
         frames.append(frame)
     
-    output_path = os.path.join(os.getcwd(), 'assets', 'banners', 'quest-banner.gif')
+    output_path = os.path.join(os.getcwd(), 'code', 'assets', 'banners', 'quest-banner.gif')
     
     print(f"💾 Saving to {output_path}...")
     frames[0].save(
