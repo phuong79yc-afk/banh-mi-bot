@@ -56,15 +56,9 @@ def create_coin_sprite(size=48, color=GOLD):
 
 def create_frame(frame_num, total_frames):
     """Create a single frame of the animation"""
-    img = Image.new('RGB', (WIDTH, HEIGHT), DARK_GRAY)
+    # Use RGBA for transparency
+    img = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    
-    # Draw background pattern (checkerboard)
-    square_size = 40
-    for y in range(0, HEIGHT, square_size):
-        for x in range(0, WIDTH, square_size):
-            if (x // square_size + y // square_size) % 2 == 0:
-                draw.rectangle([x, y, x+square_size, y+square_size], fill=(70, 70, 70))
     
     # Draw chest (center)
     chest = create_chest_sprite(80)
@@ -87,8 +81,13 @@ def create_frame(frame_num, total_frames):
     coin2_y = HEIGHT // 2 - 20 + coin_offset
     img.paste(coin2, (coin2_x, coin2_y), coin2)
     
-    # Draw border
+    # Draw border (semi-transparent background box)
     border_width = 4
+    # Draw semi-transparent dark background for better text visibility
+    draw.rectangle([border_width, border_width, WIDTH-border_width, HEIGHT-border_width], 
+                  fill=(0, 0, 0, 180), outline=None)
+    
+    # Draw colored borders
     draw.rectangle([0, 0, WIDTH-1, HEIGHT-1], outline=BROWN, width=border_width)
     draw.rectangle([border_width, border_width, WIDTH-border_width-1, HEIGHT-border_width-1], 
                   outline=GOLD, width=2)
