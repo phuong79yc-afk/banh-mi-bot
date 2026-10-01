@@ -8,7 +8,8 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  AttachmentBuilder
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import fs from 'fs';
@@ -220,9 +221,14 @@ export default class ShopModule {
         const userId = interaction.user.id;
         const userCoins = getUserCoins(userId);
         
+        // Load shop banner
+        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'shop-banner.gif');
+        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'shop-banner.gif' });
+        
         // Create embed with fields (3 per row for grid effect)
         const embed = new EmbedBuilder()
-          .setColor('#5865f2')
+          .setColor('#FFD700')
+          .setImage('attachment://shop-banner.gif')
           .setAuthor({
             name: `🥟 Cửa Hàng Bánh Cuốn Bot`,
             iconURL: interaction.client.user?.displayAvatarURL()
@@ -290,7 +296,8 @@ export default class ShopModule {
         const response = await interaction.editReply({
           content: `${emojis.coin} **Số dư của bạn:** ${userCoins} coins`,
           embeds: [embed],
-          components: [buttonRow, selectMenu]
+          components: [buttonRow, selectMenu],
+          files: [bannerAttachment]
         });
         
         const collector = response.createMessageComponentCollector({
