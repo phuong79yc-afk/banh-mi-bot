@@ -11,7 +11,8 @@ import {
   MessageReaction,
   User as DiscordUser,
   PartialMessageReaction,
-  PartialUser
+  PartialUser,
+  AttachmentBuilder
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
@@ -231,6 +232,10 @@ export default class QuestModule {
         const userData = getUserData(userId);
         const stats = getQuestStats(userId);
         
+        // Load quest banner
+        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'quest-banner.gif');
+        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'quest-banner.gif' });
+        
         // Build quest list
         const questList = DEFAULT_QUESTS.map(quest => {
           const progress = userData.quests[quest.id];
@@ -239,26 +244,27 @@ export default class QuestModule {
           
           return [
             `${status} **${quest.name}**`,
-            `${emojis.document} ${quest.description}`,
-            `${emojis.trophy} Phần thưởng: **${quest.reward}** ${emojis.trophy}`,
+            `└ ${quest.description}`,
+            `${emojis.coin} Phần thưởng: **${quest.reward}** coins`,
             `${emojis.chart} Tiến độ: **${progress.progress}/${quest.target}** ${progressBar}`,
             ''
           ].join('\n');
         }).join('\n');
         
         const embed = new EmbedBuilder()
-          .setColor('#5865f2')
-          .setAuthor({
-            name: `${emojis.sparkles} Nhiệm Vụ Hàng Ngày`,
-            iconURL: interaction.user.displayAvatarURL()
-          })
+          .setColor('#5865F2')
+          .setImage('attachment://quest-banner.gif')
+          .setTitle(`${emojis.sparkles} Nhiệm Vụ Hàng Ngày`)
           .setDescription([
-            `${emojis.chart} **Số Nhiệm Vụ**`,
-            `• **Đã hoàn thành**: ${stats.completed}/${stats.total} ${emojis.trophy}`,
-            `• **Tổng hoàn thành**: ${stats.totalCompleted} nhiệm vụ`,
-            `• **Tổng phần thưởng**: ${stats.totalRewards} ${emojis.trophy}`,
+            `**${interaction.user.displayName}** - Hoàn thành nhiệm vụ để nhận coins!`,
             '',
-            '━━━━━━━━━━━━━━━━━━━━',
+            `━━━━━━━━━━━━━━━━━━━━`,
+            '',
+            `${emojis.trophy} **Đã hoàn thành**: ${stats.completed}/${stats.total} nhiệm vụ`,
+            `${emojis.chart} **Tổng hoàn thành**: ${stats.totalCompleted} nhiệm vụ`,
+            `${emojis.coin} **Tổng phần thưởng**: ${stats.totalRewards} coins`,
+            '',
+            `━━━━━━━━━━━━━━━━━━━━`,
             '',
             questList
           ].join('\n'))
@@ -288,7 +294,8 @@ export default class QuestModule {
         
         const response = await interaction.editReply({ 
           embeds: [embed],
-          components: [row]
+          components: [row],
+          files: [bannerAttachment]
         });
         
         // Button collector
