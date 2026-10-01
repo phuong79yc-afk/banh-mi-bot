@@ -706,7 +706,7 @@ export function setupPrefixCommands(client: Client) {
           description: 
             `**Prefix:** \`${PREFIX}\`\n\n` +
             `**Available Commands:**\n\n` +
-            `**Utility (8):**\n` +
+            `**Utility (9):**\n` +
             `\`${PREFIX}help\` - Hiển thị help menu\n` +
             `\`${PREFIX}ping\` - Kiểm tra ping bot\n` +
             `\`${PREFIX}avatar [@user]\` - Xem avatar\n` +
@@ -714,6 +714,7 @@ export function setupPrefixCommands(client: Client) {
             `\`${PREFIX}serverinfo\` - Thông tin server\n` +
             `\`${PREFIX}uptime\` - Xem uptime bot\n` +
             `\`${PREFIX}invite\` - Invite bot\n` +
+            `\`${PREFIX}profile [@user]\` - Xem profile\n` +
             `\`${PREFIX}afk [reason]\` - Set AFK status\n\n` +
             `**Moderation (6):**\n` +
             `\`${PREFIX}mute @user|<ID> <time> [reason]\` - Mute user\n` +
@@ -728,6 +729,105 @@ export function setupPrefixCommands(client: Client) {
             `Sử dụng \`/help\` để xem tất cả slash commands!`,
           color: 0x1ABC9C,
         });
+
+        await message.reply({ embeds: [embed] });
+      }
+
+      // Profile command - requires shop role
+      else if (commandName === 'profile') {
+        const user = message.mentions.users.first() || message.author;
+        const member = message.guild?.members.cache.get(user.id);
+
+        if (!member) {
+          return message.reply(`${emojis.error} Không tìm thấy user trong server này!`);
+        }
+
+        // Check if user has any shop role
+        const shopRoleNames = [
+          'Bánh Cuốn Lover',
+          'VIP Member',
+          'Supporter',
+          'Gamer',
+          'Music Lover',
+          'Night Owl',
+          'Early Bird',
+          'Artist',
+          'Foodie'
+        ];
+
+        const hasShopRole = member.roles.cache.some(role => 
+          shopRoleNames.includes(role.name)
+        );
+
+        if (!hasShopRole && user.id === message.author.id) {
+          return message.reply({
+            content: `${emojis.error} **Premium Feature!**\n\nLệnh \`!profile\` chỉ dành cho thành viên có role premium từ shop!\n\n${emojis.gift} Mua role tại \`/shop\` để mở khóa tính năng này!`
+          });
+        }
+
+        // Get user's banner
+        const fetchedUser = await user.fetch();
+        const banner = fetchedUser.bannerURL({ size: 1024, extension: 'png' });
+        const accentColor = fetchedUser.accentColor;
+
+        // Get roles
+        const roles = member.roles.cache
+          .filter(role => role.id !== message.guild?.id)
+          .sort((a, b) => b.position - a.position)
+          .map(role => role.toString())
+          .slice(0, 5);
+
+        const embed = new EmbedBuilder()
+          .setColor(accentColor || 0x5865F2)
+          .setAuthor({
+            name: `${user.username}'s Profile`,
+            iconURL: user.displayAvatarURL()
+          })
+          .setThumbnail(user.displayAvatarURL({ size: 256 }))
+          .addFields(
+            {
+              name: `${emojis.user} Username`,
+              value: `\`${user.tag}\``,
+              inline: true
+            },
+            {
+              name: `🆔 ID`,
+              value: `\`${user.id}\``,
+              inline: true
+            },
+            {
+              name: `${emojis.calendar} Created`,
+              value: `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
+              inline: true
+            },
+            {
+              name: `${emojis.rocket} Joined Server`,
+              value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown',
+              inline: true
+            },
+            {
+              name: `${emojis.gift} Roles (${member.roles.cache.size - 1})`,
+              value: roles.length > 0 ? roles.join(' ') : 'No roles',
+              inline: false
+            }
+          )
+          .setFooter({
+            text: `Premium feature - Thank you for supporting!`,
+            iconURL: client.user?.displayAvatarURL()
+          })
+          .setTimestamp();
+
+        // Add banner if exists
+        if (banner) {
+          embed.setImage(banner);
+        }
+
+        // Add avatar download link
+        const avatarURL = user.displayAvatarURL({ size: 4096, extension: 'png' });
+        embed.setDescription(
+          `${emojis.art} **Avatar:** [Download](${avatarURL})` +
+          (banner ? `\n${emojis.sparkles} **Banner:** [Download](${banner})` : '')
+        );
 
         await message.reply({ embeds: [embed] });
       }
