@@ -469,10 +469,10 @@ export default class ShopModule {
             '',
             `━━━━━━━━━━━━━━━━━━━━`,
             '',
-            `💰 **Số dư hiện tại:** ${coins.toLocaleString()} ${emojis.coin}`,
-            `🛍️ **Items sở hữu:** ${itemCount} items`,
-            `📊 **Tổng đã chi:** ${totalSpent.toLocaleString()} coins`,
-            `💎 **Tổng tài sản:** ${(coins + totalSpent).toLocaleString()} coins`,
+            `${emojis.coin} **Số dư hiện tại:** ${coins.toLocaleString()} coins`,
+            `${emojis.shopping_bags} **Items sở hữu:** ${itemCount} items`,
+            `${emojis.chart} **Tổng đã chi:** ${totalSpent.toLocaleString()} coins`,
+            `${emojis.gem} **Tổng tài sản:** ${(coins + totalSpent).toLocaleString()} coins`,
             '',
             `━━━━━━━━━━━━━━━━━━━━`
           ].join('\n'))
@@ -480,9 +480,9 @@ export default class ShopModule {
             {
               name: `${emojis.gift} Cách kiếm coins`,
               value: [
-                `• \`/daily\` - Điểm danh hàng ngày (100-400 ${emojis.coin})`,
-                `• \`/quest\` - Hoàn thành nhiệm vụ`,
-                `• Events & Activities`
+                `${emojis.calendar} \`/daily\` - Điểm danh hàng ngày (100-400 ${emojis.coin})`,
+                `${emojis.trophy} \`/quest\` - Hoàn thành nhiệm vụ`,
+                `${emojis.sparkles} Events & Activities`
               ].join('\n'),
               inline: false
             }
