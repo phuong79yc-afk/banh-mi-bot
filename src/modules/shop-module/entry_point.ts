@@ -448,25 +448,56 @@ export default class ShopModule {
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const coins = getUserCoins(targetUser.id);
         
+        // Load balance banner
+        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'balance-banner.gif');
+        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'balance-banner.gif' });
+        
+        // Get user's inventory for stats
+        const inventory = getUserInventory(targetUser.id);
+        const itemCount = Object.keys(inventory).length;
+        const totalSpent = Object.entries(inventory).reduce((total, [itemId, quantity]) => {
+          const item = SHOP_ITEMS.find(it => it.id === itemId);
+          return total + (item ? item.price * quantity : 0);
+        }, 0);
+        
         const embed = new EmbedBuilder()
-          .setColor('#ffd700')
-          .setAuthor({
-            name: `${emojis.coin} Số Dư Coins`,
-            iconURL: targetUser.displayAvatarURL()
-          })
+          .setColor('#FFD700')
+          .setImage('attachment://balance-banner.gif')
+          .setTitle(`${emojis.coin} Số Dư Coins`)
           .setDescription([
-            `**${targetUser.displayName}** có:`,
+            `**${targetUser.displayName}** đang có:`,
             '',
-            `${emojis.trophy} **${coins}** coins`
+            `━━━━━━━━━━━━━━━━━━━━`,
+            '',
+            `💰 **Số dư hiện tại:** ${coins.toLocaleString()} ${emojis.coin}`,
+            `🛍️ **Items sở hữu:** ${itemCount} items`,
+            `📊 **Tổng đã chi:** ${totalSpent.toLocaleString()} coins`,
+            `💎 **Tổng tài sản:** ${(coins + totalSpent).toLocaleString()} coins`,
+            '',
+            `━━━━━━━━━━━━━━━━━━━━`
           ].join('\n'))
+          .addFields(
+            {
+              name: `${emojis.gift} Cách kiếm coins`,
+              value: [
+                `• \`/daily\` - Điểm danh hàng ngày (100-400 ${emojis.coin})`,
+                `• \`/quest\` - Hoàn thành nhiệm vụ`,
+                `• Events & Activities`
+              ].join('\n'),
+              inline: false
+            }
+          )
           .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-          .setFooter({
-            text: `Kiếm thêm coins qua /daily và /quest!`,
-            iconURL: interaction.client.user?.displayAvatarURL()
+          .setFooter({ 
+            text: `${targetUser.tag} • Mua items tại /shop`,
+            iconURL: targetUser.displayAvatarURL()
           })
           .setTimestamp();
         
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ 
+          embeds: [embed],
+          files: [bannerAttachment]
+        });
       }
     };
 
