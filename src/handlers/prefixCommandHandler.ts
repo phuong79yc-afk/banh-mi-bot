@@ -733,7 +733,7 @@ export function setupPrefixCommands(client: Client) {
         await message.reply({ embeds: [embed] });
       }
 
-      // Profile command - requires shop role
+      // Profile command - with premium upsell
       else if (commandName === 'profile') {
         const user = message.mentions.users.first() || message.author;
         const member = message.guild?.members.cache.get(user.id);
@@ -759,12 +759,6 @@ export function setupPrefixCommands(client: Client) {
           shopRoleNames.includes(role.name)
         );
 
-        if (!hasShopRole && user.id === message.author.id) {
-          return message.reply({
-            content: `${emojis.error} **Premium Feature!**\n\nLệnh \`!profile\` chỉ dành cho thành viên có role premium từ shop!\n\n${emojis.gift} Mua role tại \`/shop\` để mở khóa tính năng này!`
-          });
-        }
-
         // Get user's banner
         const fetchedUser = await user.fetch();
         const banner = fetchedUser.bannerURL({ size: 1024, extension: 'png' });
@@ -778,9 +772,9 @@ export function setupPrefixCommands(client: Client) {
           .slice(0, 5);
 
         const embed = new EmbedBuilder()
-          .setColor(accentColor || 0x5865F2)
+          .setColor(hasShopRole ? (accentColor || 0x5865F2) : 0x99AAB5)
           .setAuthor({
-            name: `${user.username}'s Profile`,
+            name: hasShopRole ? `${user.username}'s Profile 💎` : `${user.username}'s Profile`,
             iconURL: user.displayAvatarURL()
           })
           .setThumbnail(user.displayAvatarURL({ size: 256 }))
@@ -811,10 +805,6 @@ export function setupPrefixCommands(client: Client) {
               inline: false
             }
           )
-          .setFooter({
-            text: `Premium feature - Thank you for supporting!`,
-            iconURL: client.user?.displayAvatarURL()
-          })
           .setTimestamp();
 
         // Add banner if exists
@@ -824,10 +814,39 @@ export function setupPrefixCommands(client: Client) {
 
         // Add avatar download link
         const avatarURL = user.displayAvatarURL({ size: 4096, extension: 'png' });
-        embed.setDescription(
-          `${emojis.art} **Avatar:** [Download](${avatarURL})` +
-          (banner ? `\n${emojis.sparkles} **Banner:** [Download](${banner})` : '')
-        );
+        let description = `${emojis.art} **Avatar:** [Download](${avatarURL})`;
+        if (banner) {
+          description += `\n${emojis.sparkles} **Banner:** [Download](${banner})`;
+        }
+
+        // Premium upsell or thank you message
+        if (!hasShopRole && user.id === message.author.id) {
+          description += `\n\n━━━━━━━━━━━━━━━━━━━\n` +
+            `${emojis.gift} **Upgrade to Premium!**\n\n` +
+            `Mua role từ \`/shop\` để unlock:\n` +
+            `💎 Premium badge on profile\n` +
+            `🎨 Custom accent color\n` +
+            `✨ Enhanced profile styling\n` +
+            `🎁 Exclusive shop roles\n` +
+            `💖 Support bot development`;
+          
+          embed.setFooter({
+            text: `💎 Use /shop to unlock premium features!`,
+            iconURL: client.user?.displayAvatarURL()
+          });
+        } else if (hasShopRole) {
+          embed.setFooter({
+            text: `💎 Premium Member - Thank you for your support!`,
+            iconURL: client.user?.displayAvatarURL()
+          });
+        } else {
+          embed.setFooter({
+            text: `Profile Card`,
+            iconURL: client.user?.displayAvatarURL()
+          });
+        }
+
+        embed.setDescription(description);
 
         await message.reply({ embeds: [embed] });
       }
