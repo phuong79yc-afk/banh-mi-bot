@@ -3,6 +3,7 @@ import {
   Collection, 
   SlashCommandBuilder, 
   ChatInputCommandInteraction, 
+  PermissionFlagsBits, 
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -510,9 +511,126 @@ export default class ShopModule {
       }
     };
 
+    // /coins command - Admin only
+    const coinsCommand = {
+      data: new SlashCommandBuilder()
+        .setName('coins')
+        .setDescription('🔧 Admin: Cộng/trừ coins cho user')
+        .addSubcommand(subcommand =>
+          subcommand
+            .setName('add')
+            .setDescription('Cộng coins cho user')
+            .addUserOption(option =>
+              option
+                .setName('user')
+                .setDescription('User cần cộng coins')
+                .setRequired(true)
+            )
+            .addIntegerOption(option =>
+              option
+                .setName('amount')
+                .setDescription('Số coins cần cộng')
+                .setRequired(true)
+                .setMinValue(1)
+            )
+        )
+        .addSubcommand(subcommand =>
+          subcommand
+            .setName('remove')
+            .setDescription('Trừ coins của user')
+            .addUserOption(option =>
+              option
+                .setName('user')
+                .setDescription('User cần trừ coins')
+                .setRequired(true)
+            )
+            .addIntegerOption(option =>
+              option
+                .setName('amount')
+                .setDescription('Số coins cần trừ')
+                .setRequired(true)
+                .setMinValue(1)
+            )
+        )
+        .addSubcommand(subcommand =>
+          subcommand
+            .setName('set')
+            .setDescription('Set coins cho user')
+            .addUserOption(option =>
+              option
+                .setName('user')
+                .setDescription('User cần set coins')
+                .setRequired(true)
+            )
+            .addIntegerOption(option =>
+              option
+                .setName('amount')
+                .setDescription('Số coins mới')
+                .setRequired(true)
+                .setMinValue(0)
+            )
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
+
+        const subcommand = interaction.options.getSubcommand();
+        const targetUser = interaction.options.getUser('user', true);
+        const amount = interaction.options.getInteger('amount', true);
+
+        const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
+        let coins: any = {};
+
+        try {
+          if (fs.existsSync(coinsPath)) {
+            coins = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
+          }
+        } catch {}
+
+        const currentCoins = coins[targetUser.id] || 0;
+        let newCoins = currentCoins;
+
+        if (subcommand === 'add') {
+          newCoins = currentCoins + amount;
+          coins[targetUser.id] = newCoins;
+        } else if (subcommand === 'remove') {
+          newCoins = Math.max(0, currentCoins - amount);
+          coins[targetUser.id] = newCoins;
+        } else if (subcommand === 'set') {
+          newCoins = amount;
+          coins[targetUser.id] = newCoins;
+        }
+
+        fs.writeFileSync(coinsPath, JSON.stringify(coins, null, 2));
+
+        const embed = new EmbedBuilder()
+          .setColor(subcommand === 'add' ? '#57F287' : subcommand === 'remove' ? '#ED4245' : '#5865F2')
+          .setTitle(`${emojis.success} Coins Updated`)
+          .setDescription([
+            `**User:** ${targetUser.tag}`,
+            `**Action:** ${subcommand.toUpperCase()}`,
+            `**Amount:** ${amount} ${emojis.coin}`,
+            '',
+            `**Before:** ${currentCoins} ${emojis.coin}`,
+            `**After:** ${newCoins} ${emojis.coin}`,
+            `**Change:** ${newCoins >= currentCoins ? '+' : ''}${newCoins - currentCoins} ${emojis.coin}`
+          ].join('\n'))
+          .setFooter({ text: `Admin: ${interaction.user.tag}` })
+          .setTimestamp();
+
+        await interaction.editReply({ embeds: [embed] });
+      }
+    };
+
     this.commands.set('shop', shopCommand);
     this.commands.set('inventory', inventoryCommand);
     this.commands.set('balance', balanceCommand);
+    this.commands.set('coins', coinsCommand);
   }
 
   async cleanup() {
