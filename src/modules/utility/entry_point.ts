@@ -443,7 +443,12 @@ export default class UtilityModule {
           });
         }
 
-        await interaction.deferReply();
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
 
         // Animation frames with larger emojis
         const frames = [
@@ -481,7 +486,12 @@ export default class UtilityModule {
         .setDescription('📖 Menu Trợ Giúp - Xem tất cả lệnh'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         // DEFER only once at the start
-        await interaction.deferReply();
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         const client = interaction.client;
 
@@ -699,7 +709,12 @@ export default class UtilityModule {
         .setName('information')
         .setDescription('${emojis.info} Thông tin về bot'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         // Generate info banner
         const { AttachmentBuilder } = require('discord.js');
@@ -866,7 +881,12 @@ export default class UtilityModule {
         .setName('rule')
         .setDescription('📜 Xem luật server'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply({ flags: 64 }); // ephemeral
+        try {
+          await interaction.deferReply({ flags: 64 }); // ephemeral
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         // Find rules channel
         const rulesChannel = interaction.guild?.channels.cache.find(
@@ -898,7 +918,12 @@ export default class UtilityModule {
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         const force = interaction.options.getBoolean('force') || false;
 
