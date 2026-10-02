@@ -591,7 +591,7 @@ export default class UtilityModule {
             },
             {
               name: 'Lệnh prefix',
-              value: '60',
+              value: `15`,
               inline: true
             },
             {
