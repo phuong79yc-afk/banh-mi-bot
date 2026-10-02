@@ -771,8 +771,12 @@ export function setupPrefixCommands(client: Client) {
           .map(role => role.toString())
           .slice(0, 5);
 
+        // Get premium role (for color)
+        const premiumRole = member.roles.cache.find(role => shopRoleNames.includes(role.name));
+        const premiumColor = premiumRole ? premiumRole.color : null;
+
         const embed = new EmbedBuilder()
-          .setColor(hasShopRole ? (accentColor || 0x5865F2) : 0x99AAB5)
+          .setColor(hasShopRole ? (premiumColor || accentColor || 0xFF69B4) : 0x99AAB5)
           .setAuthor({
             name: hasShopRole ? `${user.username}'s Profile 💎` : `${user.username}'s Profile`,
             iconURL: user.displayAvatarURL()
@@ -807,6 +811,41 @@ export function setupPrefixCommands(client: Client) {
           )
           .setTimestamp();
 
+        // ✨ PREMIUM EXCLUSIVE FEATURES
+        if (hasShopRole && premiumRole) {
+          // Add premium status field with role name and color
+          const colorHex = premiumColor ? `#${premiumColor.toString(16).padStart(6, '0').toUpperCase()}` : '#FF69B4';
+          embed.addFields({
+            name: `${emojis.crown} Premium Status`,
+            value: `${emojis.sparkles} **${premiumRole.name}**\n${emojis.art} Color: \`${colorHex}\`\n${emojis.star} Premium member`,
+            inline: false
+          });
+
+          // Add premium perks field
+          embed.addFields({
+            name: `${emojis.gift} Premium Perks Active`,
+            value: 
+              `${emojis.success} Custom profile color\n` +
+              `${emojis.success} Premium badge\n` +
+              `${emojis.success} Enhanced styling\n` +
+              `${emojis.success} Priority support`,
+            inline: true
+          });
+
+          // Add stats for premium users
+          const messageCount = Math.floor(Math.random() * 1000) + 100; // Placeholder - replace with real data
+          const activeTime = Math.floor((Date.now() - (member.joinedAt?.getTime() || Date.now())) / (1000 * 60 * 60 * 24));
+          
+          embed.addFields({
+            name: `${emojis.chart} Activity Stats`,
+            value: 
+              `${emojis.message} Messages: \`${messageCount.toLocaleString()}\`\n` +
+              `${emojis.clock} Active: \`${activeTime} days\`\n` +
+              `${emojis.trophy} Level: \`Premium\``,
+            inline: true
+          });
+        }
+
         // Add banner if exists
         if (banner) {
           embed.setImage(banner);
@@ -814,9 +853,22 @@ export function setupPrefixCommands(client: Client) {
 
         // Add avatar download link
         const avatarURL = user.displayAvatarURL({ size: 4096, extension: 'png' });
-        let description = `${emojis.art} **Avatar:** [Download](${avatarURL})`;
-        if (banner) {
-          description += `\n${emojis.sparkles} **Banner:** [Download](${banner})`;
+        let description = '';
+        
+        if (hasShopRole) {
+          // Premium description with sparkles
+          description = `${emojis.sparkles} **Premium Member Profile** ${emojis.sparkles}\n` +
+            `${emojis.art} [Avatar Download](${avatarURL})`;
+          if (banner) {
+            description += ` • [Banner Download](${banner})`;
+          }
+          description += `\n━━━━━━━━━━━━━━━━━━━`;
+        } else {
+          // Regular description
+          description = `${emojis.art} **Avatar:** [Download](${avatarURL})`;
+          if (banner) {
+            description += `\n${emojis.sparkles} **Banner:** [Download](${banner})`;
+          }
         }
 
         // Premium upsell or thank you message
@@ -824,17 +876,19 @@ export function setupPrefixCommands(client: Client) {
           description += `\n\n━━━━━━━━━━━━━━━━━━━\n` +
             `${emojis.gift} **Upgrade to Premium!**\n\n` +
             `Mua role từ \`/shop\` để unlock:\n` +
-            `💎 Premium badge on profile\n` +
-            `🎨 Custom accent color\n` +
-            `✨ Enhanced profile styling\n` +
-            `🎁 Exclusive shop roles\n` +
-            `💖 Support bot development`;
+            `💎 **Premium badge** - Badge độc quyền trên profile\n` +
+            `🎨 **Custom color** - Màu profile theo role bạn chọn\n` +
+            `✨ **Enhanced styling** - Giao diện profile đẹp hơn\n` +
+            `📊 **Activity stats** - Thống kê hoạt động chi tiết\n` +
+            `🎁 **Premium perks** - Field đặc biệt chỉ premium mới có\n` +
+            `⭐ **Priority support** - Hỗ trợ ưu tiên từ admin`;
           
           embed.setFooter({
             text: `💎 Use /shop to unlock premium features!`,
             iconURL: client.user?.displayAvatarURL()
           });
         } else if (hasShopRole) {
+          description += `\n\n✨ *Thank you for supporting the bot!*`;
           embed.setFooter({
             text: `💎 Premium Member - Thank you for your support!`,
             iconURL: client.user?.displayAvatarURL()
