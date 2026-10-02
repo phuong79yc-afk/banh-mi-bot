@@ -226,7 +226,14 @@ export default class ShopModule {
         .setName('shop')
         .setDescription('Xem shop và mua items'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY - before ANY processing
+          await interaction.deferReply();
+        } catch (error: any) {
+          // Already expired, abort silently
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const userId = interaction.user.id;
         const userCoins = getUserCoins(userId);
@@ -437,7 +444,13 @@ export default class ShopModule {
         .setName('inventory')
         .setDescription('Xem inventory của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const userId = interaction.user.id;
         const inventory = getUserInventory(userId);
@@ -492,7 +505,13 @@ export default class ShopModule {
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const coins = getUserCoins(targetUser.id);

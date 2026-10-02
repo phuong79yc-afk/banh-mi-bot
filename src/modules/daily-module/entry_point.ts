@@ -172,7 +172,13 @@ export default class DailyModule {
         .setName('daily')
         .setDescription('Điểm danh hàng ngày để nhận thưởng'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const userId = interaction.user.id;
         
@@ -279,7 +285,13 @@ export default class DailyModule {
         .setName('daily-stats')
         .setDescription('Xem thống kê điểm danh của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const userId = interaction.user.id;
         const data = getUserData(userId);
@@ -339,7 +351,13 @@ export default class DailyModule {
         .setName('daily-leaderboard')
         .setDescription('Xem bảng xếp hạng điểm danh'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const data = loadData();
         const leaderboard = Object.entries(data)
