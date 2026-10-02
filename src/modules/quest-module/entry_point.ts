@@ -174,6 +174,9 @@ function updateQuestProgress(userId: string, questType: 'message' | 'reaction' |
         userData.totalCompleted++;
         userData.totalRewards += quest.reward;
         completedQuests.push(quest);
+        
+        // Add coins to shop balance
+        addCoinsToShop(userId, quest.reward);
       }
     }
   });
@@ -182,6 +185,21 @@ function updateQuestProgress(userId: string, questType: 'message' | 'reaction' |
   saveData(data);
   
   return completedQuests;
+}
+
+// Add coins to shop when quest completed
+function addCoinsToShop(userId: string, amount: number): void {
+  const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
+  let coins: any = {};
+  
+  try {
+    if (fs.existsSync(coinsPath)) {
+      coins = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
+    }
+  } catch {}
+  
+  coins[userId] = (coins[userId] || 0) + amount;
+  fs.writeFileSync(coinsPath, JSON.stringify(coins, null, 2));
 }
 
 // Get quest statistics
