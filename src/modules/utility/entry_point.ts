@@ -531,10 +531,10 @@ export default class UtilityModule {
             emoji = `${emojis.sparkles}`;
           } else if (name.startsWith('customrole-') || name.startsWith('donation-') || name.startsWith('quickreport-') || name === 'Report Message' || name.startsWith('generator')) {
             category = 'Management';
-            emoji = '⚙️';
+            emoji = `${emojis.gear}`;
           } else if (['poll', 'calc', 'random', 'choose', 'information', 'help', 'rule', 'rule-setup'].includes(name) || name.startsWith('afk-') || name.startsWith('minecraft-') || name.startsWith('snipe') || name === 'editsnipe') {
             category = 'Utility';
-            emoji = '🔧';
+            emoji = `${emojis.wrench}`;
           }
 
           if (!categories[category]) {
@@ -570,7 +570,7 @@ export default class UtilityModule {
               inline: true
             },
             {
-              name: '⚙️ Management',
+              name: `${emojis.gear} Management`,
               value: `**${categories['Management']?.commands.length || 0}** lệnh`,
               inline: true
             },
@@ -580,7 +580,7 @@ export default class UtilityModule {
               inline: true
             },
             {
-              name: '🔧 Utility',
+              name: `${emojis.wrench} Utility`,
               value: `**${categories['Utility']?.commands.length || 0}** lệnh`,
               inline: true
             },
