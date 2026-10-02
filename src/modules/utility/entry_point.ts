@@ -518,17 +518,17 @@ export default class UtilityModule {
           const name = cmd.data.name;
           const description = cmd.data.description || 'No description';
           let category = 'Khác';
-          let emoji = '${emojis.art}';
+          let emoji = `${emojis.art}`;
 
           if (name.startsWith('ticket-') || name.startsWith('sticky-') || name.startsWith('autoresponder-')) {
             category = 'Hệ thống xử lí tin nhắn';
-            emoji = '${emojis.message}';
+            emoji = `${emojis.message}`;
           } else if (name.startsWith('moderation-')) {
             category = 'Moderation';
-            emoji = '${emojis.shield}';
+            emoji = `${emojis.shield}`;
           } else if (name.startsWith('ai-') || name === 'ai' || ['kiss', 'hug', 'slap', 'bite', 'pat', 'punch', 'handhold'].includes(name) || name.startsWith('gtn-') || name.startsWith('giveaway-')) {
             category = 'Giải trí';
-            emoji = '${emojis.sparkles}';
+            emoji = `${emojis.sparkles}`;
           } else if (name.startsWith('customrole-') || name.startsWith('donation-') || name.startsWith('quickreport-') || name === 'Report Message' || name.startsWith('generator')) {
             category = 'Management';
             emoji = '⚙️';
@@ -560,12 +560,12 @@ export default class UtilityModule {
           .setColor(0x5865F2)
           .addFields(
             {
-              name: '${emojis.message} Hệ thống xử lí tin nhắn',
+              name: `${emojis.message} Hệ thống xử lí tin nhắn`,
               value: `**${categories['Hệ thống xử lí tin nhắn']?.commands.length || 0}** lệnh`,
               inline: true
             },
             {
-              name: '${emojis.sparkles} Giải trí',
+              name: `${emojis.sparkles} Giải trí`,
               value: `**${categories['Giải trí']?.commands.length || 0}** lệnh`,
               inline: true
             },
@@ -575,7 +575,7 @@ export default class UtilityModule {
               inline: true
             },
             {
-              name: '${emojis.shield} Moderation',
+              name: `${emojis.shield} Moderation`,
               value: `**${categories['Moderation']?.commands.length || 0}** lệnh`,
               inline: true
             },
@@ -585,7 +585,7 @@ export default class UtilityModule {
               inline: true
             },
             {
-              name: '${emojis.art} Khác',
+              name: `${emojis.art} Khác`,
               value: `**${categories['Khác']?.commands.length || 0}** lệnh`,
               inline: true
             },
