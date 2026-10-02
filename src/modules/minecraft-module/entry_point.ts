@@ -373,8 +373,13 @@ export default class MinecraftModule {
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        // DEFER IMMEDIATELY to prevent timeout
-        await interaction.deferReply();
+        // DEFER IMMEDIATELY with protection
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         const address = interaction.options.getString('address', true);
 
@@ -416,17 +421,17 @@ export default class MinecraftModule {
             )
             .addFields(
               {
-                name: '📍 Địa chỉ IP',
+                name: `${emojis.pin} Địa chỉ IP`,
                 value: `\`\`\`\n${status.host}:${status.port}\n\`\`\`\n**[${status.software || 'Unknown'}]** ${status.ip_address || 'Unknown'}`,
                 inline: true
               },
               {
-                name: '${emojis.users} Số lượng người chơi',
+                name: `${emojis.users} Số lượng người chơi`,
                 value: `\`\`\`\n${status.players?.online || 0}/${status.players?.max || 0}\n\`\`\``,
                 inline: true
               },
               {
-                name: '🎮 Phiên bản',
+                name: `${emojis.sparkles} Phiên bản`,
                 value: 
                   `**Phần mềm:** \`${status.software || 'Unknown'}\`\n` +
                   `**Phiên bản:** \`${status.version?.name_clean || 'Unknown'}\``,
@@ -486,7 +491,12 @@ export default class MinecraftModule {
             )
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062 || error.code === 40060) return;
+          throw error;
+        }
         
         const address = interaction.options.getString('address', true);
         const style = interaction.options.getString('style') || 'default';
