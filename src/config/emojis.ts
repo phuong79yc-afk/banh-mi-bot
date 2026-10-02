@@ -2,7 +2,7 @@
  * Custom Emoji IDs for Discord Bot
  * Auto-generated: 2026-10-01T08:38:55.329Z
  * 
- * ✅ COMPLETE: 51/51 emojis
+ * ✅ COMPLETE: 53/53 emojis
  * Server ID: 1482354951689605150
  */
 
@@ -61,6 +61,8 @@ export const EMOJI_IDS = {
   "shopping_bags": "1555193472560926730",
   "gem": "1555193509680648283",
   "id": "1555408162738282576",
+  "gear": "1555432467442438174",
+  "wrench": "1555432391105974342",
 } as const;
 
 // Helper function to get emoji string (animated format)
@@ -126,4 +128,6 @@ export const emojis = {
   shopping_bags: getEmoji('shopping_bags'),
   gem: getEmoji('gem'),
   id: getEmoji('id'),
+  gear: getEmoji('gear'),
+  wrench: getEmoji('wrench'),
 } as const;
