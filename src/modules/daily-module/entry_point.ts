@@ -272,6 +272,25 @@ export default class DailyModule {
           })
           .setTimestamp();
         
+        // ✅ Update quest progress for daily check-in
+        try {
+          const questDataPath = path.join(process.cwd(), 'data', 'quest.json');
+          if (fs.existsSync(questDataPath)) {
+            const questData = JSON.parse(fs.readFileSync(questDataPath, 'utf8'));
+            if (questData[userId]) {
+              const dailyQuest = questData[userId].quests['daily_checkin'];
+              if (dailyQuest && !dailyQuest.completed) {
+                dailyQuest.progress = dailyQuest.target;
+                dailyQuest.completed = true;
+                dailyQuest.completedAt = new Date().toISOString();
+                fs.writeFileSync(questDataPath, JSON.stringify(questData, null, 2));
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to update quest progress:', error);
+        }
+        
         await interaction.editReply({ 
           embeds: [embed],
           files: [bannerAttachment]
