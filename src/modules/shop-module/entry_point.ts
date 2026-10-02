@@ -131,30 +131,6 @@ const SHOP_ITEMS: ShopItem[] = [
     emoji: '🍜',
     category: 'roles',
     roleColor: 0x32CD32 // Lime green
-  },
-  {
-    id: 'early_bird',
-    name: 'Early Bird',
-    description: 'Chim sơn ca luôn online sớm mỗi ngày',
-    price: 450,
-    emoji: '🐦',
-    category: 'roles'
-  },
-  {
-    id: 'artist',
-    name: 'Artist',
-    description: 'Nghệ sĩ tài năng với khả năng sáng tạo không giới hạn',
-    price: 600,
-    emoji: '🎨',
-    category: 'roles'
-  },
-  {
-    id: 'foodie',
-    name: 'Foodie',
-    description: 'Hội yêu ẩm thực và đam mê khám phá món ăn mới',
-    price: 400,
-    emoji: '🍜',
-    category: 'roles'
   }
 ];
 
