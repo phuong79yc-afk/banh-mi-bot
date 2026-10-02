@@ -15,11 +15,16 @@ import { emojis } from '../../config/emojis';
 import fs from 'fs';
 import path from 'path';
 
-// Database paths
+// Data paths
 const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
 const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
 
-// Ensure data files exist
+// Ensure data directory exists
+if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
+  fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
+}
+
+// Initialize data files
 if (!fs.existsSync(coinsPath)) {
   fs.writeFileSync(coinsPath, JSON.stringify({}));
 }
@@ -33,9 +38,8 @@ interface ShopItem {
   description: string;
   price: number;
   emoji: string;
-  category: 'roles' | 'items' | 'perks' | 'cosmetics';
-  stock?: number;
-  roleColor?: number; // Hex color for roles
+  category: string;
+  roleColor?: number;
 }
 
 interface CoinsData {
@@ -48,93 +52,92 @@ interface InventoryData {
   };
 }
 
-// Shop items
+// Shop items - 9 unique roles
 const SHOP_ITEMS: ShopItem[] = [
-  // Roles
   {
     id: 'banh_cuon_lover',
     name: 'Bánh Cuốn Lover',
-    description: '[BEST SELLER] Dành cho hội mê bánh cuốn chính hiệu',
+    description: 'Dành cho hội mê bánh cuốn chính hiệu',
     price: 350,
     emoji: '🥟',
     category: 'roles',
-    roleColor: 0xFFD700 // Gold
+    roleColor: 0xFFD700
   },
   {
     id: 'vip_member',
     name: 'VIP Member',
-    description: 'Thành viên VIP với nhiều đặc quyền độc quyền',
+    description: 'Thành viên VIP với đặc quyền độc quyền',
     price: 500,
     emoji: '👑',
     category: 'roles',
-    roleColor: 0xFF1493 // Deep pink
+    roleColor: 0xFF1493
   },
   {
     id: 'supporter',
     name: 'Supporter',
-    description: 'Người ủng hộ nhiệt tình của Bánh Cuốn Bot',
+    description: 'Người ủng hộ nhiệt tình của bot',
     price: 300,
     emoji: '💖',
     category: 'roles',
-    roleColor: 0xFF69B4 // Hot pink
+    roleColor: 0xFF69B4
   },
   {
     id: 'gamer',
     name: 'Gamer',
-    description: 'Dành cho những game thủ chính hiệu trong server',
+    description: 'Dành cho game thủ chính hiệu',
     price: 400,
     emoji: '🎮',
     category: 'roles',
-    roleColor: 0x9370DB // Medium purple
+    roleColor: 0x9370DB
   },
   {
     id: 'music_lover',
     name: 'Music Lover',
-    description: 'Hội yêu âm nhạc và thường xuyên nghe nhạc',
+    description: 'Hội yêu âm nhạc',
     price: 350,
     emoji: '🎵',
     category: 'roles',
-    roleColor: 0x00CED1 // Dark turquoise
+    roleColor: 0x00CED1
   },
   {
     id: 'night_owl',
     name: 'Night Owl',
-    description: 'Cú đêm hoạt động vào ban đêm, ngủ ban ngày',
+    description: 'Cú đêm hoạt động ban đêm',
     price: 450,
     emoji: '🦉',
     category: 'roles',
-    roleColor: 0x4B0082 // Indigo
+    roleColor: 0x4B0082
   },
   {
     id: 'early_bird',
     name: 'Early Bird',
-    description: 'Chim sơn ca luôn online sớm mỗi ngày',
+    description: 'Chim sơn ca online sớm',
     price: 450,
     emoji: '🐦',
     category: 'roles',
-    roleColor: 0xFFB6C1 // Light pink
+    roleColor: 0xFFB6C1
   },
   {
     id: 'artist',
     name: 'Artist',
-    description: 'Nghệ sĩ tài năng với khả năng sáng tạo không giới hạn',
+    description: 'Nghệ sĩ tài năng',
     price: 600,
     emoji: '🎨',
     category: 'roles',
-    roleColor: 0xFF6347 // Tomato
+    roleColor: 0xFF6347
   },
   {
     id: 'foodie',
     name: 'Foodie',
-    description: 'Hội yêu ẩm thực và đam mê khám phá món ăn mới',
+    description: 'Hội yêu ẩm thực',
     price: 400,
     emoji: '🍜',
     category: 'roles',
-    roleColor: 0x32CD32 // Lime green
+    roleColor: 0x32CD32
   }
 ];
 
-// Load coins
+// Data functions
 function loadCoins(): CoinsData {
   try {
     return JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
@@ -143,18 +146,15 @@ function loadCoins(): CoinsData {
   }
 }
 
-// Save coins
 function saveCoins(data: CoinsData): void {
   fs.writeFileSync(coinsPath, JSON.stringify(data, null, 2));
 }
 
-// Get user coins
 function getUserCoins(userId: string): number {
   const data = loadCoins();
   return data[userId] || 0;
 }
 
-// Add coins
 function addCoins(userId: string, amount: number): number {
   const data = loadCoins();
   data[userId] = (data[userId] || 0) + amount;
@@ -162,7 +162,6 @@ function addCoins(userId: string, amount: number): number {
   return data[userId];
 }
 
-// Remove coins
 function removeCoins(userId: string, amount: number): boolean {
   const data = loadCoins();
   const current = data[userId] || 0;
@@ -172,7 +171,6 @@ function removeCoins(userId: string, amount: number): boolean {
   return true;
 }
 
-// Load inventory
 function loadInventory(): InventoryData {
   try {
     return JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
@@ -181,12 +179,10 @@ function loadInventory(): InventoryData {
   }
 }
 
-// Save inventory
 function saveInventory(data: InventoryData): void {
   fs.writeFileSync(inventoryPath, JSON.stringify(data, null, 2));
 }
 
-// Add item to inventory
 function addToInventory(userId: string, itemId: string, quantity: number = 1): void {
   const data = loadInventory();
   if (!data[userId]) data[userId] = {};
@@ -194,7 +190,6 @@ function addToInventory(userId: string, itemId: string, quantity: number = 1): v
   saveInventory(data);
 }
 
-// Get user inventory
 function getUserInventory(userId: string): { [itemId: string]: number } {
   const data = loadInventory();
   return data[userId] || {};
@@ -227,10 +222,8 @@ export default class ShopModule {
         .setDescription('Xem shop và mua items'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY - before ANY processing
           await interaction.deferReply();
         } catch (error: any) {
-          // Already expired, abort silently
           if (error.code === 10062) return;
           throw error;
         }
@@ -238,62 +231,40 @@ export default class ShopModule {
         const userId = interaction.user.id;
         const userCoins = getUserCoins(userId);
         
-        // Load shop banner
+        // Load banner
         const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'shop-banner.gif');
         const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'shop-banner.gif' });
         
-        // Create embed with fields (3 per row for grid effect)
+        // Create embed
         const embed = new EmbedBuilder()
           .setColor('#FFD700')
           .setImage('attachment://shop-banner.gif')
           .setAuthor({
-            name: `🥟 Cửa Hàng Bánh Cuốn Bot`,
+            name: '🥟 Cửa Hàng Bánh Cuốn Bot',
             iconURL: interaction.client.user?.displayAvatarURL()
           })
-          .setDescription(`Mua các role độc quyền bằng ${emojis.coin} **Coins** kiếm được từ /daily và /quest!\n\u200B`);
+          .setDescription(`Mua các role độc quyền bằng ${emojis.coin} coins!\n━━━━━━━━━━━━━━━━━━━━\n\u200B`);
         
-        // Add each item as a field (inline for grid)
+        // Add items
         SHOP_ITEMS.forEach(item => {
           embed.addFields({
             name: `${item.emoji} ${item.name}`,
-            value: [
-              item.description,
-              `${emojis.coin} **${item.price}** coins`
-            ].join('\n'),
+            value: `${item.description}\n${emojis.coin} **${item.price}** coins`,
             inline: true
           });
         });
         
-        // Add empty field if needed to complete row
-        if (SHOP_ITEMS.length % 3 === 2) {
-          embed.addFields({ name: '\u200B', value: '\u200B', inline: true });
-        }
-        
-        // Add bundle
-        embed.addFields({
-          name: '\u200B',
-          value: '\u200B',
-          inline: false
-        });
-        embed.addFields({
-          name: `${emojis.gift} Bundle: Mua tất cả roles`,
-          value: `Giá đặc biệt: **3,500** ${emojis.coin} coins (tiết kiệm 300 coins!)`,
-          inline: false
-        });
-        
-        embed.setFooter({
-          text: `Bánh Cuốn Bot • Kiếm coins qua /daily và /quest`,
-          iconURL: interaction.client.user?.displayAvatarURL()
-        });
-        
+        // Buttons
         const buttonRow = new ActionRowBuilder<ButtonBuilder>()
           .addComponents(
             new ButtonBuilder()
               .setCustomId('shop_refresh')
-              .setLabel('🔄 Làm Mới')
+              .setLabel('Làm mới')
+              .setEmoji(emojis.refresh)
               .setStyle(ButtonStyle.Secondary)
           );
         
+        // Select menu
         const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>()
           .addComponents(
             new StringSelectMenuBuilder()
@@ -302,8 +273,8 @@ export default class ShopModule {
               .addOptions(
                 SHOP_ITEMS.map(item => 
                   new StringSelectMenuOptionBuilder()
-                    .setLabel(`${item.name}`)
-                    .setDescription(`${item.price}K coins`)
+                    .setLabel(item.name)
+                    .setDescription(`${item.price} coins`)
                     .setValue(item.id)
                     .setEmoji(item.emoji)
                 )
@@ -311,12 +282,13 @@ export default class ShopModule {
           );
         
         const response = await interaction.editReply({
-          content: `${emojis.coin} **Số dư của bạn:** ${userCoins} coins`,
+          content: `${emojis.coin} **Số dư:** ${userCoins} coins`,
           embeds: [embed],
           components: [buttonRow, selectMenu],
           files: [bannerAttachment]
         });
         
+        // Collector
         const collector = response.createMessageComponentCollector({
           time: 300000
         });
@@ -324,22 +296,23 @@ export default class ShopModule {
         collector.on('collect', async i => {
           if (i.user.id !== interaction.user.id) {
             await i.reply({
-              content: `${emojis.error} Bạn không thể sử dụng shop này!`,
+              content: `${emojis.error} Bạn không thể dùng shop này!`,
               flags: 64
             });
             return;
           }
           
+          // Refresh button
           if (i.customId === 'shop_refresh') {
             await i.deferUpdate();
             const newCoins = getUserCoins(userId);
             await i.editReply({
-              content: `${emojis.coin} **Số dư của bạn:** ${newCoins} coins`,
-              embeds: [embed],
-              components: [buttonRow, selectMenu]
+              content: `${emojis.coin} **Số dư:** ${newCoins} coins`
             });
+            return;
           }
           
+          // Buy item
           if (i.customId === 'shop_buy' && i.isStringSelectMenu()) {
             const itemId = i.values[0];
             const item = SHOP_ITEMS.find(it => it.id === itemId);
@@ -352,88 +325,87 @@ export default class ShopModule {
               return;
             }
             
+            // Check coins
             const currentCoins = getUserCoins(userId);
-            
             if (currentCoins < item.price) {
               await i.reply({
-                content: `${emojis.error} Bạn không đủ coins! Cần **${item.price}** ${emojis.coin} nhưng chỉ có **${currentCoins}** ${emojis.coin}`,
+                content: `${emojis.error} Không đủ coins! Bạn cần **${item.price - currentCoins}** coins nữa.`,
                 flags: 64
               });
               return;
             }
             
-            if (removeCoins(userId, item.price)) {
-              addToInventory(userId, itemId, 1);
-              const newBalance = getUserCoins(userId);
-              
-              // Nếu là role, tự động tạo và gán role
-              let roleAssigned = false;
-              let roleCreated = false;
-              if (item.category === 'roles') {
-                try {
-                  const guild = interaction.guild;
-                  if (guild) {
-                    const member = await guild.members.fetch(userId);
-                    
-                    // Tìm hoặc tạo role
-                    let role = guild.roles.cache.find(r => r.name === item.name);
-                    
-                    if (!role) {
-                      // Tạo role mới với màu riêng biệt
-                      const roleColor = item.roleColor || 0xFF69B4; // Default hot pink nếu không có màu
-                      
-                      role = await guild.roles.create({
-                        name: item.name,
-                        color: roleColor,
-                        hoist: true, // Hiển thị role riêng biệt trong member list
-                        reason: `Auto-created by shop purchase - ${item.name}`
-                      });
-                      roleCreated = true;
-                    }
-                    
-                    // Gán role cho user
-                    if (!member.roles.cache.has(role.id)) {
-                      await member.roles.add(role);
-                      roleAssigned = true;
-                    }
-                  }
-                } catch (error) {
-                  console.error(`Error assigning role ${item.name}:`, error);
-                }
-              }
-              
-              const purchaseEmbed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle(`${emojis.success} Mua Thành Công!`)
-                .setDescription([
-                  `Bạn đã mua **${item.emoji} ${item.name}**!`,
-                  '',
-                  `${emojis.gift} **Mô tả**: ${item.description}`,
-                  `${emojis.trophy} **Giá**: ${item.price} coins`,
-                  '',
-                  roleCreated ? `${emojis.sparkles} Role mới đã được tạo!` : '',
-                  roleAssigned ? `${emojis.success} Role đã được gán cho bạn!` : '',
-                  '',
-                  `${emojis.coin} **Số dư còn lại**: ${newBalance} coins`
-                ].filter(line => line !== '').join('\n'))
-                .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-                .setFooter({
-                  text: roleAssigned ? `Role ${item.name} đã sẵn sàng!` : `Kiểm tra inventory với /inventory`,
-                  iconURL: interaction.user.displayAvatarURL()
-                })
-                .setTimestamp();
-              
+            // Check if already has role
+            const member = i.guild?.members.cache.get(userId);
+            if (member?.roles.cache.find(r => r.name === item.name)) {
               await i.reply({
-                embeds: [purchaseEmbed],
+                content: `${emojis.warning} Bạn đã có role này rồi!`,
                 flags: 64
               });
-            } else {
-              await i.reply({
-                content: `${emojis.error} Có lỗi xảy ra khi mua item!`,
-                flags: 64
+              return;
+            }
+            
+            await i.deferReply({ flags: 64 });
+            
+            try {
+              // Remove coins
+              removeCoins(userId, item.price);
+              
+              // Add to inventory
+              addToInventory(userId, itemId);
+              
+              // Create or get role
+              let role = i.guild?.roles.cache.find(r => r.name === item.name);
+              
+              if (!role && i.guild) {
+                role = await i.guild.roles.create({
+                  name: item.name,
+                  color: item.roleColor || 0x5865F2,
+                  hoist: true,
+                  reason: `Shop purchase by ${i.user.tag}`
+                });
+              }
+              
+              // Assign role
+              if (role && member) {
+                await member.roles.add(role);
+              }
+              
+              const successEmbed = new EmbedBuilder()
+                .setColor('#57F287')
+                .setTitle(`${emojis.success} Mua thành công!`)
+                .setDescription(
+                  `Bạn đã mua **${item.emoji} ${item.name}**!\n\n` +
+                  `${emojis.coin} Tiêu: **-${item.price}** coins\n` +
+                  `${emojis.coin} Còn lại: **${getUserCoins(userId)}** coins\n\n` +
+                  `${emojis.gift} Role đã được thêm vào!`
+                )
+                .setFooter({ text: 'Cảm ơn bạn đã ủng hộ!' })
+                .setTimestamp();
+              
+              await i.editReply({
+                embeds: [successEmbed]
+              });
+              
+              // Update shop display
+              const updatedCoins = getUserCoins(userId);
+              await interaction.editReply({
+                content: `${emojis.coin} **Số dư:** ${updatedCoins} coins`
+              });
+              
+            } catch (error) {
+              console.error('Shop purchase error:', error);
+              await i.editReply({
+                content: `${emojis.error} Có lỗi xảy ra khi mua item!`
               });
             }
           }
+        });
+        
+        collector.on('end', () => {
+          interaction.editReply({
+            components: []
+          }).catch(() => {});
         });
       }
     };
@@ -445,7 +417,6 @@ export default class ShopModule {
         .setDescription('Xem inventory của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
@@ -458,36 +429,30 @@ export default class ShopModule {
         
         if (Object.keys(inventory).length === 0) {
           await interaction.editReply({
-            content: `${emojis.info} Inventory của bạn đang trống! Mua items từ \`/shop\` nhé!`
+            content: `${emojis.error} Inventory của bạn trống!\nDùng \`/shop\` để mua items!`
           });
           return;
         }
         
-        const itemsList = Object.entries(inventory).map(([itemId, quantity]) => {
-          const item = SHOP_ITEMS.find(it => it.id === itemId);
-          if (!item) return null;
-          return `${item.emoji} **${item.name}** x${quantity}\n└ ${item.description}`;
-        }).filter(Boolean).join('\n\n');
-        
         const embed = new EmbedBuilder()
           .setColor('#5865f2')
           .setAuthor({
-            name: `${emojis.gift} Inventory`,
+            name: `${interaction.user.username}'s Inventory`,
             iconURL: interaction.user.displayAvatarURL()
           })
-          .setDescription([
-            `${emojis.coin} **Số dư**: **${userCoins}** coins`,
-            '',
-            '━━━━━━━━━━━━━━━━━━━━',
-            '',
-            itemsList
-          ].join('\n'))
-          .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-          .setFooter({
-            text: `${interaction.user.tag} • ${Object.keys(inventory).length} items`,
-            iconURL: interaction.user.displayAvatarURL()
-          })
+          .setDescription(`${emojis.coin} **Balance:** ${userCoins} coins\n━━━━━━━━━━━━━━━━━━━━\n\u200B`)
           .setTimestamp();
+        
+        for (const [itemId, quantity] of Object.entries(inventory)) {
+          const item = SHOP_ITEMS.find(i => i.id === itemId);
+          if (item) {
+            embed.addFields({
+              name: `${item.emoji} ${item.name}`,
+              value: `Số lượng: **${quantity}**`,
+              inline: true
+            });
+          }
+        }
         
         await interaction.editReply({ embeds: [embed] });
       }
@@ -497,16 +462,15 @@ export default class ShopModule {
     const balanceCommand = {
       data: new SlashCommandBuilder()
         .setName('balance')
-        .setDescription('Xem số coins của bạn')
+        .setDescription('Xem số coins')
         .addUserOption(option =>
           option
             .setName('user')
-            .setDescription('User cần xem (để trống để xem của bạn)')
+            .setDescription('User cần xem')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
@@ -516,53 +480,30 @@ export default class ShopModule {
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const coins = getUserCoins(targetUser.id);
         
-        // Load balance banner
+        // Load banner
         const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'balance-banner.gif');
         const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'balance-banner.gif' });
-        
-        // Get user's inventory for stats
-        const inventory = getUserInventory(targetUser.id);
-        const itemCount = Object.keys(inventory).length;
-        const totalSpent = Object.entries(inventory).reduce((total, [itemId, quantity]) => {
-          const item = SHOP_ITEMS.find(it => it.id === itemId);
-          return total + (item ? item.price * quantity : 0);
-        }, 0);
         
         const embed = new EmbedBuilder()
           .setColor('#FFD700')
           .setImage('attachment://balance-banner.gif')
-          .setTitle(`${emojis.coin} Số Dư Coins`)
-          .setDescription([
-            `**${targetUser.displayName}** đang có:`,
-            '',
-            `━━━━━━━━━━━━━━━━━━━━`,
-            '',
-            `${emojis.coin} **Số dư hiện tại:** ${coins.toLocaleString()} coins`,
-            `${emojis.shopping_bags} **Items sở hữu:** ${itemCount} items`,
-            `${emojis.chart} **Tổng đã chi:** ${totalSpent.toLocaleString()} coins`,
-            `${emojis.gem} **Tổng tài sản:** ${(coins + totalSpent).toLocaleString()} coins`,
-            '',
-            `━━━━━━━━━━━━━━━━━━━━`
-          ].join('\n'))
-          .addFields(
-            {
-              name: `${emojis.gift} Cách kiếm coins`,
-              value: [
-                `${emojis.calendar} \`/daily\` - Điểm danh hàng ngày (100-400 ${emojis.coin})`,
-                `${emojis.trophy} \`/quest\` - Hoàn thành nhiệm vụ`,
-                `${emojis.sparkles} Events & Activities`
-              ].join('\n'),
-              inline: false
-            }
-          )
-          .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-          .setFooter({ 
-            text: `${targetUser.tag} • Mua items tại /shop`,
+          .setAuthor({
+            name: `${targetUser.username}'s Balance`,
             iconURL: targetUser.displayAvatarURL()
           })
+          .setDescription(
+            `${emojis.coin} **Số dư hiện tại:**\n` +
+            `**${coins.toLocaleString()}** coins\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `${emojis.sparkles} Kiếm coins từ:\n` +
+            `• \`/daily\` - Điểm danh hàng ngày\n` +
+            `• \`/quest\` - Hoàn thành nhiệm vụ\n\n` +
+            `${emojis.gift} Chi tiêu tại \`/shop\`!`
+          )
+          .setFooter({ text: `Requested by ${interaction.user.tag}` })
           .setTimestamp();
         
-        await interaction.editReply({ 
+        await interaction.editReply({
           embeds: [embed],
           files: [bannerAttachment]
         });
