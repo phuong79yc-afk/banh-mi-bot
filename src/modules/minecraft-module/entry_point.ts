@@ -70,9 +70,9 @@ export default class MinecraftModule {
             const customBannerCmd = commands?.find(cmd => cmd.name === 'minecraft-custom-server-banner');
             if (customBannerCmd) {
               this.cachedCommandId = customBannerCmd.id;
-              console.log(`${emojis.success} Cached guild command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
+              console.log(`✅ Cached guild command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
             } else {
-              console.log(`${emojis.warning} Command minecraft-custom-server-banner not found in guild commands`);
+              console.log(`⚠️ Command minecraft-custom-server-banner not found in guild commands`);
             }
           } else {
             // Fallback to global commands if no guild ID
@@ -80,7 +80,7 @@ export default class MinecraftModule {
             const customBannerCmd = commands?.find(cmd => cmd.name === 'minecraft-custom-server-banner');
             if (customBannerCmd) {
               this.cachedCommandId = customBannerCmd.id;
-              console.log(`${emojis.success} Cached global command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
+              console.log(`✅ Cached global command ID: ${this.cachedCommandId} for minecraft-custom-server-banner`);
             }
           }
         } catch (err) {
@@ -243,19 +243,19 @@ export default class MinecraftModule {
     try {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
-      console.log(`${emojis.success} Loaded Minecraft.ttf`);
+      console.log(`✅ Loaded Minecraft.ttf`);
     } catch (e) {
       try {
         const officialPath = path.resolve(__dirname, '../../../assets/fonts/minecraft_official.otf');
         GlobalFonts.registerFromPath(officialPath, 'Minecraft');
-        console.log(`${emojis.success} Loaded minecraft_official.otf`);
+        console.log(`✅ Loaded minecraft_official.otf`);
       } catch (e2) {
         try {
           const monocraftPath = path.resolve(__dirname, '../../../assets/fonts/Monocraft.ttf');
           GlobalFonts.registerFromPath(monocraftPath, 'Minecraft');
-          console.log(`${emojis.success} Loaded Monocraft.ttf`);
+          console.log(`✅ Loaded Monocraft.ttf`);
         } catch (e3) {
-          console.log(`${emojis.warning} No Minecraft font found, using default`);
+          console.log(`⚠️ No Minecraft font found, using default`);
         }
       }
     }
@@ -281,7 +281,7 @@ export default class MinecraftModule {
       ctx.fillStyle = 'rgba(15, 18, 10, 0.35)';
       ctx.fillRect(0, 0, finalWidth, finalHeight);
       
-      console.log(`${emojis.success} Loaded End Stone texture`);
+      console.log(`✅ Loaded End Stone texture`);
     } catch (e) {
       ctx.fillStyle = '#8a8560';
       ctx.fillRect(0, 0, finalWidth, finalHeight);

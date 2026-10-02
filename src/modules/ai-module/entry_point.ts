@@ -58,7 +58,7 @@ export default class AIModule {
   async initialize() {
     console.log('  🤖 AI Module initializing...');
     this.registerCommands();
-    console.log(`  ${emojis.success} AI Module ready`);
+    console.log(`  ✅ AI Module ready`);
   }
 
   private initializeAI() {
@@ -66,18 +66,18 @@ export default class AIModule {
     const groqKey = keyRotator.getGroqKey();
     if (groqKey) {
       this.groqClient = new Groq({ apiKey: groqKey });
-      console.log(`  ${emojis.success} Groq initialized`);
+      console.log(`  ✅ Groq initialized`);
     } else {
-      console.log(`  ${emojis.warning} No Groq keys available`);
+      console.log(`  ⚠️ No Groq keys available`);
     }
 
     // Initialize Gemini
     const geminiKey = keyRotator.getGeminiKey();
     if (geminiKey) {
       this.geminiAI = new GoogleGenerativeAI(geminiKey);
-      console.log(`  ${emojis.success} Gemini initialized`);
+      console.log(`  ✅ Gemini initialized`);
     } else {
-      console.log(`  ${emojis.warning} No Gemini keys available`);
+      console.log(`  ⚠️ No Gemini keys available`);
     }
   }
 

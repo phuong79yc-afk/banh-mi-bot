@@ -31,7 +31,7 @@ export default class ServerGeneratorModule {
     const apiKey = keyRotator.getGroqKey();
     if (apiKey) {
       this.groq = new Groq({ apiKey });
-      console.log(`  ${emojis.success} Groq AI initialized for server generator`);
+      console.log(`  ✅ Groq AI initialized for server generator`);
     }
 
     this.registerCommands();
