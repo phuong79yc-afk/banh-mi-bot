@@ -785,7 +785,7 @@ export function setupPrefixCommands(client: Client) {
               inline: true
             },
             {
-              name: `🆔 ID`,
+              name: `${emojis.id} ID`,
               value: `\`${user.id}\``,
               inline: true
             },

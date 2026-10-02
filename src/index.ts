@@ -252,6 +252,14 @@ client.on('getAllCommands', (commandsArray: any[]) => {
 client.login(process.env.DISCORD_TOKEN);
 
 // ============================================
+// PREFIX COMMANDS HANDLER
+// ============================================
+import { setupPrefixCommands } from './handlers/prefixCommandHandler';
+
+// Initialize prefix commands
+setupPrefixCommands(client);
+
+// ============================================
 // AI CHAT - Message Listener for Auto-Reply
 // ============================================
 import { aiChatService } from './utils/aiChatService';
