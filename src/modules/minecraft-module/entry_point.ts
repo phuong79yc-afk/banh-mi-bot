@@ -440,7 +440,7 @@ export default class MinecraftModule {
             )
             .setImage('attachment://minecraft-banner.png')
             .setFooter({ 
-              text: `GlitchBucket • kingmc.vn`,
+              text: `Bánh Cuốn Bot`,
             })
             .setTimestamp();
 
