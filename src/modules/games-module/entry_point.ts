@@ -28,7 +28,7 @@ export default class GamesModule {
     console.log('🎮 Games module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Games module registered ${this.commands.size} commands`);
+    console.log(`✅ Games module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

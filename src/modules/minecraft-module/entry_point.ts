@@ -52,7 +52,7 @@ export default class MinecraftModule {
   async initialize() {
     console.log('⛏️ Minecraft module initialized');
     this.registerCommands();
-    console.log(`${emojis.success} Minecraft module registered ${this.commands.size} commands`);
+    console.log(`✅ Minecraft module registered ${this.commands.size} commands`);
     
     // Cache command ID for clickable mentions
     this.cacheCommandId();

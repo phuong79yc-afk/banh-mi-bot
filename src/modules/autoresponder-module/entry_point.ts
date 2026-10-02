@@ -21,7 +21,7 @@ export default class AutoresponderModule {
     console.log('🤖 Autoresponder module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Autoresponder module registered ${this.commands.size} commands`);
+    console.log(`✅ Autoresponder module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

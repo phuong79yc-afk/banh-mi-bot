@@ -28,7 +28,7 @@ export default class AFKModule {
     console.log('💤 AFK module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} AFK module registered ${this.commands.size} commands`);
+    console.log(`✅ AFK module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

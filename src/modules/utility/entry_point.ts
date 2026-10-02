@@ -19,9 +19,9 @@ export default class UtilityModule {
   }
 
   async initialize() {
-    console.log(`${emojis.rocket} Utility module initialized`);
+    console.log(`🚀 Utility module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Utility module registered ${this.commands.size} commands`);
+    console.log(`✅ Utility module registered ${this.commands.size} commands`);
   }
 
   // Generate Help Banner
@@ -38,7 +38,7 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`${emojis.warning} Minecraft font not found, using default`);
+      console.log(`⚠️ Minecraft font not found, using default`);
     }
 
     // Load Moss Block texture background
@@ -126,7 +126,7 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`${emojis.warning} Minecraft font not found, using default`);
+      console.log(`⚠️ Minecraft font not found, using default`);
     }
 
     // Load End Stone texture background
@@ -215,7 +215,7 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`${emojis.warning} Minecraft font not found, using default`);
+      console.log(`⚠️ Minecraft font not found, using default`);
     }
 
     // Red gradient background (rule theme)
@@ -502,9 +502,9 @@ export default class UtilityModule {
         try {
           const bannerBuffer = await self.generateHelpBanner();
           bannerAttachment = new AttachmentBuilder(bannerBuffer, { name: 'help-banner.png' });
-          console.log(`${emojis.success} Help banner generated successfully`);
+          console.log(`✅ Help banner generated successfully`);
         } catch (error) {
-          console.error('${emojis.error} Error generating help banner:', error);
+          console.error('❌ Error generating help banner:', error);
         }
 
         // Get all commands from all modules
@@ -723,9 +723,9 @@ export default class UtilityModule {
         try {
           const bannerBuffer = await self.generateInfoBanner();
           bannerAttachment = new AttachmentBuilder(bannerBuffer, { name: 'info-banner.png' });
-          console.log(`${emojis.success} Info banner generated successfully`);
+          console.log(`✅ Info banner generated successfully`);
         } catch (error) {
-          console.error('${emojis.error} Error generating info banner:', error);
+          console.error('❌ Error generating info banner:', error);
         }
         
         const client = interaction.client;
@@ -1025,9 +1025,9 @@ export default class UtilityModule {
         if (fs.existsSync(gifBannerPath)) {
           const { AttachmentBuilder } = require('discord.js');
           bannerAttachment = new AttachmentBuilder(gifBannerPath, { name: 'rule-banner.gif' });
-          console.log(`${emojis.success} Loaded rule GIF banner from assets`);
+          console.log(`✅ Loaded rule GIF banner from assets`);
         } else {
-          console.log(`${emojis.warning} rule-banner.gif not found in assets/banners/, using fallback`);
+          console.log(`⚠️ rule-banner.gif not found in assets/banners/, using fallback`);
         }
 
         // Default rules

@@ -30,7 +30,7 @@ export default class SnipeModule {
     console.log('👀 Snipe module initialized');
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Snipe module registered ${this.commands.size} commands`);
+    console.log(`✅ Snipe module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

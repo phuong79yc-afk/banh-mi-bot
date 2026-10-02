@@ -104,7 +104,7 @@ export default class SocialModule {
   async initialize() {
     console.log('🎭 Social Interactions module initialized');
     this.registerCommands();
-    console.log(`${emojis.success} Social Interactions module registered ${this.commands.size} commands`);
+    console.log(`✅ Social Interactions module registered ${this.commands.size} commands`);
   }
 
   private async getGif(searchTerm: string): Promise<string> {

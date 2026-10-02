@@ -160,9 +160,9 @@ export default class DailyModule {
   }
 
   async initialize() {
-    console.log(`${emojis.calendar} Daily check-in module initialized`);
+    console.log(`📅 Daily check-in module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Daily module registered ${this.commands.size} commands`);
+    console.log(`✅ Daily module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

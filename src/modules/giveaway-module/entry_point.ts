@@ -27,10 +27,10 @@ export default class GiveawayModule {
   }
 
   async initialize() {
-    console.log(`${emojis.gift} Giveaway module initialized`);
+    console.log(`🎁 Giveaway module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Giveaway module registered ${this.commands.size} commands`);
+    console.log(`✅ Giveaway module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

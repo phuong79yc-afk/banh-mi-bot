@@ -35,10 +35,10 @@ export default class QuickReportModule {
   }
 
   async initialize() {
-    console.log(`${emojis.copy} Quick Report module initialized`);
+    console.log(`📋 Quick Report module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Quick Report module registered ${this.commands.size} commands`);
+    console.log(`✅ Quick Report module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

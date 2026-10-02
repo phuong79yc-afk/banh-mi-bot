@@ -38,10 +38,10 @@ export default class TicketModule {
   }
 
   async initialize() {
-    console.log(`${emojis.loading} Ticket module initializing...`);
+    console.log(`⏳ Ticket module initializing...`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Ticket module registered ${this.commands.size} commands`);
+    console.log(`✅ Ticket module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

@@ -33,10 +33,10 @@ export default class StickyMessagesModule {
   }
 
   async initialize() {
-    console.log(`${emojis.pin} Sticky Messages module initialized`);
+    console.log(`📌 Sticky Messages module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Sticky Messages module registered ${this.commands.size} commands`);
+    console.log(`✅ Sticky Messages module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

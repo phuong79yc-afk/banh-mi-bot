@@ -26,9 +26,9 @@ export default class CustomRoleModule {
   }
 
   async initialize() {
-    console.log(`${emojis.art} Custom Role module initialized`);
+    console.log(`🎨 Custom Role module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Custom Role module registered ${this.commands.size} commands`);
+    console.log(`✅ Custom Role module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

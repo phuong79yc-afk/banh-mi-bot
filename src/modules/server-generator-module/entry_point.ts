@@ -37,7 +37,7 @@ export default class ServerGeneratorModule {
     this.registerCommands();
     this.setupEventHandlers();
     this.setupTextCommand(); // Add text command support
-    console.log(`${emojis.success} Server Generator module registered ${this.commands.size} command(s)`);
+    console.log(`✅ Server Generator module registered ${this.commands.size} command(s)`);
   }
 
   private setupTextCommand() {

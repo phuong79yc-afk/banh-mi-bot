@@ -209,9 +209,9 @@ export default class ShopModule {
   }
 
   async initialize() {
-    console.log(`${emojis.gift} Shop module initialized`);
+    console.log(`🎁 Shop module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Shop module registered ${this.commands.size} commands`);
+    console.log(`✅ Shop module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

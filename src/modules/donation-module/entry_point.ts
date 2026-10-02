@@ -26,9 +26,9 @@ export default class DonationModule {
   }
 
   async initialize() {
-    console.log(`${emojis.coin} Donation module initialized`);
+    console.log(`🪙 Donation module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Donation module registered ${this.commands.size} commands`);
+    console.log(`✅ Donation module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

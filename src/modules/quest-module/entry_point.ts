@@ -213,10 +213,10 @@ export default class QuestModule {
   }
 
   async initialize() {
-    console.log(`${emojis.sparkles} Quest module initialized`);
+    console.log(`✨ Quest module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`${emojis.success} Quest module registered ${this.commands.size} commands`);
+    console.log(`✅ Quest module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {

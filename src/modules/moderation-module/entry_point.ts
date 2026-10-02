@@ -27,9 +27,9 @@ export default class ModerationModule {
   }
 
   async initialize() {
-    console.log(`${emojis.shield} Moderation module initialized`);
+    console.log(`🛡️ Moderation module initialized`);
     this.registerCommands();
-    console.log(`${emojis.success} Moderation module registered ${this.commands.size} commands`);
+    console.log(`✅ Moderation module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
