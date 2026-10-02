@@ -226,7 +226,13 @@ export default class QuestModule {
         .setName('quest')
         .setDescription('Xem nhiệm vụ hàng ngày của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const userId = interaction.user.id;
         const userData = getUserData(userId);
@@ -438,7 +444,13 @@ export default class QuestModule {
         .setName('quest-leaderboard')
         .setDescription('Xem bảng xếp hạng nhiệm vụ'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+        try {
+          // ⚡ DEFER IMMEDIATELY
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
         
         const data = loadData();
         const leaderboard = Object.entries(data)
