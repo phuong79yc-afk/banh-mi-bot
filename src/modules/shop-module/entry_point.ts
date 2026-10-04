@@ -50,6 +50,7 @@ interface ShopItem {
   category: 'bot-roles';
   roleColor: number;
   isVIP?: boolean;
+  stock?: number;
 }
 
 interface CoinsData {
@@ -72,14 +73,14 @@ interface InventoryData {
   };
 }
 
-// Shop items - 5 bot-related roles
+// Shop items - 5 bot-related roles with animated emojis
 const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'bot_supporter',
     name: 'Bot Supporter',
     description: 'Ủng hộ bot development',
     prices: { cowoncy: 500000, blueTicket: 100, goldTicket: 10 },
-    emoji: '🤖',
+    emoji: emojis.rocket,
     tag: 'BEST_SELLER',
     category: 'bot-roles',
     roleColor: 0x5865F2
@@ -89,7 +90,7 @@ const SHOP_ITEMS: ShopItem[] = [
     name: 'Premium Member',
     description: 'VIP member với nhiều quyền lợi',
     prices: { cowoncy: 1000000, blueTicket: 250, goldTicket: 25 },
-    emoji: '⭐',
+    emoji: emojis.star,
     tag: 'PREMIUM',
     category: 'bot-roles',
     roleColor: 0xFFD700,
@@ -100,7 +101,7 @@ const SHOP_ITEMS: ShopItem[] = [
     name: 'Bot Designer',
     description: 'Đóng góp ý tưởng design cho bot',
     prices: { cowoncy: 750000, blueTicket: 150, goldTicket: 15 },
-    emoji: '🎨',
+    emoji: emojis.art,
     category: 'bot-roles',
     roleColor: 0x9B59B6
   },
@@ -109,22 +110,24 @@ const SHOP_ITEMS: ShopItem[] = [
     name: 'Bot Developer',
     description: 'Contributor chính thức của bot',
     prices: { cowoncy: 2000000, blueTicket: 500, goldTicket: 50 },
-    emoji: '💎',
+    emoji: emojis.gem,
     tag: 'LIMITED',
     category: 'bot-roles',
     roleColor: 0xE74C3C,
-    isVIP: true
+    isVIP: true,
+    stock: 10
   },
   {
     id: 'bot_owner',
     name: 'Bot Owner',
     description: 'Role cao nhất - owner và admin',
     prices: { cowoncy: 5000000, blueTicket: 1000, goldTicket: 100 },
-    emoji: '👑',
+    emoji: emojis.crown,
     tag: 'EXCLUSIVE',
     category: 'bot-roles',
     roleColor: 0x000001,
-    isVIP: true
+    isVIP: true,
+    stock: 5
   }
 ];
 
@@ -197,103 +200,102 @@ function formatNumber(n: number): string {
   return n.toString();
 }
 
-// Pad a string to a fixed width (visible characters only, ignores Discord markdown)
-function padRight(text: string, width: number): string {
-  // Strip markdown for length calculation
-  const stripped = text.replace(/[*_~`]/g, '');
-  const pad = Math.max(0, width - stripped.length);
-  return text + ' '.repeat(pad);
+function parseEmoji(str: string): { id: string; animated: boolean } | undefined {
+  const m = str.match(/<(a?):([\w]+):(\d+)>/);
+  if (!m) return undefined;
+  return { id: m[3], animated: m[1] === 'a' };
 }
 
-function formatTag(tag?: string): string {
-  if (!tag) return '';
-  if (tag === 'BEST_SELLER') return '[BEST SELLER]';
-  return `[${tag}]`;
-}
+function buildShop(client: Client, userId?: string) {
+  const icon = client.user?.displayAvatarURL();
+  
+  const fields = SHOP_ITEMS.map(item => {
+    const stockLeft = item.stock != null ? Math.max(0, item.stock - getSoldCount(item.id)) : Infinity;
+    const priceLines: string[] = [
+      `**${formatNumber(item.prices.cowoncy)}** ${emojis.gem}`,
+      `**${item.prices.blueTicket}** ${emojis.trophy}`,
+      `**${item.prices.goldTicket}** 🏆`,
+    ];
+    if (item.stock != null) {
+      priceLines.push(stockLeft > 0 ? `Còn ${stockLeft}/${item.stock} suất` : '**Hết suất**');
+    }
+    return {
+      name: '\u200B',
+      value: [
+        `${item.emoji} **${item.name}**`,
+        `${item.tag ? `**[${item.tag}]** ` : ''}${item.description}`,
+        priceLines.map(x => `> - ${x}`).join('\n'),
+      ].join('\n'),
+      inline: true,
+    };
+  });
 
-function wrapText(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text, ''];
-  // Try to break at a space near maxLen
-  const breakAt = text.lastIndexOf(' ', maxLen);
-  if (breakAt > 0) {
-    const line1 = text.slice(0, breakAt);
-    const rest = text.slice(breakAt + 1);
-    return [line1, rest.length > maxLen ? rest.slice(0, maxLen - 3) + '...' : rest];
-  }
-  return [text.slice(0, maxLen - 3) + '...', ''];
-}
+  // Full-buy field
+  const fullPrice = SHOP_ITEMS.reduce((a, t) => a + t.prices.cowoncy, 0);
+  fields.push({
+    name: '\u200B',
+    value: `${emojis.gift} **Mua full các role**\n> - Giá: \`${formatNumber(fullPrice)} ${emojis.gem}\``,
+    inline: false,
+  });
 
-function buildShopDescription(items: ShopItem[], username: string, bal: CurrencyBalance): string {
-  const COL = 26; // column width in characters
-  let desc = '';
+  const embed = new EmbedBuilder()
+    .setColor('#5865F2')
+    .setAuthor({ name: 'Cửa Hàng Role Banhcuon', iconURL: icon })
+    .setDescription(`Bạn có thể mua các role trong cửa hàng bằng ${emojis.gem} **Cowoncy** hoặc ${emojis.trophy} **Vé xanh** hoặc 🏆 **Vé vàng**.\nDùng \`/balance\` để xem số dư của bạn.`)
+    .addFields(fields)
+    .setFooter({ text: `Banhcuon-bot • Chọn role ở menu bên dưới`, iconURL: icon });
 
-  // Balance header
-  desc += `👤 **${username}** | 💎 ${formatNumber(bal.cowoncy)} • 🎫 ${bal.blueTicket} • 🏆 ${bal.goldTicket}\n`;
-  desc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  const menuOptions = [
+    ...SHOP_ITEMS.map(item => {
+      const stockLeft = item.stock != null ? Math.max(0, item.stock - getSoldCount(item.id)) : null;
+      const stockStr = stockLeft != null ? ` • còn ${stockLeft}/${item.stock}` : '';
+      const tagStr = item.tag ? ` [${item.tag}]` : '';
+      const opt = new StringSelectMenuOptionBuilder()
+        .setLabel(`${item.name}${tagStr}`)
+        .setDescription(`${formatNumber(item.prices.cowoncy)} 💎 • ${item.prices.blueTicket} 🎫 • ${item.prices.goldTicket} 🏆${stockStr}`)
+        .setValue(item.id);
+      const emojiData = parseEmoji(item.emoji);
+      if (emojiData) opt.setEmoji(emojiData);
+      return opt;
+    }),
+    new StringSelectMenuOptionBuilder()
+      .setLabel('Mua full tất cả role')
+      .setDescription(`${formatNumber(fullPrice)} 💎`)
+      .setValue('all')
+      .setEmoji(parseEmoji(emojis.gift) ?? { name: '🎁' } as any),
+  ];
 
-  // Shop title line
-  desc += `Mua các role bằng 💎 Cowoncy, 🎫 Vé Xanh, 🏆 Vé Vàng\n\n`;
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('shop_buy')
+    .setPlaceholder('🛒 Chọn role bạn muốn mua...')
+    .addOptions(menuOptions);
 
-  // Split items into rows of 3
-  for (let rowStart = 0; rowStart < items.length; rowStart += 3) {
-    const row = items.slice(rowStart, rowStart + 3);
-    // Pad row to 3 items (empty slots)
-    while (row.length < 3) row.push(null as any);
+  const buttonRow = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('shop_refresh')
+        .setLabel('🔄 Refresh')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('shop_vipinfo')
+        .setLabel('👑 VIP Info')
+        .setStyle(ButtonStyle.Secondary)
+    );
 
-    // Line 1: emoji + name
-    const nameLine = row.map(item => {
-      if (!item) return padRight('', COL);
-      return padRight(`${item.emoji} @${item.name}`, COL);
-    }).join('');
-    desc += nameLine.trimEnd() + '\n';
+  // Load banner if exists
+  const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'shop-banner.gif');
+  const files = fs.existsSync(bannerPath) 
+    ? [new AttachmentBuilder(bannerPath, { name: 'shop-banner.gif' })]
+    : [];
 
-    // Line 2: tag (or blank)
-    const tagLine = row.map(item => {
-      if (!item) return padRight('', COL);
-      const tag = formatTag(item.tag);
-      return padRight(tag, COL);
-    }).join('');
-    const tagTrimmed = tagLine.trimEnd();
-    if (tagTrimmed.length > 0) desc += tagTrimmed + '\n';
-
-    // Lines 3-4: description (wrapped to 2 lines)
-    const descLines: [string, string][] = row.map(item => {
-      if (!item) return ['', ''] as [string, string];
-      const [l1, l2] = wrapText(item.description, COL - 1);
-      return [l1, l2] as [string, string];
-    });
-    const descLine1 = descLines.map(([l]) => padRight(l, COL)).join('').trimEnd();
-    const descLine2 = descLines.map(([, l]) => padRight(l, COL)).join('').trimEnd();
-    if (descLine1) desc += descLine1 + '\n';
-    if (descLine2) desc += descLine2 + '\n';
-
-    // Blank line between desc and prices
-    desc += '\n';
-
-    // Price lines: cowoncy, blueTicket, goldTicket
-    const cowoncyLine = row.map(item => {
-      if (!item) return padRight('', COL);
-      return padRight(`• ${formatNumber(item.prices.cowoncy)} 💎`, COL);
-    }).join('').trimEnd();
-    desc += cowoncyLine + '\n';
-
-    const blueLine = row.map(item => {
-      if (!item) return padRight('', COL);
-      return padRight(`• ${item.prices.blueTicket} 🎫`, COL);
-    }).join('').trimEnd();
-    desc += blueLine + '\n';
-
-    const goldLine = row.map(item => {
-      if (!item) return padRight('', COL);
-      return padRight(`• ${item.prices.goldTicket} 🏆`, COL);
-    }).join('').trimEnd();
-    desc += goldLine + '\n';
-
-    // Row separator
-    desc += '\n\n';
-  }
-
-  return desc;
+  return {
+    embeds: [embed],
+    components: [
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu),
+      buttonRow
+    ],
+    files
+  };
 }
 
 // Migration function
@@ -343,6 +345,29 @@ function getUserInventory(userId: string): { [itemId: string]: number } {
   return data[userId] || {};
 }
 
+// Stock tracking system
+const soldPath = path.join(process.cwd(), 'data', 'shop-sold.json');
+if (!fs.existsSync(soldPath)) fs.writeFileSync(soldPath, JSON.stringify({}));
+
+function loadSold(): Record<string, number> {
+  try { return JSON.parse(fs.readFileSync(soldPath, 'utf8')); } catch { return {}; }
+}
+function saveSoldData(data: Record<string, number>): void {
+  fs.writeFileSync(soldPath, JSON.stringify(data, null, 2));
+}
+function getSoldCount(itemId: string): number {
+  return loadSold()[itemId] ?? 0;
+}
+function incrementSold(itemId: string): void {
+  const d = loadSold(); d[itemId] = (d[itemId] ?? 0) + 1; saveSoldData(d);
+}
+function decrementSold(itemId: string): void {
+  const d = loadSold(); d[itemId] = Math.max(0, (d[itemId] ?? 0) - 1); saveSoldData(d);
+}
+
+// Busy users set for purchase protection
+const busyUsers = new Set<string>();
+
 export default class ShopModule {
   name = 'shop-module';
   description = 'Hệ thống shop và coins';
@@ -381,66 +406,9 @@ export default class ShopModule {
         }
         
         const userId = interaction.user.id;
-        const bal = getUserBalance(userId);
+        const shopData = buildShop(interaction.client, userId);
         
-        // Load banner
-        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'shop-banner.gif');
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'shop-banner.gif' });
-        
-        // Create embed with 3-column plain text layout
-        const shopDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, bal);
-        
-        const embed = new EmbedBuilder()
-          .setColor('#5865F2')
-          .setTitle('🛍️ BOT ROLE SHOP - VIP STORE')
-          .setAuthor({
-            name: interaction.client.user?.username || 'Bot Shop',
-            iconURL: interaction.client.user?.displayAvatarURL()
-          })
-          .setImage('attachment://shop-banner.gif')
-          .setDescription(shopDesc)
-          .setFooter({ text: 'Dùng menu bên dưới để mua • Giá = 3 loại tiền' });
-        
-        // Buttons row
-        const buttonRow = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('shop_refresh')
-              .setLabel('🔄 Refresh')
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId('shop_vipinfo')
-              .setLabel('👑 VIP Info')
-              .setStyle(ButtonStyle.Secondary)
-          );
-        
-        // Select menu - single menu with all 5 items
-        const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>()
-          .addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId('shop_buy')
-              .setPlaceholder('🛒 Chọn role để mua...')
-              .addOptions(
-                SHOP_ITEMS.map(item => {
-                  const tagLabel = item.tag === 'BEST_SELLER' ? 'BEST SELLER' :
-                                  item.tag === 'PREMIUM' ? 'PREMIUM' :
-                                  item.tag === 'LIMITED' ? 'LIMITED' :
-                                  item.tag === 'EXCLUSIVE' ? 'EXCLUSIVE' : '';
-                  
-                  return new StringSelectMenuOptionBuilder()
-                    .setLabel(`${item.emoji} ${item.name}${item.tag ? ' [' + tagLabel + ']' : ''}`)
-                    .setDescription(`💎 ${formatNumber(item.prices.cowoncy)} • 🎫 ${item.prices.blueTicket} • 🏆 ${item.prices.goldTicket}`)
-                    .setValue(item.id)
-                    .setEmoji(item.emoji);
-                })
-              )
-          );
-        
-        const response = await interaction.editReply({
-          embeds: [embed],
-          components: [buttonRow, selectMenu],
-          files: [bannerAttachment]
-        });
+        const response = await interaction.editReply(shopData);
         
         // Collector
         const collector = response.createMessageComponentCollector({
@@ -459,10 +427,8 @@ export default class ShopModule {
           // Refresh button
           if (i.customId === 'shop_refresh') {
             await i.deferUpdate();
-            const newBal = getUserBalance(userId);
-            const newDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, newBal);
-            embed.setDescription(newDesc);
-            await i.editReply({ embeds: [embed] });
+            const refreshed = buildShop(i.client, userId);
+            await i.editReply(refreshed);
             return;
           }
           
@@ -502,119 +468,99 @@ export default class ShopModule {
           
           // Buy item
           if (i.customId === 'shop_buy' && i.isStringSelectMenu()) {
-            const itemId = i.values[0];
-            const item = SHOP_ITEMS.find(it => it.id === itemId);
-            
-            if (!item) {
-              await i.reply({
-                content: `${emojis.error} Item không tồn tại!`,
-                flags: 64
-              });
+            if (busyUsers.has(userId)) {
+              await i.reply({ content: 'Đang xử lý lượt mua trước của bạn, đợi một chút nhé.', flags: 64 });
               return;
             }
-            
-            // Check balance
-            const currentBal = getUserBalance(userId);
-            const shortCowoncy = Math.max(0, item.prices.cowoncy - currentBal.cowoncy);
-            const shortBlue = Math.max(0, item.prices.blueTicket - currentBal.blueTicket);
-            const shortGold = Math.max(0, item.prices.goldTicket - currentBal.goldTicket);
-            
-            if (shortCowoncy > 0 || shortBlue > 0 || shortGold > 0) {
-              let errorMsg = `❌ Không đủ tiền!\n\n`;
-              if (shortCowoncy > 0) errorMsg += `💎 Cowoncy: có ${formatNumber(currentBal.cowoncy)} / cần ${formatNumber(item.prices.cowoncy)} (thiếu ${formatNumber(shortCowoncy)})\n`;
-              if (shortBlue > 0) errorMsg += `🎫 Vé Xanh: có ${currentBal.blueTicket} / cần ${item.prices.blueTicket} (thiếu ${shortBlue})\n`;
-              if (shortGold > 0) errorMsg += `🏆 Vé Vàng: có ${currentBal.goldTicket} / cần ${item.prices.goldTicket} (thiếu ${shortGold})\n`;
-              
-              await i.reply({
-                content: errorMsg,
-                flags: 64
-              });
-              return;
-            }
-            
-            // Check if already has role
-            const member = i.guild?.members.cache.get(userId);
-            const roleName = `${item.emoji} ${item.name}`;
-            if (member?.roles.cache.find(r => r.name === roleName)) {
-              await i.reply({
-                content: `${emojis.warning} Bạn đã có role này rồi!`,
-                flags: 64
-              });
-              return;
-            }
-            
-            await i.deferReply({ flags: 64 });
-            
+            busyUsers.add(userId);
             try {
-              // Deduct currencies
-              if (!deductCurrencies(userId, item.prices)) {
-                await i.editReply({
-                  content: `${emojis.error} Lỗi khi trừ tiền!`
-                });
+              const v = (i as any).values[0];
+              let targets = v === 'all' ? [...SHOP_ITEMS] : SHOP_ITEMS.filter(t => t.id === v);
+              if (!targets.length) { await i.reply({ content: 'Vật phẩm không tồn tại.', flags: 64 }); return; }
+
+              const skipped: string[] = [];
+              const guild = i.guild!;
+              const member = guild.members.cache.get(userId)!;
+
+              // Filter: skip already-owned and out-of-stock
+              targets = targets.filter(t => {
+                const roleName = `${t.emoji} ${t.name}`;
+                if (member.roles.cache.find(r => r.name === roleName)) { skipped.push(`${t.name} (đã có)`); return false; }
+                const stockLeft = t.stock != null ? t.stock - getSoldCount(t.id) : Infinity;
+                if (stockLeft <= 0) { skipped.push(`${t.name} (hết suất)`); return false; }
+                return true;
+              });
+
+              if (!targets.length) {
+                await i.reply({ content: `Không có gì để mua: ${skipped.join(', ')}.`, flags: 64 });
                 return;
               }
-              
-              // Add to inventory
-              addToInventory(userId, item.id);
-              
-              // Create or get role
-              let role = i.guild?.roles.cache.find(r => r.name === roleName);
-              
-              if (!role && i.guild) {
-                role = await i.guild.roles.create({
-                  name: roleName,
-                  color: item.roleColor,
-                  hoist: true,
-                  reason: `Shop purchase by ${i.user.tag}`
-                });
+
+              const totalPrices = targets.reduce(
+                (acc, t) => ({
+                  cowoncy: acc.cowoncy + t.prices.cowoncy,
+                  blueTicket: acc.blueTicket + t.prices.blueTicket,
+                  goldTicket: acc.goldTicket + t.prices.goldTicket,
+                }),
+                { cowoncy: 0, blueTicket: 0, goldTicket: 0 }
+              );
+              const currentBal = getUserBalance(userId);
+              if (
+                currentBal.cowoncy < totalPrices.cowoncy ||
+                currentBal.blueTicket < totalPrices.blueTicket ||
+                currentBal.goldTicket < totalPrices.goldTicket
+              ) {
+                await i.reply({ content: `Bạn không đủ tiền để mua!`, flags: 64 });
+                return;
               }
-              
-              // Assign role
-              if (role && member) {
-                await member.roles.add(role);
+
+              await i.deferReply({ flags: 64 });
+
+              // Deduct FIRST, then assign roles
+              const oldBalance = { ...currentBal };
+              const currData = loadCurrencies();
+              const bal2 = currData[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+              bal2.cowoncy -= totalPrices.cowoncy;
+              bal2.blueTicket -= totalPrices.blueTicket;
+              bal2.goldTicket -= totalPrices.goldTicket;
+              currData[userId] = bal2;
+              saveCurrencies(currData);
+              targets.forEach(t => { if (t.stock != null) incrementSold(t.id); });
+
+              try {
+                for (const item of targets) {
+                  const roleName = `${item.emoji} ${item.name}`;
+                  let role = guild?.roles.cache.find(r => r.name === roleName);
+                  if (!role) {
+                    role = await guild.roles.create({ name: roleName, color: item.roleColor, hoist: true, reason: 'Shop purchase' });
+                  }
+                  await member.roles.add(role);
+                  addToInventory(userId, item.id);
+                }
+              } catch (err) {
+                console.error('[Shop] Role assign error, rolling back:', err);
+                // Rollback
+                const rb = loadCurrencies();
+                rb[userId] = { ...oldBalance };
+                saveCurrencies(rb);
+                targets.forEach(t => { if (t.stock != null) decrementSold(t.id); });
+                await i.editReply({ content: 'Bot không thể gắn role (thiếu quyền hoặc role bot thấp hơn). Tiền đã được hoàn lại.' });
+                return;
               }
-              
+
               const newBal = getUserBalance(userId);
-              
-              const successEmbed = new EmbedBuilder()
-                .setColor(item.isVIP ? '#FFD700' : '#57F287')
-                .setTitle('✅ Mua Thành Công!')
-                .setDescription(
-                  `╔═══════════════════════════════╗\n` +
-                  `║  ${item.emoji} ${item.name}  ${item.tag ? '[' + (item.tag === 'BEST_SELLER' ? 'BEST SELLER' : item.tag === 'PREMIUM' ? 'PREMIUM' : item.tag === 'LIMITED' ? 'LIMITED' : 'EXCLUSIVE') + ']' : ''}        ║\n` +
-                  `╚═══════════════════════════════╝\n\n` +
-                  `💎 Cowoncy:   -${formatNumber(item.prices.cowoncy)} (còn ${formatNumber(newBal.cowoncy)})\n` +
-                  `🎫 Vé Xanh:   -${item.prices.blueTicket} (còn ${newBal.blueTicket})\n` +
-                  `🏆 Vé Vàng:   -${item.prices.goldTicket} (còn ${newBal.goldTicket})\n\n` +
-                  `🎁 Role đã thêm vào profile!` +
-                  (item.isVIP ?
-                    `\n\n╔═══ 👑 QUYỀN LỢI VIP ═══╗\n` +
-                    `║ ✨ /nickname - Đổi tên  ║\n` +
-                    `║ 🎨 /customrole          ║\n` +
-                    `║ 💎 x2 coins /daily      ║\n` +
-                    `╚════════════════════════╝` : '')
-                )
-                .setThumbnail(i.user.displayAvatarURL({ size: 256 }))
-                .setFooter({ 
-                  text: `🎉 Cảm ơn ${i.user.username} đã ủng hộ!`,
-                  iconURL: i.user.displayAvatarURL()
-                })
-                .setTimestamp();
-              
               await i.editReply({
-                embeds: [successEmbed]
+                content: `Đã mua ${targets.map(t => `${t.emoji} **${t.name}**`).join(' ')} thành công!` +
+                  `\nSố dư còn: 💎 **${formatNumber(newBal.cowoncy)}** • 🎫 **${newBal.blueTicket}** • 🏆 **${newBal.goldTicket}**` +
+                  (skipped.length ? `\nBỏ qua: ${skipped.join(', ')}.` : ''),
               });
-              
-              // Update shop display
-              const refreshedDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, newBal);
-              embed.setDescription(refreshedDesc);
-              await interaction.editReply({ embeds: [embed] });
-              
-            } catch (error) {
-              console.error('Shop purchase error:', error);
-              await i.editReply({
-                content: `${emojis.error} Có lỗi xảy ra khi mua item!`
-              });
+
+              // Refresh shop embed
+              const refreshed = buildShop(i.client, userId);
+              await interaction.editReply(refreshed).catch(() => {});
+
+            } finally {
+              busyUsers.delete(userId);
             }
           }
         });
