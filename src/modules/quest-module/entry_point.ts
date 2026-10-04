@@ -3,227 +3,368 @@ import {
   Collection, 
   SlashCommandBuilder, 
   ChatInputCommandInteraction, 
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  Message,
-  MessageReaction,
-  User as DiscordUser,
-  PartialMessageReaction,
-  PartialUser,
-  AttachmentBuilder
+  EmbedBuilder, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle, 
+  StringSelectMenuBuilder, 
+  StringSelectMenuOptionBuilder, 
+  Message, 
+  User as DiscordUser, 
+  MessageComponentInteraction, 
+  AttachmentBuilder 
 } from 'discord.js';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
 import fs from 'fs';
 import path from 'path';
 
-// Database path
+// ==================== INTERFACES ====================
+
+interface Quest {
+  id: string;
+  period: 'daily' | 'weekly';
+  kind: 'message' | 'command';
+  text: string;
+  target: number;
+  reward: number;
+  cmd?: string;
+  channelId?: string;
+}
+
+interface UserQuestData {
+  quests?: {
+    daily?: { key: string; prog: { [questId: string]: number }; claimed: { [questId: string]: boolean }; earned: number; };
+    weekly?: { key: string; prog: { [questId: string]: number }; claimed: { [questId: string]: boolean }; earned: number; };
+  };
+  done?: number;
+  book?: boolean;
+}
+
+interface QuestDB { 
+  [userId: string]: UserQuestData; 
+}
+
+// ==================== CONSTANTS ====================
+
+const QUEST_CAP = 1000;
+const QUEST_CAP_BOOK = 2000;
+const BOOK_PRICE = 5000;
+const TZ_OFFSET_H = 7;
+
+const QUESTS: Quest[] = [
+  { id: 'msg_10', period: 'daily', kind: 'message', text: 'Gửi 10 tin nhắn trong {ch}', target: 10, reward: 100 },
+  { id: 'msg_50', period: 'daily', kind: 'message', text: 'Gửi 50 tin nhắn trong {ch}', target: 50, reward: 500 },
+  { id: 'shop_3', period: 'daily', kind: 'command', cmd: 'shop', text: 'Dùng /shop 3 lần', target: 3, reward: 150 },
+  { id: 'daily_1', period: 'daily', kind: 'command', cmd: 'daily', text: 'Dùng /daily hôm nay', target: 1, reward: 200 },
+  { id: 'msg_week', period: 'weekly', kind: 'message', text: 'Gửi 200 tin nhắn trong tuần', target: 200, reward: 2000 },
+  { id: 'shop_week', period: 'weekly', kind: 'command', cmd: 'shop', text: 'Dùng /shop 10 lần trong tuần', target: 10, reward: 1500 },
+];
+
 const dataPath = path.join(process.cwd(), 'data', 'quests.json');
 
-// Ensure data directory exists
+// Ensure data directory and file exist
 if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
   fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
 }
-
-// Initialize database file
 if (!fs.existsSync(dataPath)) {
   fs.writeFileSync(dataPath, JSON.stringify({}));
 }
 
-interface Quest {
-  id: string;
-  name: string;
-  description: string;
-  reward: number;
-  target: number;
-  type: 'message' | 'reaction' | 'voice' | 'daily';
+// ==================== CURRENCY FUNCTIONS ====================
+
+function addCurrencyToUser(userId: string, amount: number): void {
+  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
+  let data: any = {};
+  try { 
+    if (fs.existsSync(currPath)) {
+      data = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
+    }
+  } catch {}
+  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+  bal.cowoncy += amount;
+  data[userId] = bal;
+  fs.writeFileSync(currPath, JSON.stringify(data, null, 2));
 }
 
-interface UserQuestProgress {
-  [questId: string]: {
-    progress: number;
-    completed: boolean;
-    lastReset?: string;
-  };
+function getUserBalanceLocal(userId: string): { cowoncy: number; blueTicket: number; goldTicket: number } {
+  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
+  try { 
+    if (fs.existsSync(currPath)) {
+      const d = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
+      return d[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 }; 
+    }
+  } catch {}
+  return { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
 }
 
-interface QuestData {
-  [userId: string]: {
-    quests: UserQuestProgress;
-    totalCompleted: number;
-    totalRewards: number;
-    lastReset: string;
-  };
+function subtractCurrencyFromUser(userId: string, amount: number): boolean {
+  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
+  let data: any = {};
+  try { 
+    if (fs.existsSync(currPath)) {
+      data = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
+    }
+  } catch {}
+  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+  if (bal.cowoncy < amount) return false;
+  bal.cowoncy -= amount;
+  data[userId] = bal;
+  fs.writeFileSync(currPath, JSON.stringify(data, null, 2));
+  return true;
 }
 
-// Default quests
-const DEFAULT_QUESTS: Quest[] = [
-  {
-    id: 'send_messages_10',
-    name: 'Gửi 10 tin nhắn',
-    description: 'Gửi 10 tin nhắn trong server',
-    reward: 100,
-    target: 10,
-    type: 'message'
-  },
-  {
-    id: 'send_messages_50',
-    name: 'Gửi 50 tin nhắn',
-    description: 'Gửi 50 tin nhắn trong server',
-    reward: 500,
-    target: 50,
-    type: 'message'
-  },
-  {
-    id: 'react_5',
-    name: 'React 5 bài',
-    description: 'Thả reaction vào 5 tin nhắn',
-    reward: 150,
-    target: 5,
-    type: 'reaction'
-  },
-  {
-    id: 'react_20',
-    name: 'React 20 bài',
-    description: 'Thả reaction vào 20 tin nhắn',
-    reward: 600,
-    target: 20,
-    type: 'reaction'
-  },
-  {
-    id: 'daily_checkin',
-    name: 'Điểm danh hàng ngày',
-    description: 'Hoàn thành điểm danh hôm nay',
-    reward: 200,
-    target: 1,
-    type: 'daily'
+// ==================== PERIOD MANAGEMENT ====================
+
+function periodInfo(period: 'daily' | 'weekly') {
+  const DAY = 24 * 60 * 60 * 1000;
+  const OFFSET = TZ_OFFSET_H * 60 * 60 * 1000;
+  const local = new Date(Date.now() + OFFSET);
+  let start = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  if (period === 'weekly') {
+    start -= ((local.getUTCDay() + 6) % 7) * DAY;
   }
-];
+  const len = period === 'weekly' ? 7 * DAY : DAY;
+  return {
+    key: new Date(start).toISOString().slice(0, 10),
+    resetAt: start + len - OFFSET
+  };
+}
 
-// Load data
-function loadData(): QuestData {
+// ==================== DATA ACCESS ====================
+
+function loadUser(userId: string): UserQuestData {
   try {
-    const data = fs.readFileSync(dataPath, 'utf8');
-    return JSON.parse(data);
+    const data: QuestDB = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    return data[userId] ?? {};
   } catch {
     return {};
   }
 }
 
-// Save data
-function saveData(data: QuestData): void {
+function saveUser(userId: string, userData: UserQuestData): void {
+  let data: QuestDB = {};
+  try {
+    data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  } catch {}
+  data[userId] = userData;
   fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
 }
 
-// Get user data
-function getUserData(userId: string) {
-  const data = loadData();
-  const today = new Date().toISOString().split('T')[0];
-  
-  if (!data[userId]) {
-    data[userId] = {
-      quests: {},
-      totalCompleted: 0,
-      totalRewards: 0,
-      lastReset: today
-    };
-    
-    // Initialize quests
-    DEFAULT_QUESTS.forEach(quest => {
-      data[userId].quests[quest.id] = {
-        progress: 0,
-        completed: false
-      };
-    });
-    
-    saveData(data);
+function getSlot(userId: string, period: 'daily' | 'weekly') {
+  const user = loadUser(userId);
+  const { key } = periodInfo(period);
+  user.quests ??= {};
+  if (user.quests[period]?.key !== key) {
+    user.quests[period] = { key, prog: {}, claimed: {}, earned: 0 };
+    saveUser(userId, user);
   }
-  
-  // Reset daily quests if new day
-  if (data[userId].lastReset !== today) {
-    DEFAULT_QUESTS.forEach(quest => {
-      data[userId].quests[quest.id] = {
-        progress: 0,
-        completed: false
-      };
-    });
-    data[userId].lastReset = today;
-    saveData(data);
-  }
-  
-  return data[userId];
+  return user.quests[period]!;
 }
 
-// Update quest progress
-function updateQuestProgress(userId: string, questType: 'message' | 'reaction' | 'voice' | 'daily', amount: number = 1): Quest[] {
-  const data = loadData();
-  const userData = getUserData(userId);
-  const completedQuests: Quest[] = [];
-  
-  DEFAULT_QUESTS.filter(q => q.type === questType).forEach(quest => {
-    const questProgress = userData.quests[quest.id];
-    
-    if (!questProgress.completed) {
-      questProgress.progress = Math.min(questProgress.progress + amount, quest.target);
-      
-      // Check if quest completed
-      if (questProgress.progress >= quest.target && !questProgress.completed) {
-        questProgress.completed = true;
-        userData.totalCompleted++;
-        userData.totalRewards += quest.reward;
-        completedQuests.push(quest);
-        
-        // Add coins to shop balance
-        addCoinsToShop(userId, quest.reward);
-      }
-    }
+// ==================== TRACKING ====================
+
+const lastMessageTime = new Map<string, number>();
+
+/**
+ * Track command usage for quests. Call this from any command that should count towards quest progress.
+ * Example: trackCommand(interaction.user.id, 'shop') after /shop executes.
+ * @param userId - Discord user ID
+ * @param commandName - Name of command executed (e.g., 'shop', 'daily')
+ */
+export function trackCommand(userId: string, commandName: string): void {
+  trackProgress(userId, 'command', commandName);
+}
+
+function trackProgress(userId: string, kind: 'message' | 'command', key: string): void {
+  const user = loadUser(userId);
+  let changed = false;
+  for (const quest of QUESTS) {
+    if (quest.kind !== kind) continue;
+    if (kind === 'command' && quest.cmd !== key) continue;
+    if (kind === 'message' && quest.channelId && quest.channelId !== key) continue;
+    const sl = getSlot(userId, quest.period);
+    const current = sl.prog[quest.id] ?? 0;
+    if (sl.claimed[quest.id] || current >= quest.target) continue;
+    sl.prog[quest.id] = Math.min(quest.target, current + 1);
+    // persist the slot change back
+    user.quests ??= {};
+    user.quests[quest.period] = sl;
+    changed = true;
+  }
+  if (changed) saveUser(userId, user);
+}
+
+// ==================== UI BUILDING ====================
+
+function buildQuestEmbed(client: Client, user: DiscordUser, period: 'daily' | 'weekly'): EmbedBuilder {
+  const userData = loadUser(user.id);
+  const sl = getSlot(user.id, period);
+  const { resetAt } = periodInfo(period);
+  const cap = userData.book ? QUEST_CAP_BOOK : QUEST_CAP;
+  const isDaily = period === 'daily';
+
+  const fields: any[] = [
+    { name: '• Đã hoàn thành', value: `> \`${userData.done ?? 0}\` nhiệm vụ`, inline: true },
+    { name: isDaily ? '• Xu hôm nay' : '• Xu tuần này', value: `> \`${isDaily ? `${sl.earned}/${cap}` : sl.earned}\` ${emojis.coin}`, inline: true },
+    { name: '• Làm mới sau', value: `> <t:${Math.floor(resetAt / 1000)}:R>`, inline: true },
+  ];
+
+  const periodQuests = QUESTS.filter(q => q.period === period);
+  for (const quest of periodQuests) {
+    const progress = sl.prog[quest.id] ?? 0;
+    const completed = progress >= quest.target;
+    const bar = completed ? '[ ✓ ]' : `[ ${progress}/${quest.target} ]`;
+    const note = sl.claimed[quest.id] ? ' · đã nhận' : completed ? ' · chờ nhận' : '';
+    fields.push({
+      name: '\u200B',
+      value: [
+        `📜 ${quest.text.replace('{ch}', quest.channelId ? `<#${quest.channelId}>` : 'bất kỳ kênh nào')}`,
+        `🎁 Phần thưởng: **${quest.reward}** ${emojis.coin}`,
+        `• Tiến độ: \`${bar}\`${note}`,
+      ].join('\n'),
+      inline: false,
+    });
+  }
+
+  return new EmbedBuilder()
+    .setColor('#5865F2')
+    .setAuthor({ name: period === 'daily' ? 'Nhiệm Vụ Hằng Ngày' : 'Nhiệm Vụ Hằng Tuần', iconURL: user.displayAvatarURL() })
+    .setTitle(userData.book ? '📗 Sổ Nhiệm Vụ Xịn' : '📒 Sổ Nhiệm Vụ')
+    .addFields(fields)
+    .setFooter({ text: 'Banhcuon-bot' });
+}
+
+function buildComponents(user: DiscordUser, period: 'daily' | 'weekly', userData: UserQuestData): ActionRowBuilder<any>[] {
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`quest:view:${user.id}:${period}`)
+    .setPlaceholder('Chọn loại nhiệm vụ')
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Nhiệm Vụ Hằng Ngày')
+        .setDescription('Làm mới mỗi ngày lúc 00:00')
+        .setValue('daily')
+        .setEmoji('📅')
+        .setDefault(period === 'daily'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Nhiệm Vụ Hằng Tuần')
+        .setDescription('Làm mới mỗi tuần vào thứ Hai')
+        .setValue('weekly')
+        .setEmoji('📆')
+        .setDefault(period === 'weekly')
+    );
+
+  const row1 = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`quest:upgrade:${user.id}:${period}`)
+      .setLabel('Nâng cấp Sổ Xịn')
+      .setEmoji('📗')
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(userData.book ?? false),
+    new ButtonBuilder()
+      .setCustomId(`quest:claim:${user.id}:${period}`)
+      .setLabel('Nhận Thưởng')
+      .setEmoji('✅')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`quest:guide:${user.id}:${period}`)
+      .setLabel('Hướng Dẫn')
+      .setEmoji('💡')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return [row1, row2];
+}
+
+// ==================== INTERACTION HANDLERS ====================
+
+async function handleClaim(interaction: MessageComponentInteraction, uid: string, period: 'daily' | 'weekly', client: Client) {
+  const userData = loadUser(uid);
+  const sl = getSlot(uid, period);
+  const cap = userData.book ? QUEST_CAP_BOOK : QUEST_CAP;
+  const ready = QUESTS.filter(q => q.period === period && (sl.prog[q.id] ?? 0) >= q.target && !sl.claimed[q.id]);
+  if (!ready.length) {
+    return interaction.reply({ content: 'Chưa có nhiệm vụ nào hoàn thành!', flags: 64 });
+  }
+  let room = period === 'daily' ? Math.max(0, cap - sl.earned) : Infinity;
+  let gained = 0;
+  let clipped = false;
+  for (const quest of ready) {
+    const reward = Math.min(quest.reward, room);
+    if (reward < quest.reward) clipped = true;
+    gained += reward;
+    room = isFinite(room) ? room - reward : Infinity;
+    sl.claimed[quest.id] = true;
+    userData.done = (userData.done ?? 0) + 1;
+  }
+  sl.earned += gained;
+  userData.quests ??= {};
+  userData.quests[period] = sl;
+  addCurrencyToUser(uid, gained);
+  saveUser(uid, userData);
+  await interaction.update({ embeds: [buildQuestEmbed(client, interaction.user, period)], components: buildComponents(interaction.user, period, userData) });
+  return interaction.followUp({
+    content: `Hoàn thành **${ready.length}** nhiệm vụ, nhận **${gained}** ${emojis.coin}!` +
+      (clipped ? '\nĐã chạm giới hạn xu hôm nay. Nâng cấp Sổ Xịn để tăng!' : ''),
+    flags: 64
   });
-  
-  data[userId] = userData;
-  saveData(data);
-  
-  return completedQuests;
 }
 
-// Add coins to shop when quest completed
-function addCoinsToShop(userId: string, amount: number): void {
-  const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-  let coins: any = {};
-  
-  try {
-    if (fs.existsSync(coinsPath)) {
-      coins = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-    }
-  } catch {}
-  
-  coins[userId] = (coins[userId] || 0) + amount;
-  fs.writeFileSync(coinsPath, JSON.stringify(coins, null, 2));
+async function handleUpgrade(interaction: MessageComponentInteraction, uid: string, period: 'daily' | 'weekly', client: Client) {
+  const userData = loadUser(uid);
+  if (userData.book) return interaction.reply({ content: 'Bạn đã có Sổ Xịn rồi!', flags: 64 });
+  const bal = getUserBalanceLocal(uid);
+  if (bal.cowoncy < BOOK_PRICE) {
+    return interaction.reply({ content: `Cần **${BOOK_PRICE}** ${emojis.coin} để nâng cấp!`, flags: 64 });
+  }
+  const success = subtractCurrencyFromUser(uid, BOOK_PRICE);
+  if (!success) {
+    return interaction.reply({ content: `Không đủ xu để nâng cấp!`, flags: 64 });
+  }
+  userData.book = true;
+  saveUser(uid, userData);
+  await interaction.update({ embeds: [buildQuestEmbed(client, interaction.user, period)], components: buildComponents(interaction.user, period, userData) });
+  return interaction.followUp({ content: `Đã nâng cấp Sổ Xịn! Giới hạn tăng lên **${QUEST_CAP_BOOK}** ${emojis.coin}/ngày!`, flags: 64 });
 }
 
-// Get quest statistics
-function getQuestStats(userId: string) {
-  const userData = getUserData(userId);
-  const completed = Object.values(userData.quests).filter(q => q.completed).length;
-  const total = DEFAULT_QUESTS.length;
-  
-  return {
-    completed,
-    total,
-    totalCompleted: userData.totalCompleted,
-    totalRewards: userData.totalRewards,
-    percentage: Math.round((completed / total) * 100)
-  };
+async function handleGuide(interaction: MessageComponentInteraction) {
+  const guideEmbed = new EmbedBuilder()
+    .setColor('#00ff00')
+    .setTitle(`${emojis.sparkles} Hướng Dẫn Nhiệm Vụ`)
+    .setDescription([
+      '**Cách hoàn thành nhiệm vụ:**',
+      '',
+      `📨 **Gửi tin nhắn** - Chat trong server để tích điểm`,
+      `⌨️ **Dùng lệnh** - Sử dụng /shop, /daily để hoàn thành nhiệm vụ`,
+      '',
+      `${emojis.info} **Lưu ý:**`,
+      `• Nhiệm vụ hàng ngày reset mỗi ngày lúc 00:00 (UTC+7)`,
+      `• Nhiệm vụ hàng tuần reset vào thứ Hai hàng tuần`,
+      `• Phần thưởng được cộng vào tài khoản khi nhận`,
+      `• Giới hạn xu hàng ngày: **${QUEST_CAP}** ${emojis.coin} (nâng cấp lên **${QUEST_CAP_BOOK}** ${emojis.coin} với Sổ Xịn)`,
+      '',
+      `${emojis.sparkles} **Mẹo:**`,
+      `• Hoàn thành nhiệm vụ dễ trước`,
+      `• Nâng cấp Sổ Xịn (${BOOK_PRICE} ${emojis.coin}) để tăng giới hạn hàng ngày`,
+      `• Nhiệm vụ tuần không có giới hạn xu`,
+    ].join('\n'))
+    .setFooter({ text: 'Chúc bạn hoàn thành nhiệm vụ thành công!' })
+    .setTimestamp();
+
+  return interaction.reply({ embeds: [guideEmbed], flags: 64 });
 }
+
+// ==================== MODULE CLASS ====================
 
 export default class QuestModule {
   name = 'quest-module';
-  description = 'Hệ thống nhiệm vụ hàng ngày';
-  version = '1.0.0';
+  description = 'Hệ thống nhiệm vụ hàng ngày và hàng tuần';
+  version = '2.0.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
+  private messageHandler?: (message: Message) => void;
 
   constructor(client: Client) {
     this.client = client;
@@ -231,334 +372,92 @@ export default class QuestModule {
   }
 
   async initialize() {
-    console.log(`✨ Quest module initialized`);
     this.registerCommands();
     this.registerEvents();
-    console.log(`✅ Quest module registered ${this.commands.size} commands`);
+    console.log(`✅ Quest module initialized with ${this.commands.size} commands`);
   }
 
   private registerCommands() {
-    // /quest command
     const questCommand = {
       data: new SlashCommandBuilder()
         .setName('quest')
-        .setDescription('Xem nhiệm vụ hàng ngày của bạn'),
+        .setDescription('Xem nhiệm vụ hàng ngày và hàng tuần'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
           throw error;
         }
-        
-        const userId = interaction.user.id;
-        const userData = getUserData(userId);
-        const stats = getQuestStats(userId);
-        
-        // Load quest banner
-        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'quest-banner.gif');
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'quest-banner.gif' });
-        
-        // Build quest list
-        const questList = DEFAULT_QUESTS.map(quest => {
-          const progress = userData.quests[quest.id];
-          const status = progress.completed ? emojis.success : emojis.loading;
-          const progressBar = this.createProgressBar(progress.progress, quest.target);
-          
-          return [
-            `${status} **${quest.name}**`,
-            `└ ${quest.description}`,
-            `${emojis.coin} Phần thưởng: **${quest.reward}** coins`,
-            `${emojis.chart} Tiến độ: **${progress.progress}/${quest.target}** ${progressBar}`,
-            ''
-          ].join('\n');
-        }).join('\n');
-        
-        const embed = new EmbedBuilder()
-          .setColor('#5865F2')
-          .setImage('attachment://quest-banner.gif')
-          .setTitle(`${emojis.sparkles} Nhiệm Vụ Hàng Ngày`)
-          .setDescription([
-            `**${interaction.user.displayName}** - Hoàn thành nhiệm vụ để nhận coins!`,
-            '',
-            `━━━━━━━━━━━━━━━━━━━━`,
-            '',
-            `${emojis.trophy} **Đã hoàn thành**: ${stats.completed}/${stats.total} nhiệm vụ`,
-            `${emojis.chart} **Tổng hoàn thành**: ${stats.totalCompleted} nhiệm vụ`,
-            `${emojis.coin} **Tổng phần thưởng**: ${stats.totalRewards} coins`,
-            '',
-            `━━━━━━━━━━━━━━━━━━━━`,
-            '',
-            questList
-          ].join('\n'))
-          .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-          .setFooter({
-            text: `${interaction.user.tag} • Nhiệm vụ reset mỗi ngày lúc 00:00`,
-            iconURL: interaction.user.displayAvatarURL()
-          })
-          .setTimestamp();
-        
-        // Create buttons
-        const row = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('quest_refresh')
-              .setLabel('🔄 Làm Mới')
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId('quest_stats')
-              .setLabel('📊 Thống Kê')
-              .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-              .setCustomId('quest_guide')
-              .setLabel('🏆 Hướng Dẫn')
-              .setStyle(ButtonStyle.Success)
-          );
-        
-        const response = await interaction.editReply({ 
-          embeds: [embed],
-          components: [row],
-          files: [bannerAttachment]
-        });
-        
-        // Button collector
-        const collector = response.createMessageComponentCollector({ 
-          time: 300000 // 5 minutes
-        });
-        
-        collector.on('collect', async i => {
-          if (i.user.id !== interaction.user.id) {
-            await i.reply({ 
-              content: '${emojis.error} Bạn không thể sử dụng button này!',
-              ephemeral: true 
-            });
-            return;
-          }
-          
-          if (i.customId === 'quest_refresh') {
-            await i.deferUpdate();
-            
-            const newUserData = getUserData(userId);
-            const newStats = getQuestStats(userId);
-            
-            const newQuestList = DEFAULT_QUESTS.map(quest => {
-              const progress = newUserData.quests[quest.id];
-              const status = progress.completed ? emojis.success : emojis.loading;
-              const progressBar = this.createProgressBar(progress.progress, quest.target);
-              
-              return [
-                `${status} **${quest.name}**`,
-                `${emojis.document} ${quest.description}`,
-                `${emojis.trophy} Phần thưởng: **${quest.reward}** ${emojis.trophy}`,
-                `${emojis.chart} Tiến độ: **${progress.progress}/${quest.target}** ${progressBar}`,
-                ''
-              ].join('\n');
-            }).join('\n');
-            
-            const newEmbed = new EmbedBuilder()
-              .setColor('#5865f2')
-              .setAuthor({
-                name: `${emojis.refresh} Nhiệm Vụ Hàng Ngày (Đã làm mới)`,
-                iconURL: interaction.user.displayAvatarURL()
-              })
-              .setDescription([
-                `${emojis.chart} **Số Nhiệm Vụ**`,
-                `• **Đã hoàn thành**: ${newStats.completed}/${newStats.total} ${emojis.trophy}`,
-                `• **Tổng hoàn thành**: ${newStats.totalCompleted} nhiệm vụ`,
-                `• **Tổng phần thưởng**: ${newStats.totalRewards} ${emojis.trophy}`,
-                '',
-                '━━━━━━━━━━━━━━━━━━━━',
-                '',
-                newQuestList
-              ].join('\n'))
-              .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-              .setFooter({
-                text: `${interaction.user.tag} • Đã làm mới lúc ${new Date().toLocaleTimeString('vi-VN')}`,
-                iconURL: interaction.user.displayAvatarURL()
-              })
-              .setTimestamp();
-            
-            await i.editReply({ embeds: [newEmbed] });
-          }
-          
-          if (i.customId === 'quest_stats') {
-            const statsEmbed = new EmbedBuilder()
-              .setColor('#ffd700')
-              .setTitle(`${emojis.chart} Thống Kê Nhiệm Vụ`)
-              .addFields(
-                {
-                  name: `${emojis.success} Hoàn thành hôm nay`,
-                  value: `**${stats.completed}**/${stats.total}`,
-                  inline: true
-                },
-                {
-                  name: `${emojis.sparkles} Tỷ lệ hoàn thành`,
-                  value: `**${stats.percentage}%**`,
-                  inline: true
-                },
-                {
-                  name: `${emojis.trophy} Phần thưởng hôm nay`,
-                  value: `**${userData.totalRewards}** ${emojis.trophy}`,
-                  inline: true
-                },
-                {
-                  name: `${emojis.chart} Tổng nhiệm vụ đã hoàn thành`,
-                  value: `**${stats.totalCompleted}** nhiệm vụ`,
-                  inline: true
-                },
-                {
-                  name: `${emojis.gift} Tổng phần thưởng đã nhận`,
-                  value: `**${stats.totalRewards}** ${emojis.trophy}`,
-                  inline: true
-                }
-              )
-              .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-              .setFooter({
-                text: interaction.user.tag,
-                iconURL: interaction.user.displayAvatarURL()
-              })
-              .setTimestamp();
-            
-            await i.reply({ embeds: [statsEmbed], ephemeral: true });
-          }
-          
-          if (i.customId === 'quest_guide') {
-            const guideEmbed = new EmbedBuilder()
-              .setColor('#00ff00')
-              .setTitle(`${emojis.info} Hướng Dẫn Nhiệm Vụ`)
-              .setDescription([
-                '**Cách hoàn thành nhiệm vụ:**',
-                '',
-                `${emojis.message} **Gửi tin nhắn** - Gửi tin nhắn trong bất kỳ kênh nào`,
-                `${emojis.heart} **React bài viết** - Thả reaction vào tin nhắn`,
-                `${emojis.calendar} **Điểm danh** - Sử dụng lệnh \`/daily\``,
-                '',
-                `${emojis.warning} **Lưu ý:**`,
-                `• Nhiệm vụ reset mỗi ngày lúc 00:00`,
-                `• Phần thưởng được cộng tự động khi hoàn thành`,
-                `• Sử dụng \`/quest\` để kiểm tra tiến độ`,
-                '',
-                `${emojis.sparkles} **Mẹo:**`,
-                `• Hoàn thành nhiệm vụ dễ trước để tích lũy phần thưởng`,
-                `• Kiểm tra tiến độ thường xuyên với nút ${emojis.refresh} Làm Mới`,
-                `• Nhiệm vụ hoàn thành sẽ có dấu ${emojis.success}`
-              ].join('\n'))
-              .setFooter({
-                text: 'Chúc bạn hoàn thành nhiệm vụ thành công!',
-                iconURL: interaction.client.user?.displayAvatarURL()
-              })
-              .setTimestamp();
-            
-            await i.reply({ embeds: [guideEmbed], ephemeral: true });
-          }
-        });
-      }
-    };
 
-    // /quest-leaderboard command
-    const leaderboardCommand = {
-      data: new SlashCommandBuilder()
-        .setName('quest-leaderboard')
-        .setDescription('Xem bảng xếp hạng nhiệm vụ'),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        try {
-          // ⚡ DEFER IMMEDIATELY
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062) return;
-          throw error;
-        }
-        
-        const data = loadData();
-        const leaderboard = Object.entries(data)
-          .map(([userId, userData]) => ({
-            userId,
-            totalCompleted: userData.totalCompleted,
-            totalRewards: userData.totalRewards
-          }))
-          .sort((a, b) => b.totalCompleted - a.totalCompleted || b.totalRewards - a.totalRewards)
-          .slice(0, 10);
-        
-        if (leaderboard.length === 0) {
-          await interaction.editReply('Chưa có ai hoàn thành nhiệm vụ! Hãy là người đầu tiên với `/quest`! 🎯');
-          return;
-        }
-        
-        const description = leaderboard.map((entry, index) => {
-          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `**${index + 1}.**`;
-          return `${medal} <@${entry.userId}> • ${emojis.success} **${entry.totalCompleted}** nhiệm vụ • ${emojis.trophy} **${entry.totalRewards}** rewards`;
-        }).join('\n');
-        
-        const embed = new EmbedBuilder()
-          .setColor('#ffd700')
-          .setTitle(`${emojis.trophy} Bảng Xếp Hạng Nhiệm Vụ`)
-          .setDescription(description)
-          .setFooter({ text: 'Top 10 người hoàn thành nhiều nhiệm vụ nhất' })
-          .setTimestamp();
-        
-        await interaction.editReply({ embeds: [embed] });
+        let currentPeriod: 'daily' | 'weekly' = 'daily';
+        const userData = loadUser(interaction.user.id);
+
+        const embed = buildQuestEmbed(this.client, interaction.user, currentPeriod);
+        const components = buildComponents(interaction.user, currentPeriod, userData);
+
+        const response = await interaction.editReply({
+          embeds: [embed],
+          components: components
+        });
+
+        const collector = response.createMessageComponentCollector({
+          time: 900000 // 15 minutes
+        });
+
+        collector.on('collect', async (i) => {
+          const parts = i.customId.split(':');
+          const [, action, uid, period] = parts;
+
+          // Owner check
+          if (i.user.id !== uid) {
+            return i.reply({ content: '❌ Bạn không thể sử dụng button này!', flags: 64 });
+          }
+
+          if (action === 'view' && i.isStringSelectMenu()) {
+            const newPeriod = i.values[0] as 'daily' | 'weekly';
+            currentPeriod = newPeriod;
+            const newUserData = loadUser(uid);
+            const newEmbed = buildQuestEmbed(this.client, i.user, newPeriod);
+            const newComponents = buildComponents(i.user, newPeriod, newUserData);
+            await i.update({ embeds: [newEmbed], components: newComponents });
+          } else if (action === 'claim') {
+            await handleClaim(i, uid, currentPeriod, this.client);
+          } else if (action === 'upgrade') {
+            await handleUpgrade(i, uid, currentPeriod, this.client);
+          } else if (action === 'guide') {
+            await handleGuide(i);
+          }
+        });
+
+        collector.on('end', () => {
+          // Disable components after timeout
+          interaction.editReply({ components: [] }).catch(() => {});
+        });
       }
     };
 
     this.commands.set('quest', questCommand);
-    this.commands.set('quest-leaderboard', leaderboardCommand);
   }
 
   private registerEvents() {
-    // Track messages for quests
-    this.client.on('messageCreate', async (message: Message) => {
+    this.messageHandler = (message: Message) => {
       if (message.author.bot || !message.guild) return;
-      
-      const completedQuests = updateQuestProgress(message.author.id, 'message', 1);
-      
-      // Notify user if quest completed
-      if (completedQuests.length > 0) {
-        for (const quest of completedQuests) {
-          try {
-            await message.reply({
-              content: `${emojis.sparkles} **Hoàn thành nhiệm vụ!** ${quest.name} • +${quest.reward} ${emojis.trophy}`
-            }).then(msg => {
-              setTimeout(() => msg.delete().catch(() => {}), 10000);
-            });
-          } catch (error) {
-            // Ignore errors
-          }
-        }
-      }
-    });
-    
-    // Track reactions for quests
-    this.client.on('messageReactionAdd', async (reaction, user) => {
-      if (user.bot || user.partial) return;
-      
-      const completedQuests = updateQuestProgress(user.id, 'reaction', 1);
-      
-      // Notify user if quest completed
-      if (completedQuests.length > 0 && reaction.message.channel && 'send' in reaction.message.channel) {
-        for (const quest of completedQuests) {
-          try {
-            const msg = await reaction.message.channel.send({
-              content: `${emojis.sparkles} <@${user.id}> **Hoàn thành nhiệm vụ!** ${quest.name} • +${quest.reward} ${emojis.trophy}`
-            });
-            setTimeout(() => msg.delete().catch(() => {}), 10000);
-          } catch (error) {
-            // Ignore errors
-          }
-        }
-      }
-    });
-  }
+      const now = Date.now();
+      const userId = message.author.id;
+      if (now - (lastMessageTime.get(userId) ?? 0) < 5000) return;
+      lastMessageTime.set(userId, now);
+      trackProgress(userId, 'message', message.channelId);
+    };
 
-  private createProgressBar(current: number, target: number): string {
-    const percentage = Math.min((current / target) * 100, 100);
-    const filled = Math.round(percentage / 10);
-    const empty = 10 - filled;
-    
-    return `[${'▰'.repeat(filled)}${'▱'.repeat(empty)}] ${Math.round(percentage)}%`;
+    this.client.on('messageCreate', this.messageHandler);
   }
 
   async cleanup() {
-    console.log('🧹 Quest module cleanup');
+    if (this.messageHandler) {
+      this.client.off('messageCreate', this.messageHandler);
+    }
+    lastMessageTime.clear();
+    console.log('Quest module cleanup');
   }
 }
