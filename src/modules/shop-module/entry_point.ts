@@ -197,6 +197,105 @@ function formatNumber(n: number): string {
   return n.toString();
 }
 
+// Pad a string to a fixed width (visible characters only, ignores Discord markdown)
+function padRight(text: string, width: number): string {
+  // Strip markdown for length calculation
+  const stripped = text.replace(/[*_~`]/g, '');
+  const pad = Math.max(0, width - stripped.length);
+  return text + ' '.repeat(pad);
+}
+
+function formatTag(tag?: string): string {
+  if (!tag) return '';
+  if (tag === 'BEST_SELLER') return '[BEST SELLER]';
+  return `[${tag}]`;
+}
+
+function wrapText(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text, ''];
+  // Try to break at a space near maxLen
+  const breakAt = text.lastIndexOf(' ', maxLen);
+  if (breakAt > 0) {
+    const line1 = text.slice(0, breakAt);
+    const rest = text.slice(breakAt + 1);
+    return [line1, rest.length > maxLen ? rest.slice(0, maxLen - 3) + '...' : rest];
+  }
+  return [text.slice(0, maxLen - 3) + '...', ''];
+}
+
+function buildShopDescription(items: ShopItem[], username: string, bal: CurrencyBalance): string {
+  const COL = 26; // column width in characters
+  let desc = '';
+
+  // Balance header
+  desc += `👤 **${username}** | 💎 ${formatNumber(bal.cowoncy)} • 🎫 ${bal.blueTicket} • 🏆 ${bal.goldTicket}\n`;
+  desc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  // Shop title line
+  desc += `Mua các role bằng 💎 Cowoncy, 🎫 Vé Xanh, 🏆 Vé Vàng\n\n`;
+
+  // Split items into rows of 3
+  for (let rowStart = 0; rowStart < items.length; rowStart += 3) {
+    const row = items.slice(rowStart, rowStart + 3);
+    // Pad row to 3 items (empty slots)
+    while (row.length < 3) row.push(null as any);
+
+    // Line 1: emoji + name
+    const nameLine = row.map(item => {
+      if (!item) return padRight('', COL);
+      return padRight(`${item.emoji} @${item.name}`, COL);
+    }).join('');
+    desc += nameLine.trimEnd() + '\n';
+
+    // Line 2: tag (or blank)
+    const tagLine = row.map(item => {
+      if (!item) return padRight('', COL);
+      const tag = formatTag(item.tag);
+      return padRight(tag, COL);
+    }).join('');
+    const tagTrimmed = tagLine.trimEnd();
+    if (tagTrimmed.length > 0) desc += tagTrimmed + '\n';
+
+    // Lines 3-4: description (wrapped to 2 lines)
+    const descLines: [string, string][] = row.map(item => {
+      if (!item) return ['', ''] as [string, string];
+      const [l1, l2] = wrapText(item.description, COL - 1);
+      return [l1, l2] as [string, string];
+    });
+    const descLine1 = descLines.map(([l]) => padRight(l, COL)).join('').trimEnd();
+    const descLine2 = descLines.map(([, l]) => padRight(l, COL)).join('').trimEnd();
+    if (descLine1) desc += descLine1 + '\n';
+    if (descLine2) desc += descLine2 + '\n';
+
+    // Blank line between desc and prices
+    desc += '\n';
+
+    // Price lines: cowoncy, blueTicket, goldTicket
+    const cowoncyLine = row.map(item => {
+      if (!item) return padRight('', COL);
+      return padRight(`• ${formatNumber(item.prices.cowoncy)} 💎`, COL);
+    }).join('').trimEnd();
+    desc += cowoncyLine + '\n';
+
+    const blueLine = row.map(item => {
+      if (!item) return padRight('', COL);
+      return padRight(`• ${item.prices.blueTicket} 🎫`, COL);
+    }).join('').trimEnd();
+    desc += blueLine + '\n';
+
+    const goldLine = row.map(item => {
+      if (!item) return padRight('', COL);
+      return padRight(`• ${item.prices.goldTicket} 🏆`, COL);
+    }).join('').trimEnd();
+    desc += goldLine + '\n';
+
+    // Row separator
+    desc += '\n\n';
+  }
+
+  return desc;
+}
+
 // Migration function
 function migrateCoinsToCowoncy(): void {
   if (!fs.existsSync(coinsPath)) return;
@@ -288,7 +387,9 @@ export default class ShopModule {
         const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'shop-banner.gif');
         const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'shop-banner.gif' });
         
-        // Create embed with 3-column layout
+        // Create embed with 3-column plain text layout
+        const shopDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, bal);
+        
         const embed = new EmbedBuilder()
           .setColor('#5865F2')
           .setTitle('🛍️ BOT ROLE SHOP - VIP STORE')
@@ -297,55 +398,8 @@ export default class ShopModule {
             iconURL: interaction.client.user?.displayAvatarURL()
           })
           .setImage('attachment://shop-banner.gif')
-          .setDescription(
-            `👤 **${interaction.user.username}** | 💎 ${formatNumber(bal.cowoncy)} • 🎫 ${bal.blueTicket} • 🏆 ${bal.goldTicket}\n` +
-            `━━━━━━━━━━━━━━━━━━━━`
-          )
+          .setDescription(shopDesc)
           .setFooter({ text: 'Dùng menu bên dưới để mua • Giá = 3 loại tiền' });
-        
-        // Row 1: Bot Supporter | Premium Member | Bot Designer
-        const row1Items = [SHOP_ITEMS[0], SHOP_ITEMS[1], SHOP_ITEMS[2]];
-        for (const item of row1Items) {
-          const tagLabel = item.tag === 'BEST_SELLER' ? 'BEST SELLER' :
-                          item.tag === 'PREMIUM' ? 'PREMIUM' :
-                          item.tag === 'LIMITED' ? 'LIMITED' :
-                          item.tag === 'EXCLUSIVE' ? 'EXCLUSIVE' : '';
-          
-          embed.addFields({
-            name: `${item.emoji} ${item.name}\n${item.tag ? '[' + tagLabel + ']' : '\u200B'}`,
-            value: `💎 ${formatNumber(item.prices.cowoncy)}\n🎫 ${item.prices.blueTicket}\n🏆 ${item.prices.goldTicket}\n\n*${item.description}*`,
-            inline: true
-          });
-        }
-        
-        // Separator to force new row
-        embed.addFields({
-          name: '\u200B',
-          value: '\u200B',
-          inline: false
-        });
-        
-        // Row 2: Bot Developer | Bot Owner | (empty spacer)
-        const row2Items = [SHOP_ITEMS[3], SHOP_ITEMS[4]];
-        for (const item of row2Items) {
-          const tagLabel = item.tag === 'BEST_SELLER' ? 'BEST SELLER' :
-                          item.tag === 'PREMIUM' ? 'PREMIUM' :
-                          item.tag === 'LIMITED' ? 'LIMITED' :
-                          item.tag === 'EXCLUSIVE' ? 'EXCLUSIVE' : '';
-          
-          embed.addFields({
-            name: `${item.emoji} ${item.name}\n${item.tag ? '[' + tagLabel + ']' : '\u200B'}`,
-            value: `💎 ${formatNumber(item.prices.cowoncy)}\n🎫 ${item.prices.blueTicket}\n🏆 ${item.prices.goldTicket}\n\n*${item.description}*`,
-            inline: true
-          });
-        }
-        
-        // Empty spacer
-        embed.addFields({
-          name: '\u200B',
-          value: '\u200B',
-          inline: true
-        });
         
         // Buttons row
         const buttonRow = new ActionRowBuilder<ButtonBuilder>()
@@ -406,10 +460,8 @@ export default class ShopModule {
           if (i.customId === 'shop_refresh') {
             await i.deferUpdate();
             const newBal = getUserBalance(userId);
-            embed.setDescription(
-              `👤 **${interaction.user.username}** | 💎 ${formatNumber(newBal.cowoncy)} • 🎫 ${newBal.blueTicket} • 🏆 ${newBal.goldTicket}\n` +
-              `━━━━━━━━━━━━━━━━━━━━`
-            );
+            const newDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, newBal);
+            embed.setDescription(newDesc);
             await i.editReply({ embeds: [embed] });
             return;
           }
@@ -554,10 +606,8 @@ export default class ShopModule {
               });
               
               // Update shop display
-              embed.setDescription(
-                `👤 **${interaction.user.username}** | 💎 ${formatNumber(newBal.cowoncy)} • 🎫 ${newBal.blueTicket} • 🏆 ${newBal.goldTicket}\n` +
-                `━━━━━━━━━━━━━━━━━━━━`
-              );
+              const refreshedDesc = buildShopDescription(SHOP_ITEMS, interaction.user.username, newBal);
+              embed.setDescription(refreshedDesc);
               await interaction.editReply({ embeds: [embed] });
               
             } catch (error) {
