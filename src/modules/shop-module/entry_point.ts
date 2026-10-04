@@ -426,9 +426,7 @@ export default class ShopModule {
           
           // Refresh button
           if (i.customId === 'shop_refresh') {
-            await i.deferUpdate();
-            const refreshed = buildShop(i.client, userId);
-            await i.editReply(refreshed);
+            await i.update(buildShop(i.client, userId));
             return;
           }
           
@@ -474,9 +472,12 @@ export default class ShopModule {
             }
             busyUsers.add(userId);
             try {
-              const v = (i as any).values[0];
+              const v = i.values[0];
               let targets = v === 'all' ? [...SHOP_ITEMS] : SHOP_ITEMS.filter(t => t.id === v);
-              if (!targets.length) { await i.reply({ content: 'Vật phẩm không tồn tại.', flags: 64 }); return; }
+              if (!targets.length) { 
+                await i.reply({ content: 'Vật phẩm không tồn tại.', flags: 64 });
+                return;
+              }
 
               const skipped: string[] = [];
               const guild = i.guild!;
@@ -556,8 +557,7 @@ export default class ShopModule {
               });
 
               // Refresh shop embed
-              const refreshed = buildShop(i.client, userId);
-              await interaction.editReply(refreshed).catch(() => {});
+              await i.message?.edit(buildShop(i.client, userId)).catch(() => {});
 
             } finally {
               busyUsers.delete(userId);
