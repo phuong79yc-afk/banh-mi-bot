@@ -3,15 +3,12 @@ import {
   Collection, 
   SlashCommandBuilder, 
   ChatInputCommandInteraction, 
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  AttachmentBuilder
+  EmbedBuilder
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
 import { trackCommand } from '../quest-module/entry_point';
+import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
@@ -22,29 +19,47 @@ const STREAK_BONUS_MAX = 100;
 const BOOSTER_PERCENT = 5;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
 
-// Simple JSON database
-const dataPath = path.join(process.cwd(), 'data', 'daily.json');
+// ==================== DATABASE INITIALIZATION ====================
 
 // Ensure data directory exists
 if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
   fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
 }
 
-// Initialize database file
-if (!fs.existsSync(dataPath)) {
-  fs.writeFileSync(dataPath, JSON.stringify({}));
-}
+// Initialize SQLite database
+const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
+db.exec(`
+  CREATE TABLE IF NOT EXISTS daily_users (
+    user_id TEXT PRIMARY KEY,
+    balance INTEGER NOT NULL DEFAULT 0,
+    streak INTEGER NOT NULL DEFAULT 0,
+    max_streak INTEGER NOT NULL DEFAULT 0,
+    total_checkins INTEGER NOT NULL DEFAULT 0,
+    last_daily TEXT
+  )
+`);
+
+// Prepared statements
+const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
+const stmtUpsertUser = db.prepare(`
+  INSERT INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
+  VALUES (@user_id, @balance, @streak, @max_streak, @total_checkins, @last_daily)
+  ON CONFLICT(user_id) DO UPDATE SET
+    balance = balance + @balance,
+    streak = @streak,
+    max_streak = MAX(max_streak, @max_streak),
+    total_checkins = total_checkins + 1,
+    last_daily = @last_daily
+`);
+const stmtGetAll = db.prepare('SELECT * FROM daily_users ORDER BY streak DESC, total_checkins DESC LIMIT 10');
 
 interface UserDailyData {
-  lastDaily: string;  // 'YYYY-MM-DD'
+  user_id: string;
+  last_daily: string | null;
   streak: number;
   max_streak: number;
   total_checkins: number;
-  total_rewards: number;
-}
-
-interface DailyData {
-  [userId: string]: UserDailyData;
+  balance: number;
 }
 
 // ==================== TIMEZONE-AWARE DATE UTILITIES ====================
@@ -85,79 +100,66 @@ function getNextMidnightUnix(): number {
   return Math.floor(nextMidnightUtc / 1000);
 }
 
-// ==================== DATA MANAGEMENT ====================
+// ==================== JSON → SQLITE MIGRATION ====================
 
-// Load data
-function loadData(): DailyData {
-  try {
-    const data = fs.readFileSync(dataPath, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return {};
+function migrateFromJson(): void {
+  const dataPath = path.join(process.cwd(), 'data', 'daily.json');
+  
+  if (!fs.existsSync(dataPath)) {
+    console.log('[Daily] No daily.json found, skipping migration');
+    return;
   }
-}
-
-// Save data
-function saveData(data: DailyData): void {
-  fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
-}
-
-// Data migration from old field names
-function migrateDailyData(): void {
+  
   try {
-    const data = loadData();
-    let migrated = false;
-    for (const userId in data) {
-      const user = data[userId] as any;
-      // Rename current_streak → streak
-      if ('current_streak' in user && !('streak' in user)) {
-        user.streak = user.current_streak;
-        delete user.current_streak;
-        migrated = true;
-      }
-      // Rename last_checkin_date → lastDaily
-      if ('last_checkin_date' in user && !('lastDaily' in user)) {
-        user.lastDaily = user.last_checkin_date;
-        delete user.last_checkin_date;
-        migrated = true;
-      }
+    const jsonData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    let migrated = 0;
+    
+    const insertStmt = db.prepare(`
+      INSERT OR IGNORE INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    
+    for (const [userId, userData] of Object.entries(jsonData) as [string, any][]) {
+      const result = insertStmt.run(
+        userId,
+        userData.total_rewards || 0,
+        userData.streak || 0,
+        userData.max_streak || 0,
+        userData.total_checkins || 0,
+        userData.lastDaily || null
+      );
+      if (result.changes > 0) migrated++;
     }
-    if (migrated) {
-      saveData(data);
-      console.log('[Daily] Data migration completed');
-    }
+    
+    console.log(`[Daily] Migrated ${migrated} users from JSON to SQLite`);
   } catch (error) {
     console.error('[Daily] Migration error:', error);
   }
 }
 
+// ==================== DATA ACCESS HELPERS ====================
+
 // Helper function to check if user checked in today
 function hasCheckedInToday(userId: string): boolean {
-  const data = loadData();
-  const userData = data[userId];
-  
-  if (!userData || !userData.lastDaily) return false;
+  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
+  if (!row || !row.last_daily) return false;
   
   const today = getTodayString();
-  return userData.lastDaily === today;
+  return row.last_daily === today;
 }
 
 // Helper function to get or create user data
 function getUserData(userId: string): UserDailyData {
-  const data = loadData();
+  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
   
-  if (!data[userId]) {
-    data[userId] = {
-      streak: 0,
-      max_streak: 0,
-      total_checkins: 0,
-      lastDaily: '',
-      total_rewards: 0
-    };
-    saveData(data);
-  }
-  
-  return data[userId];
+  return row ?? {
+    user_id: userId,
+    balance: 0,
+    streak: 0,
+    max_streak: 0,
+    total_checkins: 0,
+    last_daily: null
+  };
 }
 
 // ==================== REWARD CALCULATION ====================
@@ -199,44 +201,25 @@ function hasBoosterRole(interaction: ChatInputCommandInteraction): boolean {
   return false;
 }
 
-// ==================== CURRENCY INTEGRATION ====================
-
-function addCurrency(userId: string, amount: number): void {
-  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
-  let data: any = {};
-  try {
-    if (fs.existsSync(currPath)) {
-      data = JSON.parse(fs.readFileSync(currPath, 'utf8'));
-    }
-  } catch {}
-  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-  bal.cowoncy += amount;
-  data[userId] = bal;
-  fs.writeFileSync(currPath, JSON.stringify(data, null, 2));
-}
-
 // ==================== STREAK LOGIC ====================
 
 interface CheckInResult {
   success: boolean;
   alreadyClaimed?: boolean;
-  data?: UserDailyData;
   streak?: number;
   isNewStreak?: boolean;
 }
 
 /**
  * Process user check-in with timezone-aware streak calculation
- * Returns -1 for streak if already claimed today
  */
 function processCheckIn(userId: string): CheckInResult {
-  const data = loadData();
   const userData = getUserData(userId);
   const today = getTodayString();
   
   // Check if already claimed today
-  if (userData.lastDaily) {
-    const diff = daysBetween(userData.lastDaily, today);
+  if (userData.last_daily) {
+    const diff = daysBetween(userData.last_daily, today);
     if (diff === 0) {
       return { success: false, alreadyClaimed: true };
     }
@@ -246,8 +229,8 @@ function processCheckIn(userId: string): CheckInResult {
   let newStreak = 1;
   let isNewStreak = true;
   
-  if (userData.lastDaily) {
-    const diff = daysBetween(userData.lastDaily, today);
+  if (userData.last_daily) {
+    const diff = daysBetween(userData.last_daily, today);
     if (diff === 1) {
       // Streak continues
       newStreak = userData.streak + 1;
@@ -258,20 +241,8 @@ function processCheckIn(userId: string): CheckInResult {
   
   const newMaxStreak = Math.max(userData.max_streak, newStreak);
   
-  // Update data (don't add reward yet - that happens after VIP check)
-  data[userId] = {
-    streak: newStreak,
-    max_streak: newMaxStreak,
-    total_checkins: userData.total_checkins + 1,
-    lastDaily: today,
-    total_rewards: userData.total_rewards // Will be updated after reward calculation
-  };
-  
-  saveData(data);
-  
   return {
     success: true,
-    data: data[userId],
     streak: newStreak,
     isNewStreak
   };
@@ -292,7 +263,7 @@ export default class DailyModule {
 
   async initialize() {
     console.log(`📅 Daily check-in module initialized`);
-    migrateDailyData(); // Run data migration
+    migrateFromJson(); // Run JSON → SQLite migration
     this.registerCommands();
     console.log(`✅ Daily module registered ${this.commands.size} commands`);
   }
@@ -315,13 +286,6 @@ export default class DailyModule {
         const userId = interaction.user.id;
         const user = interaction.user;
         
-        // Load banner
-        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'daily-banner.gif');
-        let files: AttachmentBuilder[] = [];
-        if (fs.existsSync(bannerPath)) {
-          files.push(new AttachmentBuilder(bannerPath, { name: 'daily-banner.gif' }));
-        }
-        
         // Step 1: Process check-in
         const result = processCheckIn(userId);
         
@@ -334,7 +298,7 @@ export default class DailyModule {
             .setColor('#5865f2')
             .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
             .setDescription([
-              `❌ **Hôm nay bạn đã điểm danh rồi!**`,
+              `${emojis.error} **Hôm nay bạn đã điểm danh rồi!**`,
               '',
               `━━━━━━━━━━━━━━━━━━━━`,
               '',
@@ -342,23 +306,20 @@ export default class DailyModule {
               `${emojis.trophy} **Chuỗi dài nhất:** ${data.max_streak} ngày`,
               `${emojis.chart} **Tổng lần điểm danh:** ${data.total_checkins} lần`,
               '',
-              `${emojis.coin} **Tổng phần thưởng:** ${data.total_rewards}`,
+              `${emojis.coin} **Tổng phần thưởng:** ${data.balance}`,
               '',
-              `⏰ **Quay lại vào:** <t:${nextMidnight}:R>`
+              `${emojis.clock} **Quay lại vào:** <t:${nextMidnight}:R>`
             ].join('\n'))
+            .setThumbnail(user.displayAvatarURL())
+            .setImage('https://i.imgur.com/placeholder.png')
             .setFooter({ 
               text: `${user.username} • Banhcuon-bot`,
               iconURL: user.displayAvatarURL()
             })
             .setTimestamp();
           
-          if (files.length > 0) {
-            alreadyEmbed.setImage('attachment://daily-banner.gif');
-          }
-          
           await interaction.editReply({ 
-            embeds: [alreadyEmbed],
-            files
+            embeds: [alreadyEmbed]
           });
           return;
         }
@@ -370,65 +331,66 @@ export default class DailyModule {
         const streak = result.streak!;
         const rewards = calculateReward(streak, hasVIP);
         
-        // Step 4: Update total_rewards in database
-        const data = loadData();
-        data[userId].total_rewards += rewards.total;
-        saveData(data);
+        // Step 4: Save to database (balance, streak, max_streak, total_checkins, last_daily)
+        const today = getTodayString();
+        const userData = getUserData(userId);
+        stmtUpsertUser.run({
+          user_id: userId,
+          balance: rewards.total,
+          streak: streak,
+          max_streak: Math.max(userData.max_streak, streak),
+          total_checkins: 1, // Increments by 1 in the SQL trigger
+          last_daily: today
+        });
         
-        // Step 5: Add currency (cowoncy)
-        addCurrency(userId, rewards.total);
-        
-        // Step 6: Track quest progress
+        // Step 5: Track quest progress
         try {
           trackCommand(userId, 'daily');
         } catch (error) {
           console.error('Failed to track quest:', error);
         }
         
-        // Step 7: Build embed with quote-style formatting
+        // Step 6: Build embed with quote-style formatting
         const lines: string[] = [
           `• Điểm danh hằng ngày ~ \`${rewards.base}\` ${emojis.coin}`,
           `${emojis.fire} Điểm danh liên tục **${streak}** ngày ~ \`${rewards.streakBonus}\` ${emojis.coin}`,
         ];
         
         if (hasVIP) {
-          lines.push(`⭐ VIP Member ~ **+${BOOSTER_PERCENT}%** ${emojis.coin}`);
+          lines.push(`${emojis.star} VIP Member ~ **+${BOOSTER_PERCENT}%** ${emojis.coin}`);
         }
         
         const description =
           lines.map(l => `> ${l}`).join('\n') +
           '\n\n' +
-          `> ➡️ **Tổng nhận:** \`${rewards.total}\` ${emojis.coin}`;
+          `> ${emojis.sparkles} **Tổng nhận:** \`${rewards.total}\` ${emojis.coin}`;
         
         // Streak milestone messages
         let milestoneMsg = '';
         if (streak === 7) {
-          milestoneMsg = `\n\n🎉 **Cột mốc 1 tuần!** Bạn thật kiên trì!`;
+          milestoneMsg = `\n\n${emojis.gift} **Cột mốc 1 tuần!** Bạn thật kiên trì!`;
         } else if (streak === 30) {
-          milestoneMsg = `\n\n🎊 **Cột mốc 1 tháng!** Tuyệt vời!`;
+          milestoneMsg = `\n\n${emojis.sparkles} **Cột mốc 1 tháng!** Tuyệt vời!`;
         } else if (streak === 100) {
-          milestoneMsg = `\n\n🏆 **Cột mốc 100 ngày!** Huyền thoại!`;
+          milestoneMsg = `\n\n${emojis.trophy} **Cột mốc 100 ngày!** Huyền thoại!`;
         } else if (streak % 10 === 0 && streak > 0) {
-          milestoneMsg = `\n\n✨ **Cột mốc ${streak} ngày!** Tuyệt vời!`;
+          milestoneMsg = `\n\n${emojis.sparkles} **Cột mốc ${streak} ngày!** Tuyệt vời!`;
         }
         
         const embed = new EmbedBuilder()
           .setColor('#7BE0B0')
           .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
           .setDescription(description + milestoneMsg)
+          .setThumbnail(user.displayAvatarURL())
+          .setImage('https://i.imgur.com/placeholder.png')
           .setFooter({ 
             text: `${user.username} • Banhcuon-bot`,
             iconURL: user.displayAvatarURL()
           })
           .setTimestamp();
         
-        if (files.length > 0) {
-          embed.setImage('attachment://daily-banner.gif');
-        }
-        
         await interaction.editReply({ 
-          embeds: [embed],
-          files
+          embeds: [embed]
         });
       }
     };
@@ -474,12 +436,12 @@ export default class DailyModule {
             },
             {
               name: `${emojis.coin} Tổng phần thưởng`,
-              value: `**${data.total_rewards}** coins`,
+              value: `**${data.balance}** coins`,
               inline: true
             },
             {
               name: `${emojis.calendar} Lần cuối điểm danh`,
-              value: data.lastDaily || 'Chưa có',
+              value: data.last_daily || 'Chưa có',
               inline: true
             },
             {
@@ -513,11 +475,7 @@ export default class DailyModule {
           throw error;
         }
         
-        const data = loadData();
-        const leaderboard = Object.entries(data)
-          .map(([userId, userData]) => ({ userId, ...userData }))
-          .sort((a, b) => b.streak - a.streak || b.total_checkins - a.total_checkins)
-          .slice(0, 10);
+        const leaderboard = stmtGetAll.all() as UserDailyData[];
         
         if (leaderboard.length === 0) {
           await interaction.editReply('Chưa có ai điểm danh cả! Hãy là người đầu tiên với `/daily`! 🎯');
@@ -526,7 +484,7 @@ export default class DailyModule {
         
         const description = leaderboard.map((entry, index) => {
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `**${index + 1}.**`;
-          return `${medal} <@${entry.userId}> • 🔥 **${entry.streak}** ngày • ${emojis.chart} **${entry.total_checkins}** lần`;
+          return `${medal} <@${entry.user_id}> • 🔥 **${entry.streak}** ngày • ${emojis.chart} **${entry.total_checkins}** lần`;
         }).join('\n');
         
         const embed = new EmbedBuilder()
