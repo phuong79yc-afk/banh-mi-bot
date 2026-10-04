@@ -126,7 +126,7 @@ function periodInfo(period: 'daily' | 'weekly') {
   const len = period === 'weekly' ? 7 * DAY : DAY;
   return {
     key: new Date(start).toISOString().slice(0, 10),
-    resetAt: start + len - OFFSET
+    resetAt: start + len
   };
 }
 
