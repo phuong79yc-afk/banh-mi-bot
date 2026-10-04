@@ -118,10 +118,12 @@ function subtractCurrencyFromUser(userId: string, amount: number): boolean {
 function periodInfo(period: 'daily' | 'weekly') {
   const DAY = 24 * 60 * 60 * 1000;
   const OFFSET = TZ_OFFSET_H * 60 * 60 * 1000;
-  const local = new Date(Date.now() + OFFSET);
-  let start = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  const vnNow = Date.now() + OFFSET;
+  const vnDate = new Date(vnNow);
+  let start = Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()) - OFFSET;
   if (period === 'weekly') {
-    start -= ((local.getUTCDay() + 6) % 7) * DAY;
+    const dayOfWeek = new Date(vnNow).getUTCDay();
+    start -= ((dayOfWeek + 6) % 7) * DAY;
   }
   const len = period === 'weekly' ? 7 * DAY : DAY;
   return {
@@ -287,6 +289,8 @@ async function handleClaim(interaction: MessageComponentInteraction, uid: string
   if (!ready.length) {
     return interaction.reply({ content: 'Chưa có nhiệm vụ nào hoàn thành!', flags: 64 });
   }
+  // Sort by descending reward to maximize payout when cap limited
+  ready.sort((a, b) => b.reward - a.reward);
   let room = period === 'daily' ? Math.max(0, cap - sl.earned) : Infinity;
   let gained = 0;
   let clipped = false;
@@ -407,7 +411,7 @@ export default class QuestModule {
 
         collector.on('collect', async (i) => {
           const parts = i.customId.split(':');
-          const [, action, uid, period] = parts;
+          const [, action, uid, periodFromId] = parts;
 
           // Owner check
           if (i.user.id !== uid) {
@@ -422,9 +426,9 @@ export default class QuestModule {
             const newComponents = buildComponents(i.user, newPeriod, newUserData);
             await i.update({ embeds: [newEmbed], components: newComponents });
           } else if (action === 'claim') {
-            await handleClaim(i, uid, currentPeriod, this.client);
+            await handleClaim(i, uid, periodFromId as 'daily' | 'weekly', this.client);
           } else if (action === 'upgrade') {
-            await handleUpgrade(i, uid, currentPeriod, this.client);
+            await handleUpgrade(i, uid, periodFromId as 'daily' | 'weekly', this.client);
           } else if (action === 'guide') {
             await handleGuide(i);
           }
