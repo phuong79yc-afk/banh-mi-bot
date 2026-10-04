@@ -466,8 +466,11 @@ export default class ShopModule {
           
           // Buy item
           if (i.customId === 'shop_buy' && i.isStringSelectMenu()) {
+            // Defer first to avoid interaction timeout issues
+            await i.deferReply({ flags: 64 });
+            
             if (busyUsers.has(userId)) {
-              await i.reply({ content: 'Đang xử lý lượt mua trước của bạn, đợi một chút nhé.', flags: 64 });
+              await i.editReply({ content: 'Đang xử lý lượt mua trước của bạn, đợi một chút nhé.' });
               return;
             }
             busyUsers.add(userId);
@@ -475,7 +478,7 @@ export default class ShopModule {
               const v = i.values[0];
               let targets = v === 'all' ? [...SHOP_ITEMS] : SHOP_ITEMS.filter(t => t.id === v);
               if (!targets.length) { 
-                await i.reply({ content: 'Vật phẩm không tồn tại.', flags: 64 });
+                await i.editReply({ content: 'Vật phẩm không tồn tại.' });
                 return;
               }
 
@@ -493,7 +496,7 @@ export default class ShopModule {
               });
 
               if (!targets.length) {
-                await i.reply({ content: `Không có gì để mua: ${skipped.join(', ')}.`, flags: 64 });
+                await i.editReply({ content: `Không có gì để mua: ${skipped.join(', ')}.` });
                 return;
               }
 
@@ -511,11 +514,9 @@ export default class ShopModule {
                 currentBal.blueTicket < totalPrices.blueTicket ||
                 currentBal.goldTicket < totalPrices.goldTicket
               ) {
-                await i.reply({ content: `Bạn không đủ tiền để mua!`, flags: 64 });
+                await i.editReply({ content: `Bạn không đủ tiền để mua!` });
                 return;
               }
-
-              await i.deferReply({ flags: 64 });
 
               // Deduct FIRST, then assign roles
               const oldBalance = { ...currentBal };
@@ -540,11 +541,22 @@ export default class ShopModule {
                 }
               } catch (err) {
                 console.error('[Shop] Role assign error, rolling back:', err);
-                // Rollback
+                // Rollback currencies and stock
                 const rb = loadCurrencies();
                 rb[userId] = { ...oldBalance };
                 saveCurrencies(rb);
                 targets.forEach(t => { if (t.stock != null) decrementSold(t.id); });
+                
+                // Rollback inventory
+                targets.forEach(t => {
+                  const invData = loadInventory();
+                  if (invData[userId]?.[t.id]) {
+                    invData[userId][t.id] = Math.max(0, invData[userId][t.id] - 1);
+                    if (invData[userId][t.id] === 0) delete invData[userId][t.id];
+                    saveInventory(invData);
+                  }
+                });
+                
                 await i.editReply({ content: 'Bot không thể gắn role (thiếu quyền hoặc role bot thấp hơn). Tiền đã được hoàn lại.' });
                 return;
               }
