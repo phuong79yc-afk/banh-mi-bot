@@ -17,6 +17,9 @@ import { emojis } from '../../config/emojis';
 import fs from 'fs';
 import path from 'path';
 
+// For prefix command access
+export let shopModuleInstance: any = null;
+
 // Data paths
 const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
 const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
@@ -62,62 +65,161 @@ interface InventoryData {
   };
 }
 
-// Shop items - 5 bot-related roles with animated emojis
+// Shop items - Bánh Cuốn themed roles with daily bonus info (Page 1 & 2)
 const SHOP_ITEMS: ShopItem[] = [
+  // Page 1 - Premium Roles
   {
-    id: 'bot_supporter',
-    name: 'Bot Supporter',
-    description: 'Ủng hộ bot development',
-    price: 50000,
-    emoji: emojis.rocket,
-    tag: 'BEST_SELLER',
-    category: 'bot-roles',
-    roleColor: 0x5865F2
-  },
-  {
-    id: 'premium_member',
-    name: 'Premium Member',
-    description: 'VIP member với nhiều quyền lợi',
-    price: 100000,
-    emoji: emojis.star,
-    tag: 'PREMIUM',
-    category: 'bot-roles',
-    roleColor: 0xFFD700,
-    isVIP: true
-  },
-  {
-    id: 'bot_designer',
-    name: 'Bot Designer',
-    description: 'Đóng góp ý tưởng design cho bot',
-    price: 75000,
-    emoji: emojis.art,
-    category: 'bot-roles',
-    roleColor: 0x9B59B6
-  },
-  {
-    id: 'bot_developer',
-    name: 'Bot Developer',
-    description: 'Contributor chính thức của bot',
+    id: 'chutiem',
+    name: 'Chủ Tiệm',
+    description: '👑 Role đỏ độc nhất - Ông chủ của tiệm bánh cuốn\n🎁 Daily bonus: +10% xu',
     price: 200000,
-    emoji: emojis.gem,
-    tag: 'LIMITED',
-    category: 'bot-roles',
-    roleColor: 0xE74C3C,
-    isVIP: true,
-    stock: 10
-  },
-  {
-    id: 'bot_owner',
-    name: 'Bot Owner',
-    description: 'Role cao nhất - owner và admin',
-    price: 500000,
-    emoji: emojis.crown,
+    emoji: '🏪',
     tag: 'EXCLUSIVE',
     category: 'bot-roles',
-    roleColor: 0x000001,
-    isVIP: true,
+    roleColor: 0xFF0000,
+    stock: 1
+  },
+  {
+    id: 'banhcuonchua',
+    name: 'Bánh Cuốn Chúa',
+    description: '🌯 Role vàng độc quyền - Chỉ 3 suất\n🎁 Daily bonus: +10% xu',
+    price: 200000,
+    emoji: '🌯',
+    tag: 'LIMITED',
+    category: 'bot-roles',
+    roleColor: 0xFFD700,
+    stock: 3
+  },
+  {
+    id: 'hanhphi',
+    name: 'Hành Phi Elite',
+    description: '🔥 Dành cho dân chơi hành phi\n🎁 Daily bonus: +8% xu',
+    price: 150000,
+    emoji: '🔥',
+    tag: 'LIMITED',
+    category: 'bot-roles',
+    roleColor: 0xFF6B6B,
     stock: 5
-  }
+  },
+  {
+    id: 'banhmi',
+    name: 'Bánh Mì Fan',
+    description: '🥖 Giòn rụm, đầy đủ nhân\n🎁 Daily bonus: +5% xu',
+    price: 100000,
+    emoji: '🥖',
+    tag: 'BEST_SELLER',
+    category: 'bot-roles',
+    roleColor: 0xF4A460,
+  },
+  {
+    id: 'nuoccham',
+    name: 'Fan Nước Chấm',
+    description: '🫙 Role xanh cho tín đồ nước chấm\n🎁 Daily bonus: +3% xu',
+    price: 100000,
+    emoji: '🫙',
+    tag: 'LIMITED',
+    category: 'bot-roles',
+    roleColor: 0x87CEEB,
+    stock: 10
+  },
+  
+  // Page 2 - More Roles
+  {
+    id: 'thitquay',
+    name: 'Thịt Quay Lover',
+    description: '🍖 Đam mê thịt quay giòn tan\n🎁 Daily bonus: +7% xu',
+    price: 120000,
+    emoji: '🍖',
+    tag: 'PREMIUM',
+    category: 'bot-roles',
+    roleColor: 0x8B4513,
+    stock: 8
+  },
+  {
+    id: 'giocuon',
+    name: 'Giò Cuốn Gang',
+    description: '🥬 Tươi mát với rau sống\n🎁 Daily bonus: +6% xu',
+    price: 90000,
+    emoji: '🥬',
+    category: 'bot-roles',
+    roleColor: 0x90EE90,
+  },
+  {
+    id: 'banhbao',
+    name: 'Bánh Bao Squad',
+    description: '🥟 Xốp mềm, nhân đầy ụ\n🎁 Daily bonus: +5% xu',
+    price: 80000,
+    emoji: '🥟',
+    tag: 'BEST_SELLER',
+    category: 'bot-roles',
+    roleColor: 0xFFE4B5,
+  },
+  {
+    id: 'pho',
+    name: 'Phở Addict',
+    description: '🍜 Không thể thiếu phở mỗi sáng\n🎁 Daily bonus: +4% xu',
+    price: 70000,
+    emoji: '🍜',
+    category: 'bot-roles',
+    roleColor: 0xFFA500,
+  },
+  {
+    id: 'cafe',
+    name: 'Cà Phê Sáng',
+    description: '☕ Không cafe = không sống\n🎁 Daily bonus: +3% xu',
+    price: 60000,
+    emoji: '☕',
+    category: 'bot-roles',
+    roleColor: 0x6F4E37,
+  },
+  
+  // Page 3 - Collector Roles
+  {
+    id: 'nemchua',
+    name: 'Nem Chua Collector',
+    description: '🧆 Sưu tầm nem chua khắp nơi\n🎁 Daily bonus: +4% xu',
+    price: 75000,
+    emoji: '🧆',
+    category: 'bot-roles',
+    roleColor: 0xFF69B4,
+  },
+  {
+    id: 'comtam',
+    name: 'Cơm Tấm Master',
+    description: '🍚 Chuyên gia cơm tấm sườn\n🎁 Daily bonus: +5% xu',
+    price: 85000,
+    emoji: '🍚',
+    tag: 'PREMIUM',
+    category: 'bot-roles',
+    roleColor: 0xD2691E,
+  },
+  {
+    id: 'buncha',
+    name: 'Bún Chả Hà Nội',
+    description: '🍲 Đặc sản Hà thành chính hiệu\n🎁 Daily bonus: +6% xu',
+    price: 95000,
+    emoji: '🍲',
+    category: 'bot-roles',
+    roleColor: 0xCD853F,
+  },
+  {
+    id: 'goimon',
+    name: 'Gỏi Cuốn Pro',
+    description: '🌱 Tươi ngon, healthy\n🎁 Daily bonus: +3% xu',
+    price: 65000,
+    emoji: '🌱',
+    category: 'bot-roles',
+    roleColor: 0x32CD32,
+  },
+  {
+    id: 'tranmieng',
+    name: 'Trân Miệng VIP',
+    description: '🍮 Chuyên gia tráng miệng\n🎁 Daily bonus: +4% xu',
+    price: 70000,
+    emoji: '🍮',
+    category: 'bot-roles',
+    roleColor: 0xFFDAB9,
+  },
 ];
 
 // Legacy coins functions (kept for backwards compatibility with coins-module)
@@ -175,10 +277,18 @@ function parseEmoji(str: string): { id: string; animated: boolean } | undefined 
   return { id: m[3], animated: m[1] === 'a' };
 }
 
-function buildShop(client: Client, userId?: string) {
+function buildShop(client: Client, userId?: string, page: number = 1) {
   const icon = client.user?.displayAvatarURL();
   
-  const fields = SHOP_ITEMS.map(item => {
+  // Pagination settings
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.ceil(SHOP_ITEMS.length / ITEMS_PER_PAGE);
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const pageItems = SHOP_ITEMS.slice(startIndex, endIndex);
+  
+  const fields = pageItems.map(item => {
     const stockLeft = item.stock != null ? Math.max(0, item.stock - getSoldCount(item.id)) : Infinity;
     const priceLines: string[] = [
       `**${formatNumber(item.price)}** ${emojis.coin}`,
@@ -201,19 +311,22 @@ function buildShop(client: Client, userId?: string) {
   const fullPrice = SHOP_ITEMS.reduce((a, t) => a + t.price, 0);
   fields.push({
     name: '\u200B',
-    value: `${emojis.gift} **Mua full các role**\n> - Giá: \`${formatNumber(fullPrice)} ${emojis.coin}\``,
+    value: `${emojis.gift} **Mua full các role**\n> - Giá: \`${formatNumber(fullPrice)}\` ${emojis.coin}`,
     inline: false,
   });
 
   const embed = new EmbedBuilder()
     .setColor('#5865F2')
     .setAuthor({ name: 'Cửa Hàng Role Banhcuon', iconURL: icon })
-    .setDescription(`Bạn có thể mua các role bằng ${emojis.coin} **Coin**.\nDùng \`/balance\` để xem số dư của bạn.`)
+    .setDescription(
+      `Bạn có thể mua các role bằng ${emojis.coin} **Coin**.\nDùng \`/balance\` để xem số dư của bạn.\n\n` +
+      `**Trang ${currentPage}/${totalPages}** • ${SHOP_ITEMS.length} roles`
+    )
     .addFields(fields)
     .setFooter({ text: `Banhcuon-bot • Chọn role ở menu bên dưới`, iconURL: icon });
 
   const menuOptions = [
-    ...SHOP_ITEMS.map(item => {
+    ...pageItems.map(item => {
       const stockLeft = item.stock != null ? Math.max(0, item.stock - getSoldCount(item.id)) : null;
       const stockStr = stockLeft != null ? ` • còn ${stockLeft}/${item.stock}` : '';
       const tagStr = item.tag ? ` [${item.tag}]` : '';
@@ -233,17 +346,27 @@ function buildShop(client: Client, userId?: string) {
   ];
 
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('shop_buy')
+    .setCustomId(`shop_buy:${currentPage}`)
     .setPlaceholder('🛒 Chọn role bạn muốn mua...')
     .addOptions(menuOptions);
 
   const buttonRow = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('shop_refresh')
+        .setCustomId(`shop_page:${currentPage - 1}`)
+        .setLabel('◀ Trước')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage === 1),
+      new ButtonBuilder()
+        .setCustomId(`shop_refresh:${currentPage}`)
         .setLabel('Refresh')
         .setEmoji(parseEmoji(emojis.refresh) ?? { name: '🔄' } as any)
         .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`shop_page:${currentPage + 1}`)
+        .setLabel('Tiếp ▶')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage === totalPages),
       new ButtonBuilder()
         .setCustomId('shop_vipinfo')
         .setLabel('VIP Info')
@@ -338,6 +461,9 @@ export default class ShopModule {
     migrateCoinsToCowoncy();
     this.registerCommands();
     console.log(`✅ Shop module registered ${this.commands.size} commands`);
+    
+    // Export instance for prefix commands
+    shopModuleInstance = this;
   }
 
   private registerCommands() {
@@ -376,9 +502,17 @@ export default class ShopModule {
             return;
           }
           
+          // Pagination button
+          if (i.customId.startsWith('shop_page:')) {
+            const targetPage = parseInt(i.customId.split(':')[1]);
+            await i.update(buildShop(i.client, userId, targetPage));
+            return;
+          }
+          
           // Refresh button
-          if (i.customId === 'shop_refresh') {
-            await i.update(buildShop(i.client, userId));
+          if (i.customId.startsWith('shop_refresh:')) {
+            const currentPage = parseInt(i.customId.split(':')[1]);
+            await i.update(buildShop(i.client, userId, currentPage));
             return;
           }
           
@@ -417,7 +551,10 @@ export default class ShopModule {
           }
           
           // Buy item
-          if (i.customId === 'shop_buy' && i.isStringSelectMenu()) {
+          if (i.customId.startsWith('shop_buy:') && i.isStringSelectMenu()) {
+            // Extract page number from customId
+            const currentPage = parseInt(i.customId.split(':')[1]);
+            
             // Defer first to avoid interaction timeout issues
             await i.deferReply({ flags: 64 });
             
@@ -504,8 +641,8 @@ export default class ShopModule {
                   (skipped.length ? `\nBỏ qua: ${skipped.join(', ')}.` : ''),
               });
 
-              // Refresh shop embed
-              await i.message?.edit(buildShop(i.client, userId)).catch(() => {});
+              // Refresh shop embed with current page
+              await i.message?.edit(buildShop(i.client, userId, currentPage)).catch(() => {});
 
             } finally {
               busyUsers.delete(userId);
