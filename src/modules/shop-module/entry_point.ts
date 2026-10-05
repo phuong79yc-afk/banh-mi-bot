@@ -19,7 +19,6 @@ import path from 'path';
 
 // Data paths
 const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-const currenciesPath = path.join(process.cwd(), 'data', 'currencies.json');
 const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
 const customRolesPath = path.join(process.cwd(), 'data', 'vip_custom_roles.json');
 
@@ -40,11 +39,7 @@ interface ShopItem {
   id: string;
   name: string;
   description: string;
-  prices: {
-    cowoncy: number;
-    blueTicket: number;
-    goldTicket: number;
-  };
+  price: number; // Single price in cowoncy
   emoji: string;
   tag?: 'BEST_SELLER' | 'PREMIUM' | 'LIMITED' | 'EXCLUSIVE';
   category: 'bot-roles';
@@ -59,12 +54,6 @@ interface CoinsData {
 
 interface CurrencyBalance {
   cowoncy: number;
-  blueTicket: number;
-  goldTicket: number;
-}
-
-interface CurrenciesData {
-  [userId: string]: CurrencyBalance;
 }
 
 interface InventoryData {
@@ -79,7 +68,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'bot_supporter',
     name: 'Bot Supporter',
     description: 'Ủng hộ bot development',
-    prices: { cowoncy: 500000, blueTicket: 100, goldTicket: 10 },
+    price: 50000,
     emoji: emojis.rocket,
     tag: 'BEST_SELLER',
     category: 'bot-roles',
@@ -89,7 +78,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'premium_member',
     name: 'Premium Member',
     description: 'VIP member với nhiều quyền lợi',
-    prices: { cowoncy: 1000000, blueTicket: 250, goldTicket: 25 },
+    price: 100000,
     emoji: emojis.star,
     tag: 'PREMIUM',
     category: 'bot-roles',
@@ -100,7 +89,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'bot_designer',
     name: 'Bot Designer',
     description: 'Đóng góp ý tưởng design cho bot',
-    prices: { cowoncy: 750000, blueTicket: 150, goldTicket: 15 },
+    price: 75000,
     emoji: emojis.art,
     category: 'bot-roles',
     roleColor: 0x9B59B6
@@ -109,7 +98,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'bot_developer',
     name: 'Bot Developer',
     description: 'Contributor chính thức của bot',
-    prices: { cowoncy: 2000000, blueTicket: 500, goldTicket: 50 },
+    price: 200000,
     emoji: emojis.gem,
     tag: 'LIMITED',
     category: 'bot-roles',
@@ -121,7 +110,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'bot_owner',
     name: 'Bot Owner',
     description: 'Role cao nhất - owner và admin',
-    prices: { cowoncy: 5000000, blueTicket: 1000, goldTicket: 100 },
+    price: 500000,
     emoji: emojis.crown,
     tag: 'EXCLUSIVE',
     category: 'bot-roles',
@@ -165,33 +154,13 @@ function removeCoins(userId: string, amount: number): boolean {
   return true;
 }
 
-// Multi-currency functions
-function loadCurrencies(): CurrenciesData {
-  try {
-    if (!fs.existsSync(currenciesPath)) return {};
-    return JSON.parse(fs.readFileSync(currenciesPath, 'utf8'));
-  } catch { return {}; }
-}
-
-function saveCurrencies(data: CurrenciesData): void {
-  fs.writeFileSync(currenciesPath, JSON.stringify(data, null, 2));
-}
-
+// Currency functions
 function getUserBalance(userId: string): CurrencyBalance {
-  const data = loadCurrencies();
-  return data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+  return { cowoncy: getUserCoins(userId) };
 }
 
-function deductCurrencies(userId: string, prices: { cowoncy: number; blueTicket: number; goldTicket: number }): boolean {
-  const data = loadCurrencies();
-  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-  if (bal.cowoncy < prices.cowoncy || bal.blueTicket < prices.blueTicket || bal.goldTicket < prices.goldTicket) return false;
-  bal.cowoncy -= prices.cowoncy;
-  bal.blueTicket -= prices.blueTicket;
-  bal.goldTicket -= prices.goldTicket;
-  data[userId] = bal;
-  saveCurrencies(data);
-  return true;
+function deductCurrency(userId: string, price: number): boolean {
+  return removeCoins(userId, price);
 }
 
 function formatNumber(n: number): string {
@@ -212,9 +181,7 @@ function buildShop(client: Client, userId?: string) {
   const fields = SHOP_ITEMS.map(item => {
     const stockLeft = item.stock != null ? Math.max(0, item.stock - getSoldCount(item.id)) : Infinity;
     const priceLines: string[] = [
-      `**${formatNumber(item.prices.cowoncy)}** ${emojis.gem}`,
-      `**${item.prices.blueTicket}** ${emojis.trophy}`,
-      `**${item.prices.goldTicket}** 🏆`,
+      `**${formatNumber(item.price)}** ${emojis.coin}`,
     ];
     if (item.stock != null) {
       priceLines.push(stockLeft > 0 ? `Còn ${stockLeft}/${item.stock} suất` : '**Hết suất**');
@@ -231,17 +198,17 @@ function buildShop(client: Client, userId?: string) {
   });
 
   // Full-buy field
-  const fullPrice = SHOP_ITEMS.reduce((a, t) => a + t.prices.cowoncy, 0);
+  const fullPrice = SHOP_ITEMS.reduce((a, t) => a + t.price, 0);
   fields.push({
     name: '\u200B',
-    value: `${emojis.gift} **Mua full các role**\n> - Giá: \`${formatNumber(fullPrice)} ${emojis.gem}\``,
+    value: `${emojis.gift} **Mua full các role**\n> - Giá: \`${formatNumber(fullPrice)} ${emojis.coin}\``,
     inline: false,
   });
 
   const embed = new EmbedBuilder()
     .setColor('#5865F2')
     .setAuthor({ name: 'Cửa Hàng Role Banhcuon', iconURL: icon })
-    .setDescription(`Bạn có thể mua các role trong cửa hàng bằng ${emojis.gem} **Cowoncy** hoặc ${emojis.trophy} **Vé xanh** hoặc 🏆 **Vé vàng**.\nDùng \`/balance\` để xem số dư của bạn.`)
+    .setDescription(`Bạn có thể mua các role bằng ${emojis.coin} **Coin**.\nDùng \`/balance\` để xem số dư của bạn.`)
     .addFields(fields)
     .setFooter({ text: `Banhcuon-bot • Chọn role ở menu bên dưới`, iconURL: icon });
 
@@ -252,7 +219,7 @@ function buildShop(client: Client, userId?: string) {
       const tagStr = item.tag ? ` [${item.tag}]` : '';
       const opt = new StringSelectMenuOptionBuilder()
         .setLabel(`${item.name}${tagStr}`)
-        .setDescription(`${formatNumber(item.prices.cowoncy)} 💎 • ${item.prices.blueTicket} 🎫 • ${item.prices.goldTicket} 🏆${stockStr}`)
+        .setDescription(`${formatNumber(item.price)} coin${stockStr}`)
         .setValue(item.id);
       const emojiData = parseEmoji(item.emoji);
       if (emojiData) opt.setEmoji(emojiData);
@@ -260,7 +227,7 @@ function buildShop(client: Client, userId?: string) {
     }),
     new StringSelectMenuOptionBuilder()
       .setLabel('Mua full tất cả role')
-      .setDescription(`${formatNumber(fullPrice)} 💎`)
+      .setDescription(`${formatNumber(fullPrice)} coin`)
       .setValue('all')
       .setEmoji(parseEmoji(emojis.gift) ?? { name: '🎁' } as any),
   ];
@@ -274,11 +241,13 @@ function buildShop(client: Client, userId?: string) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId('shop_refresh')
-        .setLabel('🔄 Refresh')
+        .setLabel('Refresh')
+        .setEmoji(parseEmoji(emojis.refresh) ?? { name: '🔄' } as any)
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('shop_vipinfo')
-        .setLabel('👑 VIP Info')
+        .setLabel('VIP Info')
+        .setEmoji(parseEmoji(emojis.crown) ?? { name: '👑' } as any)
         .setStyle(ButtonStyle.Secondary)
     );
 
@@ -298,26 +267,9 @@ function buildShop(client: Client, userId?: string) {
   };
 }
 
-// Migration function
+// Migration function - no longer needed, coins.json is the single currency source
 function migrateCoinsToCowoncy(): void {
-  if (!fs.existsSync(coinsPath)) return;
-  const currencies = loadCurrencies();
-  let migrated = 0;
-  try {
-    const coins: CoinsData = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-    for (const [userId, amount] of Object.entries(coins)) {
-      if (typeof amount === 'number' && amount > 0 && !currencies[userId]) {
-        currencies[userId] = { cowoncy: amount, blueTicket: 0, goldTicket: 0 };
-        migrated++;
-      }
-    }
-    if (migrated > 0) {
-      saveCurrencies(currencies);
-      console.log(`[Shop] Migrated ${migrated} users from coins.json to currencies.json`);
-    }
-  } catch (e) {
-    console.error('[Shop] Migration error:', e);
-  }
+  console.log('[Shop] Migration not needed - coins.json is the single currency source');
 }
 
 // Inventory functions
@@ -434,28 +386,28 @@ export default class ShopModule {
           if (i.customId === 'shop_vipinfo') {
             const vipEmbed = new EmbedBuilder()
               .setColor('#FFD700')
-              .setTitle('👑 VIP Info - Quyền Lợi Đặc Biệt')
+              .setTitle(`${emojis.crown} VIP Info - Quyền Lợi Đặc Biệt`)
               .setDescription(
-                `**✨ QUYỀN LỢI VIP:**\n\n` +
-                `**⭐ Premium Member** (1M 💎)\n` +
-                `• ✨ /nickname - Đổi tên\n` +
-                `• 🎨 /customrole\n` +
-                `• 💎 x2 coins /daily\n\n` +
-                `**💎 Bot Developer** (2M 💎)\n` +
-                `• ✨ /nickname - Đổi tên\n` +
-                `• 🎨 /customrole\n` +
-                `• 💎 x2 coins /daily\n\n` +
-                `**👑 Bot Owner** (5M 💎)\n` +
-                `• ✨ /nickname - Đổi tên\n` +
-                `• 🎨 /customrole\n` +
-                `• 💎 x2 coins /daily\n\n` +
+                `**${emojis.sparkles} QUYỀN LỢI VIP:**\n\n` +
+                `**${emojis.star} Premium Member** (100K ${emojis.coin})\n` +
+                `• ${emojis.sparkles} /nickname - Đổi tên\n` +
+                `• ${emojis.art} /customrole\n` +
+                `• ${emojis.gem} x2 coins /daily\n\n` +
+                `**${emojis.gem} Bot Developer** (200K ${emojis.coin})\n` +
+                `• ${emojis.sparkles} /nickname - Đổi tên\n` +
+                `• ${emojis.art} /customrole\n` +
+                `• ${emojis.gem} x2 coins /daily\n\n` +
+                `**${emojis.crown} Bot Owner** (500K ${emojis.coin})\n` +
+                `• ${emojis.sparkles} /nickname - Đổi tên\n` +
+                `• ${emojis.art} /customrole\n` +
+                `• ${emojis.gem} x2 coins /daily\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━\n` +
-                `💡 Kiếm tiền:\n` +
+                `${emojis.info} Kiếm tiền:\n` +
                 `• /daily - Điểm danh hàng ngày\n` +
                 `• /quest - Hoàn thành nhiệm vụ`
               )
               .setThumbnail(interaction.user.displayAvatarURL())
-              .setFooter({ text: '🎁 VIP = Tạo custom role + x2 coins!' });
+              .setFooter({ text: `${emojis.gift} VIP = Tạo custom role + x2 coins!` });
             
             await i.reply({
               embeds: [vipEmbed],
@@ -500,33 +452,19 @@ export default class ShopModule {
                 return;
               }
 
-              const totalPrices = targets.reduce(
-                (acc, t) => ({
-                  cowoncy: acc.cowoncy + t.prices.cowoncy,
-                  blueTicket: acc.blueTicket + t.prices.blueTicket,
-                  goldTicket: acc.goldTicket + t.prices.goldTicket,
-                }),
-                { cowoncy: 0, blueTicket: 0, goldTicket: 0 }
-              );
+              const totalPrice = targets.reduce((a, t) => a + t.price, 0);
               const currentBal = getUserBalance(userId);
-              if (
-                currentBal.cowoncy < totalPrices.cowoncy ||
-                currentBal.blueTicket < totalPrices.blueTicket ||
-                currentBal.goldTicket < totalPrices.goldTicket
-              ) {
-                await i.editReply({ content: `Bạn không đủ tiền để mua!` });
+              if (currentBal.cowoncy < totalPrice) {
+                await i.editReply({ content: `Bạn không đủ coin để mua!` });
                 return;
               }
 
               // Deduct FIRST, then assign roles
-              const oldBalance = { ...currentBal };
-              const currData = loadCurrencies();
-              const bal2 = currData[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-              bal2.cowoncy -= totalPrices.cowoncy;
-              bal2.blueTicket -= totalPrices.blueTicket;
-              bal2.goldTicket -= totalPrices.goldTicket;
-              currData[userId] = bal2;
-              saveCurrencies(currData);
+              const oldBalance = getUserCoins(userId);
+              if (!deductCurrency(userId, totalPrice)) {
+                await i.editReply({ content: `Bạn không đủ coin để mua!` });
+                return;
+              }
               targets.forEach(t => { if (t.stock != null) incrementSold(t.id); });
 
               try {
@@ -541,10 +479,8 @@ export default class ShopModule {
                 }
               } catch (err) {
                 console.error('[Shop] Role assign error, rolling back:', err);
-                // Rollback currencies and stock
-                const rb = loadCurrencies();
-                rb[userId] = { ...oldBalance };
-                saveCurrencies(rb);
+                // Rollback currency and stock
+                addCoins(userId, totalPrice);
                 targets.forEach(t => { if (t.stock != null) decrementSold(t.id); });
                 
                 // Rollback inventory
@@ -564,7 +500,7 @@ export default class ShopModule {
               const newBal = getUserBalance(userId);
               await i.editReply({
                 content: `Đã mua ${targets.map(t => `${t.emoji} **${t.name}**`).join(' ')} thành công!` +
-                  `\nSố dư còn: 💎 **${formatNumber(newBal.cowoncy)}** • 🎫 **${newBal.blueTicket}** • 🏆 **${newBal.goldTicket}**` +
+                  `\nSố dư còn: ${emojis.coin} **${formatNumber(newBal.cowoncy)}**` +
                   (skipped.length ? `\nBỏ qua: ${skipped.join(', ')}.` : ''),
               });
 
@@ -618,9 +554,7 @@ export default class ShopModule {
             iconURL: interaction.user.displayAvatarURL()
           })
           .setDescription(
-            `💎 **Cowoncy:** ${formatNumber(bal.cowoncy)}\n` +
-            `🎫 **Vé Xanh:** ${bal.blueTicket}\n` +
-            `🏆 **Vé Vàng:** ${bal.goldTicket}\n` +
+            `${emojis.coin} **Coin:** ${formatNumber(bal.cowoncy)}\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\u200B`
           )
           .setTimestamp();
@@ -663,7 +597,6 @@ export default class ShopModule {
         
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const bal = getUserBalance(targetUser.id);
-        const oldCoins = getUserCoins(targetUser.id);
         
         // Load banner
         const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'balance-banner.gif');
@@ -678,14 +611,11 @@ export default class ShopModule {
           })
           .setDescription(
             `╔═══════════════════════════════╗\n` +
-            `║   💰 YOUR BALANCE             ║\n` +
+            `║   ${emojis.coin} YOUR BALANCE             ║\n` +
             `╚═══════════════════════════════╝\n\n` +
-            `💎 Cowoncy:      ${formatNumber(bal.cowoncy)}\n` +
-            `🎫 Vé Xanh:      ${bal.blueTicket}\n` +
-            `🏆 Vé Vàng:      ${bal.goldTicket}\n` +
-            (oldCoins > 0 ? `\n🪙 Coins (cũ):   ${oldCoins}\n` : '') +
+            `${emojis.coin} Coin:      ${formatNumber(bal.cowoncy)}\n` +
             `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `💡 Kiếm thêm tiền:\n` +
+            `${emojis.info} Kiếm thêm tiền:\n` +
             `• /daily - Điểm danh hàng ngày\n` +
             `• /quest - Hoàn thành nhiệm vụ`
           )
@@ -703,7 +633,7 @@ export default class ShopModule {
     const revokeCommand = {
       data: new SlashCommandBuilder()
         .setName('revoke')
-        .setDescription(`🔄 Thu hồi role đã mua (Admin only)`)
+        .setDescription(`${emojis.refresh} Thu hồi role đã mua (Admin only)`)
         .addUserOption(option =>
           option
             .setName('user')
@@ -765,14 +695,14 @@ export default class ShopModule {
         // Create embed showing all user's roles
         const embed = new EmbedBuilder()
           .setColor('#FF6B6B')
-          .setTitle(`🔄 Thu Hồi Role - ${targetUser.username}`)
+          .setTitle(`${emojis.refresh} Thu Hồi Role - ${targetUser.username}`)
           .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
           .setDescription(
             `**Admin:** ${interaction.user}\n` +
             `**Target:** ${targetUser}\n` +
             `**Tổng roles:** ${userRoles.length}\n\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `📋 **Danh sách roles:**\n\n` +
+            `${emojis.document} **Danh sách roles:**\n\n` +
             userRoles.map((r, i) => {
               const status = r.inInventory && r.inDiscord ? '✅ Inventory + Discord' : 
                             r.inInventory ? '📦 Chỉ Inventory' : '🎭 Chỉ Discord';
