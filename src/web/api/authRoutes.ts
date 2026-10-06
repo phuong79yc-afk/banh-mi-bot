@@ -1,11 +1,18 @@
 import express, { Request, Response } from 'express';
 import axios from 'axios';
+import { Client } from 'discord.js';
 
-const router = express.Router();
+export function createAuthRoutes(client: Client) {
+  const router = express.Router();
 
 const DISCORD_CLIENT_ID = process.env.CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.CLIENT_SECRET || '';
-const DISCORD_REDIRECT_URI = `${process.env.WEB_URL || 'http://localhost:5173'}/auth/callback`;
+const DISCORD_REDIRECT_URI = 'http://localhost:3001/auth-callback.html';
+
+console.log('🔐 Discord OAuth Config:', {
+  client_id: DISCORD_CLIENT_ID,
+  redirect_uri: DISCORD_REDIRECT_URI
+});
 
 // Discord OAuth2 URLs
 const DISCORD_AUTH_URL = 'https://discord.com/api/oauth2/authorize';
@@ -72,6 +79,29 @@ router.post('/discord/callback', async (req: Request, res: Response) => {
     const discordUser = userResponse.data;
     console.log('✅ Got user info:', discordUser.username);
 
+    // Get user's guilds
+    let guilds = [];
+    let primaryGuildId = null;
+    
+    // Use bot's first guild as primary (the server where bot is installed)
+    const botGuild = client.guilds.cache.first();
+    if (botGuild) {
+      primaryGuildId = botGuild.id;
+      console.log(`✅ Using bot's guild: ${botGuild.name} (${primaryGuildId})`);
+    }
+    
+    try {
+      const guildsResponse = await axios.get(`${DISCORD_API_URL}/users/@me/guilds`, {
+        headers: {
+          Authorization: `${token_type} ${access_token}`,
+        },
+      });
+      guilds = guildsResponse.data;
+      console.log(`✅ Got ${guilds.length} user guilds`);
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch guilds:', error);
+    }
+
     // Check if user is admin (you can customize this logic)
     // For now, anyone can login, but you can check guild membership, roles, etc.
     const isAdmin = discordUser.id === process.env.OWNER_ID;
@@ -84,7 +114,9 @@ router.post('/discord/callback', async (req: Request, res: Response) => {
         username: discordUser.username,
         discriminator: discordUser.discriminator,
         avatar: discordUser.avatar,
+        banner: discordUser.banner, // Add banner
         email: discordUser.email,
+        guildId: primaryGuildId,
         timestamp: Date.now(),
       })
     ).toString('base64');
@@ -101,8 +133,13 @@ router.post('/discord/callback', async (req: Request, res: Response) => {
         avatar: discordUser.avatar
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
           : `https://cdn.discordapp.com/embed/avatars/${Number(discordUser.discriminator || '0') % 5}.png`,
+        banner: discordUser.banner
+          ? `https://cdn.discordapp.com/banners/${discordUser.id}/${discordUser.banner}.png?size=600`
+          : null,
         email: discordUser.email,
         role: isAdmin ? 'admin' : 'user',
+        guildId: primaryGuildId,
+        guilds: guilds.map((g: any) => ({ id: g.id, name: g.name, icon: g.icon }))
       },
     });
   } catch (error: any) {
@@ -146,4 +183,7 @@ router.post('/verify', (req: Request, res: Response) => {
   }
 });
 
-export default router;
+  return router;
+}
+
+export default createAuthRoutes;

@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Thêm multi-currency pricing, tags (BEST_SELLER, PREMIUM, NEW, LIMITED), và layout 3-cột trong shop embed. Mỗi item có giá theo 3 loại tiền (cowoncy gốc, blueTicket = cowoncy * 2.5, goldTicket = cowoncy / 10). Tags hiển thị trên mỗi item để highlight. Layout 3-cột dùng Unicode box drawing để tổ chức items đẹp hơn. Feature này phụ thuộc vào FEAT-001 (multi-currency system phải có trước).",
+  "status": "pending",
+  "steps": [
+    "1. Update interface ShopItem trong src/modules/shop-module/entry_point.ts: thêm fields { prices: { cowoncy: number, blueTicket: number, goldTicket: number }, tags: string[] }",
+    "2. Update SHOP_ITEMS array: thay field price: number thành prices object và thêm tags array cho 28 roles",
+    "3. Apply pricing ratios: blueTicket = Math.round(cowoncy * 2.5), goldTicket = Math.round(cowoncy / 10)",
+    "4. Assign tags theo requirements: BEST_SELLER cho [pho, tra_sua, ca_phe, bun_cha, banh_mi], PREMIUM cho [huyen_thoai, nguoi_sang_lap, hoa_sen, dragon, ha_long], LIMITED cho [chu_banh_cuon, dau_bep, huyen_thoai, nguoi_sang_lap]",
+    "5. Refactor /shop command embed description: thay vì list tuần tự, tạo layout 3-cột với ║ làm separator giữa các cột",
+    "6. Format mỗi item trong shop: <emoji> <tag badges> <name> | 💎 <cowoncy> 🎫 <blue> 🏆 <gold>",
+    "7. Update select menu description trong shop: hiển thị đầy đủ cả 3 giá thay vì chỉ 1 giá",
+    "8. Update /balance command: hiển thị cả 3 loại tiền trong 1 embed đẹp với box drawing, thay vì chỉ coins",
+    "9. Update /inventory command: hiển thị giá item theo cả 3 currencies",
+    "10. Refactor shop layout: group theo tier (TIER 1 | TIER 2 | TIER 3 trong 3 cột), sau đó CULTURE | PREMIUM, cuối cùng LIMITED VIP full width"
+  ],
+  "acceptance_criteria": [
+    "Tất cả 28 roles có đúng 3 giá theo ratios: blueTicket = cowoncy * 2.5, goldTicket = cowoncy / 10 (làm tròn)",
+    "Tags được assign đúng: 5 BEST_SELLER, 5 PREMIUM, 4 LIMITED, 0 NEW",
+    "/shop embed hiển thị layout 3-cột đẹp với Unicode box drawing",
+    "Select menu description hiển thị đủ 3 giá: 💎 100 | 🎫 250 | 🏆 10",
+    "/balance hiển thị cả 3 loại tiền trong 1 embed",
+    "Tag badges hiển thị rõ ràng trên mỗi item (🔥 BEST_SELLER, 👑 PREMIUM, ⭐ LIMITED)",
+    "Layout responsive và đẹp trên mobile Discord"
+  ],
+  "verification": [
+    "npm run build - build thành công",
+    "Test /shop - verify layout 3-cột hiển thị đúng, tags hiển thị, tất cả 28 items có đủ thông tin",
+    "Test select menu - verify description hiển thị đủ 3 giá",
+    "Test /balance - verify hiển thị đủ 3 currencies với Unicode box",
+    "Test /inventory - verify giá items hiển thị cả 3 loại",
+    "Visual inspection: shop embed đẹp, dễ đọc, tags nổi bật",
+    "Test trên mobile Discord - verify layout không bị vỡ"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

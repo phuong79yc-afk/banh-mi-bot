@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { Client } from 'discord.js';
 import { createDashboardRoutes } from './api/dashboardRoutes';
+import { createShopRoutes } from './api/shopRoutes';
 
 export function startWebServer(client: Client, port: number = 3000) {
   const app = express();
@@ -21,7 +22,26 @@ export function startWebServer(client: Client, port: number = 3000) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Dashboard API Routes
+  // Debug middleware - log all requests
+  app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`);
+    next();
+  });
+
+  // ========================================
+  // API ROUTES FIRST (before static files!)
+  // ========================================
+
+  // Shop Routes (more specific, mount BEFORE dashboard)
+  try {
+    const shopRouter = createShopRoutes(client);
+    app.use('/api/shop', shopRouter);
+    console.log('✅ Shop routes mounted successfully');
+  } catch (error) {
+    console.error('❌ Error mounting shop routes:', error);
+  }
+
+  // Dashboard API Routes (more general, mount AFTER specific routes)
   try {
     const dashboardRouter = createDashboardRoutes(client);
     app.use('/api', dashboardRouter);
@@ -32,15 +52,13 @@ export function startWebServer(client: Client, port: number = 3000) {
 
   // Auth Routes (Discord OAuth)
   try {
-    const authRoutes = require('./api/authRoutes').default;
+    const createAuthRoutes = require('./api/authRoutes').default;
+    const authRoutes = createAuthRoutes(client);
     app.use('/api/auth', authRoutes);
     console.log('✅ Auth routes mounted successfully');
   } catch (error) {
     console.error('❌ Error mounting auth routes:', error);
   }
-
-  // Static files
-  app.use(express.static(path.join(__dirname, '../../public')));
 
   // Basic status endpoint
   app.get('/api/status', (req, res) => {
@@ -55,6 +73,26 @@ export function startWebServer(client: Client, port: number = 3000) {
       timestamp: Date.now()
     });
   });
+  
+  // Test endpoint - verify API routes work
+  app.get('/api/test', (req, res) => {
+    res.json({ 
+      success: true, 
+      message: 'API routes are working!',
+      timestamp: Date.now() 
+    });
+  });
+
+  // ========================================
+  // STATIC FILES LAST (catches remaining requests)
+  // ========================================
+  
+  // Static files - serve from dist/public folder (after build)
+  // __dirname = dist/src/web/ after TypeScript compilation
+  // So ../../public = dist/public
+  const publicPath = path.join(__dirname, '../../public');
+  app.use(express.static(publicPath));
+  console.log(`📁 Serving static files from: ${publicPath}`);
 
   app.listen(port, '0.0.0.0', () => {
     console.log(`🌐 Web server running on http://localhost:${port}`);

@@ -38,11 +38,11 @@ export default class GiveawayModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-migrate')
-        .setDescription('${emojis.refresh} Chuyển giveaway sang server khác')
+        .setDescription('🔄 Chuyển giveaway sang server khác')
         .addStringOption(option =>
           option
             .setName('target-guild-id')
-            .setDescription('ID server đích')
+            .setDescription('🆔 ID server đích')
             .setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),

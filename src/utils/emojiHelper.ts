@@ -28,8 +28,8 @@ export const EMOJI = {
   BAN: '🔨',
   KICK: '👢',
   BOOT: '👢',
-  MUTE: '🔇',
-  UNMUTE: '🔊',
+  MUTE: '<a:mute:1555853916405628998>',
+  UNMUTE: '<a:unmute:1555853968154824784>',
   WARNING: '⚠️',
   HOURGLASS: '⏱️',
   TIMEOUT: '⏱️',
@@ -44,8 +44,8 @@ export const EMOJI = {
   CROSSED_SWORDS: '⚔️',
   
   // Status & Feedback
-  SUCCESS: '✅',
-  CHECK: '✅',
+  SUCCESS: '<a:white_check_mark:1555921911395909722>',
+  CHECK: '<a:white_check_mark:1555921911395909722>',
   ERROR: '❌',
   CROSS: '❌',
   WARNING_SIGN: '⚠️',
@@ -141,13 +141,14 @@ export const EMOJI = {
   CLOWN: '🤡',
   
   // Economy & Money
-  COIN: '🪙',
-  MONEY_BAG: '💰',
+  COIN: '<a:money_with_wings:1555919069172080650>',
+  MONEY_BAG: '<a:money_with_wings:1555919069172080650>',
   DOLLAR: '💵',
   YEN: '💴',
   EURO: '💶',
   POUND: '💷',
   CREDIT_CARD: '💳',
+  MINUS: '<a:heavy_minus_sign:1555918969750425682>',
   RECEIPT: '🧾',
   SHOPPING_CART: '🛒',
   SHOP: '🏪',

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carl-bot Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Whitney', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #2c2f33;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(32, 34, 37, 0.95);
+            padding: 12px 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: #7289da;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            align-items: center;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #b9bbbe;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: #fff;
+        }
+
+        .premium-link {
+            color: #faa61a !important;
+            font-weight: 600;
+        }
+
+        .login-btn {
+            background: transparent;
+            color: #fff !important;
+            padding: 8px 18px;
+            border: 2px solid #fff;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .login-btn:hover {
+            background: #fff;
+            color: #7289da !important;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #7289da 0%, #9b84ee 100%);
+            padding: 100px 40px 120px;
+            position: relative;
+            overflow: hidden;
+            margin-top: 60px;
+        }
+
+        /* Background Shapes */
+        .hero::before {
+            content: '';
+            position: absolute;
+            width: 700px;
+            height: 700px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 50%;
+            top: -300px;
+            right: -150px;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            width: 900px;
+            height: 900px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 50%;
+            bottom: -400px;
+            left: -300px;
+            animation: float 25s ease-in-out infinite reverse;
+        }
+
+        /* Play Button Triangle */
+        .play-triangle {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 250px 0 250px 400px;
+            border-color: transparent transparent transparent rgba(255, 255, 255, 0.06);
+            top: 50px;
+            left: -100px;
+            z-index: 1;
+        }
+
+        /* Circle Decorations */
+        .circle-deco {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            z-index: 1;
+        }
+
+        .circle-1 {
+            width: 400px;
+            height: 400px;
+            top: -150px;
+            right: 200px;
+        }
+
+        .circle-2 {
+            width: 550px;
+            height: 550px;
+            bottom: -200px;
+            right: -100px;
+        }
+
+        .circle-3 {
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: -100px;
+            transform: translateY(-50%);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(30px, -30px) rotate(5deg); }
+        }
+
+        .hero-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 80px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-text h1 {
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.15);
+            letter-spacing: -1px;
+        }
+
+        .hero-text p {
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 35px;
+            font-weight: 500;
+        }
+
+        .add-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #fff;
+            color: #7289da;
+            padding: 16px 36px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
+        .discord-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* Turtle Mascot - Carl-bot Style */
+        .mascot-container {
+            position: relative;
+            width: 500px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .turtle {
+            position: relative;
+            width: 380px;
+            height: 320px;
+            animation: bounce 3s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        /* Turtle Shell */
+        .turtle-shell {
+            position: absolute;
+            width: 260px;
+            height: 200px;
+            background: linear-gradient(135deg, #8B9556 0%, #A8B574 50%, #8B9556 100%);
+            border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+            top: 60px;
+            left: 60px;
+            border: 7px solid #6B7544;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3), inset 0 -15px 30px rgba(0,0,0,0.2);
+            z-index: 3;
+        }
+
+        /* Hexagon Pattern Lines on Shell */
+        .hex-line {
+            position: absolute;
+            background: #6B7544;
+            border-radius: 2px;
+        }
+
+        .hex-line.h1 { width: 2px; height: 100px; top: 50px; left: 80px; transform: rotate(30deg); }
+        .hex-line.h2 { width: 2px; height: 100px; top: 50px; left: 130px; transform: rotate(-30deg); }
+        .hex-line.h3 { width: 2px; height: 100px; top: 50px; right: 80px; transform: rotate(30deg); }
+        .hex-line.h4 { width: 90px; height: 2px; top: 70px; left: 85px; }
+        .hex-line.h5 { width: 90px; height: 2px; bottom: 70px; left: 85px; }
+        .hex-line.h6 { width: 70px; height: 2px; top: 100px; left: 50%; transform: translateX(-50%); }
+
+        .shell-center {
+            position: absolute;
+            width: 65px;
+            height: 65px;
+            background: #6B7544;
+            clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+            top: 68px;
+            left: 98px;
+            border: 2px solid #5a6136;
+        }
+
+        /* Turtle Head */
+        .turtle-head {
+            position: absolute;
+            width: 140px;
+            height: 110px;
+            background: linear-gradient(180deg, #C4D95E 0%, #B5C850 100%);
+            border-radius: 50% 50% 45% 45%;
+            top: 130px;
+            left: -30px;
+            border: 5px solid #8B9556;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 4;
+        }
+
+        /* Eyes */
+        .turtle-eye {
+            position: absolute;
+            width: 32px;
+            height: 36px;
+            background: #fff;
+            border-radius: 50%;
+            top: 30px;
+            border: 4px solid #6B7544;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .turtle-eye.left { left: 20px; }
+        .turtle-eye.right { right: 20px; }
+
+        .eye-pupil {
+            position: absolute;
+            width: 16px;
+            height: 20px;
+            background: #000;
+            border-radius: 50%;
+            top: 8px;
+            left: 8px;
+        }
+
+        .eye-shine {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+        }
+
+        /* Smile */
+        .turtle-smile {
+            position: absolute;
+            width: 70px;
+            height: 35px;
+            border: 5px solid #6B7544;
+            border-top: none;
+            border-radius: 0 0 70px 70px;
+            top: 65px;
+            left: 35px;
+            background: #B5C850;
+        }
+
+        /* Arms */
+        .turtle-arm {
+            position: absolute;
+            width: 70px;
+            height: 90px;
+            background: linear-gradient(135deg, #C4D95E 0%, #B5C850 100%);
+            border-radius: 45%;
+            border: 4px solid #8B9556;
+            z-index: 2;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .turtle-arm.left {
+            top: 120px;
+            left: 20px;
+            transform: rotate(-35deg);
+            animation: wave-left 2s ease-in-out infinite;
+        }
+
+        .turtle-arm.right {
+            top: 120px;
+            right: 20px;
+            transform: rotate(35deg);
+            animation: wave-right 2s ease-in-out infinite;
+        }
+
+        @keyframes wave-left {
+            0%, 100% { transform: rotate(-35deg); }
+            50% { transform: rotate(-20deg); }
+        }
+
+        @keyframes wave-right {
+            0%, 100% { transform: rotate(35deg); }
+            50% { transform: rotate(20deg); }
+        }
+
+        /* Legs */
+        .turtle-leg {
+            position: absolute;
+            width: 75px;
+            height: 70px;
+            background: linear-gradient(180deg, #C4D95E 0%, #B5C850 100%);
+            border-radius: 50% 50% 45% 45%;
+            border: 4px solid #8B9556;
+            z-index: 1;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .turtle-leg.left {
+            bottom: 20px;
+            left: 60px;
+            transform: rotate(-10deg);
+        }
+
+        .turtle-leg.right {
+            bottom: 20px;
+            right: 60px;
+            transform: rotate(10deg);
+        }
+
+        /* Tail */
+        .turtle-tail {
+            position: absolute;
+            width: 50px;
+            height: 60px;
+            background: linear-gradient(180deg, #C4D95E 0%, #B5C850 100%);
+            border-radius: 50%;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid #8B9556;
+            z-index: 1;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Why Section */
+        .why-section {
+            background: #2c2f33;
+            padding: 100px 40px 80px;
+            position: relative;
+            margin-top: -50px;
+        }
+
+        .why-section::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            background: #2c2f33;
+            border-radius: 50% 50% 0 0 / 100px 100px 0 0;
+        }
+
+        .why-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .why-title {
+            text-align: center;
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 70px;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 28px;
+        }
+
+        .feature-card {
+            background: #36393f;
+            border-radius: 10px;
+            padding: 40px;
+            transition: all 0.3s;
+            border: 1px solid #40444b;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.4);
+            border-color: #7289da;
+        }
+
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #7289da, #9b84ee);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 15px rgba(114, 137, 218, 0.3);
+        }
+
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 16px;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .feature-card p {
+            color: #b9bbbe;
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        @media (max-width: 968px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-text h1 {
+                font-size: 42px;
+            }
+
+            .mascot-container {
+                width: 100%;
+                height: 350px;
+            }
+
+            .turtle {
+                transform: scale(0.8);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <div class="logo-icon">C</div>
+                <span class="logo-text">CARL.GG</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#">Docs</a></li>
+                <li><a href="#">Invite</a></li>
+                <li><a href="#">Discord</a></li>
+                <li><a href="#">Status</a></li>
+                <li><a href="#">Commands</a></li>
+                <li><a href="#">Games</a></li>
+                <li><a href="#" class="premium-link">Premium</a></li>
+                <li><a href="#" class="login-btn">Login</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="play-triangle"></div>
+        <div class="circle-deco circle-1"></div>
+        <div class="circle-deco circle-2"></div>
+        <div class="circle-deco circle-3"></div>
+        
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Supercharge Your Discord With Carl-bot.</h1>
+                <p>An All-in-one discord bot, trusted by 15,242,741 servers.</p>
+                <a href="#" class="add-btn">
+                    <svg class="discord-icon" viewBox="0 0 24 24">
+                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    Add to Discord
+                </a>
+            </div>
+            
+            <div class="mascot-container">
+                <div class="turtle">
+                    <!-- Arms -->
+                    <div class="turtle-arm left"></div>
+                    <div class="turtle-arm right"></div>
+                    
+                    <!-- Legs -->
+                    <div class="turtle-leg left"></div>
+                    <div class="turtle-leg right"></div>
+                    
+                    <!-- Tail -->
+                    <div class="turtle-tail"></div>
+                    
+                    <!-- Shell -->
+                    <div class="turtle-shell">
+                        <div class="hex-line h1"></div>
+                        <div class="hex-line h2"></div>
+                        <div class="hex-line h3"></div>
+                        <div class="hex-line h4"></div>
+                        <div class="hex-line h5"></div>
+                        <div class="hex-line h6"></div>
+                        <div class="shell-center"></div>
+                    </div>
+                    
+                    <!-- Head -->
+                    <div class="turtle-head">
+                        <div class="turtle-eye left">
+                            <div class="eye-pupil">
+                                <div class="eye-shine"></div>
+                            </div>
+                        </div>
+                        <div class="turtle-eye right">
+                            <div class="eye-pupil">
+                                <div class="eye-shine"></div>
+                            </div>
+                        </div>
+                        <div class="turtle-smile"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Section -->
+    <section class="why-section">
+        <div class="why-container">
+            <h2 class="why-title">Why Carl-bot?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">😊</div>
+                    <h3>Reaction Roles</h3>
+                    <p>Up to 250 reaction-roles pairs per server with unique, verify, reversed, binding and temporary modes.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Moderation</h3>
+                    <p>Modlogs, timed punishments, sticky roles, full infraction history, everything your mod team needs.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>Automod</h3>
+                    <p>Block bad links, spam, mass mentions, attachment spam and slurs. Per-rule punishments, custom role limits and channel whitelists.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>Logging</h3>
+                    <p>Track messages, members, roles, channels, server updates. Full customization with ignore lists and separate channels.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Starboard</h3>
+                    <p>Highlight the best messages in your server with a starboard channel. Full customization and moderation tools.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎫</div>
+                    <h3>Tickets</h3>
+                    <p>Professional support ticket system with transcripts, categories, and full permission controls.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

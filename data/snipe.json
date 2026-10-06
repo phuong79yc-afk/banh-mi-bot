@@ -1,18 +1,5 @@
 {
   "deleted": {
-    "1514216510523179038": [
-      {
-        "messageId": "1545408360109703218",
-        "channelId": "1514216510523179038",
-        "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "**Thiết lập hệ thống ticket**\n`[1/4]` ✅ Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (⁠không xác định).\n`[2/4]` ✅ Tạo kênh hỗ trợ hoàn tất. (⁠🎫〡ticket tại <#1545399052919636068>).\n`[3/4`] ✅ Tạo ticket mặc định tại kênh ⁠🎫〡ticket hoàn tất.\n`[4/4] `✅ Tạo role hỗ trợ @vai-trò-chưa-rõ & <@&1545399060306071663> hoàn tất.\n                                                                                                                                                                                                                                                                                                                                                         \n**Khởi tạo cài đặt mặc định hoàn tất.**\n •   Để quản lí hoặc thêm một danh mục hỗ trợ, sử dụng` /ticket panel manage`\n •    Để chỉnh sửa các cài đặt có sẵn, sử dụng `/ticket configuration`",
-        "attachments": [],
-        "timestamp": 1788524465349,
-        "deletedAt": 1788524468910
-      }
-    ],
     "1541807755407659048": [
       {
         "messageId": "1546463046040297512",
@@ -176,114 +163,114 @@
     ],
     "1549384844478255184": [
       {
-        "messageId": "1555432532336578631",
+        "messageId": "1556629476496908320",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "<a:wrench:1555432391105974342>",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790914414248,
-        "deletedAt": 1790915060579
+        "timestamp": 1791199787974,
+        "deletedAt": 1791199812344
       },
       {
-        "messageId": "1555432505979437078",
+        "messageId": "1556629455286308915",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "<a:gear:1555432467442438174>",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790914407964,
-        "deletedAt": 1790915055929
+        "timestamp": 1791199782917,
+        "deletedAt": 1791199811355
       },
       {
-        "messageId": "1555414555641782366",
+        "messageId": "1556629451842789428",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "k",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790910128270,
-        "deletedAt": 1790910134899
+        "timestamp": 1791199782096,
+        "deletedAt": 1791199810089
       },
       {
-        "messageId": "1555414548213932036",
+        "messageId": "1556629445341610045",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "k",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790910126499,
-        "deletedAt": 1790910133734
+        "timestamp": 1791199780546,
+        "deletedAt": 1791199808878
       },
       {
-        "messageId": "1555414553754472589",
+        "messageId": "1556629440950444075",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "k",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790910127820,
-        "deletedAt": 1790910132136
+        "timestamp": 1791199779499,
+        "deletedAt": 1791199807623
       },
       {
-        "messageId": "1555414543981748227",
+        "messageId": "1556629436927975437",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "k",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790910125490,
-        "deletedAt": 1790910130614
+        "timestamp": 1791199778540,
+        "deletedAt": 1791199806631
       },
       {
-        "messageId": "1555414540642951180",
+        "messageId": "1556629432536535092",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "k",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790910124694,
-        "deletedAt": 1790910129152
+        "timestamp": 1791199777493,
+        "deletedAt": 1791199805576
       },
       {
-        "messageId": "1555227606759120967",
+        "messageId": "1556629429227098204",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "!profile",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790865556183,
-        "deletedAt": 1790865570144
+        "timestamp": 1791199776704,
+        "deletedAt": 1791199804636
       },
       {
-        "messageId": "1555170714418544643",
+        "messageId": "1556629424206643251",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "<a:heart:1555113187559342200>",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790851991992,
-        "deletedAt": 1790851993342
+        "timestamp": 1791199775507,
+        "deletedAt": 1791199803854
       },
       {
-        "messageId": "1555076242452123710",
+        "messageId": "1556629419534319677",
         "channelId": "1549384844478255184",
         "guildId": "1482354951689605150",
-        "authorId": "923215778776481793",
-        "authorUsername": "tran.tuan",
-        "content": "<a:coin:1555075964919226449>",
+        "authorId": "1144806767595900979",
+        "authorUsername": "12307084",
+        "content": "1",
         "attachments": [],
-        "timestamp": 1790829468120,
-        "deletedAt": 1790829488545
+        "timestamp": 1791199774393,
+        "deletedAt": 1791199802913
       }
     ]
   },

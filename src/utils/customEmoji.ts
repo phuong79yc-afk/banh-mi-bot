@@ -26,8 +26,8 @@ export const CUSTOM_EMOJI = {
   MOD_BAN: '🔨',
   MOD_UNBAN: '🔓',
   MOD_KICK: '👢',
-  MOD_MUTE: '🔇',
-  MOD_UNMUTE: '🔊',
+  MOD_MUTE: '<a:mute:1555853916405628998>',
+  MOD_UNMUTE: '<a:unmute:1555853968154824784>',
   MOD_WARN: '⚠️',
   MOD_LOCK: '🔒',
   MOD_UNLOCK: '🔓',
@@ -39,11 +39,11 @@ export const CUSTOM_EMOJI = {
   MOD_SHIELD: '🛡️',
   
   // ✨ Status Indicators
-  STATUS_SUCCESS: '✅',
+  STATUS_SUCCESS: '<a:white_check_mark:1555921911395909722>',
   STATUS_ERROR: '❌',
   STATUS_LOADING: '⏳',
   STATUS_WARNING: '⚠️',
-  SUCCESS: '✅',
+  SUCCESS: '<a:white_check_mark:1555921911395909722>',
   ERROR: '❌',
   LOADING: '⏳',
   WARNING: '⚠️',
@@ -63,14 +63,15 @@ export const CUSTOM_EMOJI = {
   
   // 💰 Economy Commands
   ECO_WALLET: '👛',
-  ECO_COIN: '🪙',
+  ECO_COIN: '<a:money_with_wings:1555919069172080650>',
   ECO_GIFT: '🎁',
   ECO_SHOP: '🏪',
   ECO_DAILY: '📅',
   ECO_BANK: '🏦',
-  ECO_MONEY: '💵',
+  ECO_MONEY: '<a:money_with_wings:1555919069172080650>',
   ECO_DIAMOND: '💎',
   ECO_GOLD: '🏅',
+  ECO_MINUS: '<a:heavy_minus_sign:1555918969750425682>',
   
   // 🎯 General Icons
   CROWN: '👑',
@@ -79,7 +80,7 @@ export const CUSTOM_EMOJI = {
   CLOCK: '⏰',
   GLOBE: '🌍',
   CHART: '📈',
-  COIN: '🪙',
+  COIN: '<a:money_with_wings:1555919069172080650>',
   GIFT: '🎁',
   ENVELOPE: '✉️',
   GEM: '💎',

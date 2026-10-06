@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
-import { trackCommand } from '../quest-module/entry_point';
+import { picture, combineFiles } from '../../utils/pictureHelper';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -19,6 +19,15 @@ const STREAK_BONUS_MAX = 100;
 const BOOSTER_PERCENT = 5;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
 
+// Role bonus config - roles from shop get % bonus
+const ROLE_BONUS_CONFIG = [
+  { roleId: process.env.ROLE_CHUTIEM, percent: 10, name: 'Chủ Tiệm' },
+  { roleId: process.env.ROLE_BANHCUONCHUA, percent: 10, name: 'Bánh Cuốn Chúa' },
+  { roleId: process.env.ROLE_HANHPHI, percent: 8, name: 'Hành Phi Elite' },
+  { roleId: process.env.ROLE_BANHMI, percent: 5, name: 'Bánh Mì Fan' },
+  { roleId: process.env.ROLE_NUOCCHAM, percent: 3, name: 'Fan Nước Chấm' },
+];
+
 // ==================== DATABASE INITIALIZATION ====================
 
 // Ensure data directory exists
@@ -28,6 +37,21 @@ if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
 
 // Initialize SQLite database
 const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
+
+// Run database migrations
+function runMigrations() {
+  // Check if gold_balance column exists
+  const tableInfo = db.prepare("PRAGMA table_info(daily_users)").all() as any[];
+  const hasGoldBalance = tableInfo.some((col: any) => col.name === 'gold_balance');
+  
+  if (!hasGoldBalance) {
+    console.log('[Migration] Adding gold_balance column to daily_users table...');
+    db.exec('ALTER TABLE daily_users ADD COLUMN gold_balance INTEGER NOT NULL DEFAULT 0');
+    console.log('[Migration] ✅ gold_balance column added successfully!');
+  }
+}
+
+// Create table and run migrations
 db.exec(`
   CREATE TABLE IF NOT EXISTS daily_users (
     user_id TEXT PRIMARY KEY,
@@ -38,6 +62,8 @@ db.exec(`
     last_daily TEXT
   )
 `);
+
+runMigrations();
 
 // Prepared statements
 const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
@@ -60,6 +86,7 @@ interface UserDailyData {
   max_streak: number;
   total_checkins: number;
   balance: number;
+  gold_balance: number;
 }
 
 // ==================== TIMEZONE-AWARE DATE UTILITIES ====================
@@ -123,10 +150,10 @@ function migrateFromJson(): void {
       const result = insertStmt.run(
         userId,
         userData.total_rewards || 0,
-        userData.streak || 0,
+        userData.streak || userData.current_streak || 0,
         userData.max_streak || 0,
         userData.total_checkins || 0,
-        userData.lastDaily || null
+        userData.lastDaily || userData.last_checkin_date || null
       );
       if (result.changes > 0) migrated++;
     }
@@ -155,6 +182,7 @@ function getUserData(userId: string): UserDailyData {
   return row ?? {
     user_id: userId,
     balance: 0,
+    gold_balance: 0,
     streak: 0,
     max_streak: 0,
     total_checkins: 0,
@@ -167,25 +195,50 @@ function getUserData(userId: string): UserDailyData {
 interface RewardBreakdown {
   base: number;
   streakBonus: number;
-  boosterBonus: number;
+  roleBonus: number;
+  roleName?: string;
+  rolePercent?: number;
   total: number;
 }
 
-function calculateReward(streak: number, hasBooster: boolean): RewardBreakdown {
+function calculateReward(
+  streak: number, 
+  interaction: ChatInputCommandInteraction
+): RewardBreakdown {
   const base = BASE_REWARD;
   const streakBonus = Math.min(streak * STREAK_BONUS_PER_DAY, STREAK_BONUS_MAX);
   const subtotal = base + streakBonus;
-  const boosterBonus = hasBooster ? Math.floor(subtotal * BOOSTER_PERCENT / 100) : 0;
+  
+  // Check for role bonus (highest % wins)
+  let roleBonus = 0;
+  let bestRole: { roleId: string; percent: number; name: string } | undefined;
+  
+  const member = interaction.member;
+  if (member && typeof member.roles !== 'string' && 'cache' in member.roles) {
+    for (const config of ROLE_BONUS_CONFIG) {
+      if (config.roleId && member.roles.cache.has(config.roleId)) {
+        if (!bestRole || config.percent > bestRole.percent) {
+          bestRole = { ...config, roleId: config.roleId! };
+        }
+      }
+    }
+  }
+  
+  if (bestRole) {
+    roleBonus = Math.floor(subtotal * bestRole.percent / 100);
+  }
   
   return {
     base,
     streakBonus,
-    boosterBonus,
-    total: subtotal + boosterBonus
+    roleBonus,
+    roleName: bestRole?.name,
+    rolePercent: bestRole?.percent,
+    total: subtotal + roleBonus
   };
 }
 
-// ==================== VIP ROLE CHECK ====================
+// ==================== VIP ROLE CHECK (DEPRECATED - Use calculateReward instead) ====================
 
 function hasBoosterRole(interaction: ChatInputCommandInteraction): boolean {
   const vipNames = ['Premium Member', 'Bot Developer', 'Bot Owner'];
@@ -273,7 +326,7 @@ export default class DailyModule {
     const dailyCommand = {
       data: new SlashCommandBuilder()
         .setName('daily')
-        .setDescription('Điểm danh hàng ngày để nhận thưởng'),
+        .setDescription('📅 Điểm danh hàng ngày để nhận thưởng'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           // ⚡ DEFER IMMEDIATELY
@@ -294,44 +347,51 @@ export default class DailyModule {
           const data = getUserData(userId);
           const nextMidnight = getNextMidnightUnix();
           
+          const lines = [
+            `- Bạn đã điểm danh hôm nay rồi ${emojis.success}`,
+            `${emojis.fire} Điểm danh liên tục **${data.streak}** ngày`,
+            `${emojis.clock} Điểm danh tiếp <t:${nextMidnight}:R>`,
+          ];
+          
+          const description = lines.map(l => `> ${l}`).join('\n');
+          
           const alreadyEmbed = new EmbedBuilder()
             .setColor('#5865f2')
             .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
-            .setDescription([
-              `${emojis.error} **Hôm nay bạn đã điểm danh rồi!**`,
-              '',
-              `━━━━━━━━━━━━━━━━━━━━`,
-              '',
-              `${emojis.fire} **Chuỗi hiện tại:** ${data.streak} ngày`,
-              `${emojis.trophy} **Chuỗi dài nhất:** ${data.max_streak} ngày`,
-              `${emojis.chart} **Tổng lần điểm danh:** ${data.total_checkins} lần`,
-              '',
-              `${emojis.coin} **Tổng phần thưởng:** ${data.balance}`,
-              '',
-              `${emojis.clock} **Quay lại vào:** <t:${nextMidnight}:R>`
-            ].join('\n'))
-            .setThumbnail(user.displayAvatarURL())
-            .setImage('https://i.imgur.com/placeholder.png')
+            .setDescription(description)
             .setFooter({ 
               text: `${user.username} • Banhcuon-bot`,
               iconURL: user.displayAvatarURL()
-            })
-            .setTimestamp();
+            });
+          
+          // Add thumbnail and banner
+          const thumbnail = picture(process.env.DAILY_THUMBNAIL, 'daily-icon.png');
+          const banner = picture(process.env.DAILY_BANNER, 'banners/daily-banner.gif');
+          
+          if (thumbnail) {
+            alreadyEmbed.setThumbnail(thumbnail.url);
+          } else {
+            alreadyEmbed.setThumbnail(user.displayAvatarURL());
+          }
+          
+          if (banner) {
+            alreadyEmbed.setImage(banner.url);
+          }
+          
+          const files = combineFiles([thumbnail, banner]);
           
           await interaction.editReply({ 
-            embeds: [alreadyEmbed]
+            embeds: [alreadyEmbed],
+            files: files.length > 0 ? files : undefined
           });
           return;
         }
         
-        // Step 2: Check VIP role
-        const hasVIP = hasBoosterRole(interaction);
-        
-        // Step 3: Calculate rewards
+        // Step 2: Calculate rewards with role bonus
         const streak = result.streak!;
-        const rewards = calculateReward(streak, hasVIP);
+        const rewards = calculateReward(streak, interaction);
         
-        // Step 4: Save to database (balance, streak, max_streak, total_checkins, last_daily)
+        // Step 3: Save to database (balance, streak, max_streak, total_checkins, last_daily)
         const today = getTodayString();
         const userData = getUserData(userId);
         stmtUpsertUser.run({
@@ -339,25 +399,35 @@ export default class DailyModule {
           balance: rewards.total,
           streak: streak,
           max_streak: Math.max(userData.max_streak, streak),
-          total_checkins: 1, // Increments by 1 in the SQL trigger
+          total_checkins: 1, // Increments by 1 via UPDATE clause
           last_daily: today
         });
         
-        // Step 5: Track quest progress
+        // Step 4: Track quest progress (dynamic import to avoid circular dependency)
+        console.log(`[Daily] Attempting to track quest for user ${userId}`);
         try {
+          const { trackCommand } = await import('../quest-module/entry_point');
           trackCommand(userId, 'daily');
+          console.log(`[Daily] Successfully tracked quest for user ${userId}`);
         } catch (error) {
-          console.error('Failed to track quest:', error);
+          console.error('[Daily] Failed to track quest:', error);
         }
         
-        // Step 6: Build embed with quote-style formatting
+        // Step 5: Build embed with quote-style formatting
         const lines: string[] = [
           `• Điểm danh hằng ngày ~ \`${rewards.base}\` ${emojis.coin}`,
           `${emojis.fire} Điểm danh liên tục **${streak}** ngày ~ \`${rewards.streakBonus}\` ${emojis.coin}`,
         ];
         
-        if (hasVIP) {
-          lines.push(`${emojis.star} VIP Member ~ **+${BOOSTER_PERCENT}%** ${emojis.coin}`);
+        // Add role bonus line if applicable
+        if (rewards.roleBonus > 0 && rewards.roleName) {
+          const member = interaction.member;
+          if (member && typeof member.roles !== 'string' && 'cache' in member.roles) {
+            const roleConfig = ROLE_BONUS_CONFIG.find(r => r.name === rewards.roleName);
+            if (roleConfig?.roleId) {
+              lines.push(`• <@&${roleConfig.roleId}> ~ **+${rewards.rolePercent}%** ${emojis.coin}`);
+            }
+          }
         }
         
         const description =
@@ -381,16 +451,33 @@ export default class DailyModule {
           .setColor('#7BE0B0')
           .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
           .setDescription(description + milestoneMsg)
-          .setThumbnail(user.displayAvatarURL())
-          .setImage('https://i.imgur.com/placeholder.png')
           .setFooter({ 
             text: `${user.username} • Banhcuon-bot`,
             iconURL: user.displayAvatarURL()
           })
           .setTimestamp();
         
+        // Add thumbnail and banner images
+        const thumbnail = picture(process.env.DAILY_THUMBNAIL, 'daily-icon.png');
+        const banner = picture(process.env.DAILY_BANNER, 'banners/daily-banner.gif');
+        
+        if (thumbnail) {
+          embed.setThumbnail(thumbnail.url);
+        } else {
+          // Fallback to user avatar
+          embed.setThumbnail(user.displayAvatarURL());
+        }
+        
+        if (banner) {
+          embed.setImage(banner.url);
+        }
+        
+        // Combine files for attachment
+        const files = combineFiles([thumbnail, banner]);
+        
         await interaction.editReply({ 
-          embeds: [embed]
+          embeds: [embed],
+          files: files.length > 0 ? files : undefined
         });
       }
     };
@@ -399,7 +486,7 @@ export default class DailyModule {
     const statsCommand = {
       data: new SlashCommandBuilder()
         .setName('daily-stats')
-        .setDescription('Xem thống kê điểm danh của bạn'),
+        .setDescription('📊 Xem thống kê điểm danh của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           // ⚡ DEFER IMMEDIATELY
@@ -465,7 +552,7 @@ export default class DailyModule {
     const leaderboardCommand = {
       data: new SlashCommandBuilder()
         .setName('daily-leaderboard')
-        .setDescription('Xem bảng xếp hạng điểm danh'),
+        .setDescription('🏆 Xem bảng xếp hạng điểm danh'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           // ⚡ DEFER IMMEDIATELY
@@ -484,7 +571,7 @@ export default class DailyModule {
         
         const description = leaderboard.map((entry, index) => {
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `**${index + 1}.**`;
-          return `${medal} <@${entry.user_id}> • 🔥 **${entry.streak}** ngày • ${emojis.chart} **${entry.total_checkins}** lần`;
+          return `${medal} <@${entry.user_id}> • ${emojis.fire} **${entry.streak}** ngày • ${emojis.chart} **${entry.total_checkins}** lần`;
         }).join('\n');
         
         const embed = new EmbedBuilder()

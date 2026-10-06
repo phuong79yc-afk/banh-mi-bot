@@ -1,0 +1,7 @@
+{
+  "task_id": "shop-upgrade",
+  "task_description": "Nâng cấp shop module với multi-currency (Cowoncy 💎, Vé Xanh 🎫, Vé Vàng 🏆), layout 3-cột, tags (BEST_SELLER, PREMIUM, NEW, LIMITED), và backward-compatible migration từ coins cũ sang cowoncy",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

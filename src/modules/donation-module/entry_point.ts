@@ -36,14 +36,20 @@ export default class DonationModule {
     const enableCommand = {
       data: new SlashCommandBuilder()
         .setName('donation-enable')
-        .setDescription('Bật theo dõi donation')
+        .setDescription('✅ Bật theo dõi donation')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         donationManager.updateConfig(interaction.guildId!, { enabled: true });
 
-        await interaction.reply({
-          content: '${emojis.success} Donation tracking enabled!',
-          flags: 64
+        await interaction.editReply({
+          content: `${emojis.success} Donation tracking enabled!`
         });
       }
     };
@@ -52,14 +58,20 @@ export default class DonationModule {
     const disableCommand = {
       data: new SlashCommandBuilder()
         .setName('donation-disable')
-        .setDescription('Tắt theo dõi donation')
+        .setDescription('❌ Tắt theo dõi donation')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         donationManager.updateConfig(interaction.guildId!, { enabled: false });
 
-        await interaction.reply({
-          content: '${emojis.success} Donation tracking disabled!',
-          flags: 64
+        await interaction.editReply({
+          content: `${emojis.success} Donation tracking disabled!`
         });
       }
     };
@@ -68,17 +80,17 @@ export default class DonationModule {
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('donation-add')
-        .setDescription('Thêm donation')
+        .setDescription('🎁 Thêm donation')
         .addUserOption(option =>
           option
             .setName('user')
-            .setDescription('Người đã donate')
+            .setDescription('👤 Người đã donate')
             .setRequired(true)
         )
         .addNumberOption(option =>
           option
             .setName('amount')
-            .setDescription('Số tiền donation')
+            .setDescription('💵 Số tiền donation')
             .setRequired(true)
             .setMinValue(0.01)
         )
@@ -89,12 +101,18 @@ export default class DonationModule {
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         const config = donationManager.getConfig(interaction.guildId!);
 
         if (!config.enabled) {
-          return interaction.reply({
-            content: '${emojis.error} Donation tracking is not enabled!',
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.error} Donation tracking is not enabled!`
           });
         }
 
@@ -103,9 +121,8 @@ export default class DonationModule {
 
         if (!donationManager.canReceive(interaction.guildId!, roleIds) && 
             !member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-          return interaction.reply({
-            content: '${emojis.error} You do not have permission to add donations!',
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.error} You do not have permission to add donations!`
           });
         }
 
@@ -149,7 +166,7 @@ export default class DonationModule {
           )
           .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
         // Send thank you message
         if (config.notificationChannelId) {
@@ -197,6 +214,13 @@ export default class DonationModule {
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         const user = interaction.options.getUser('user', true);
         const amount = interaction.options.getNumber('amount', true);
         const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -210,9 +234,8 @@ export default class DonationModule {
         );
 
         if (!donor) {
-          return interaction.reply({
-            content: '${emojis.error} User has no donation record!',
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.error} User has no donation record!`
           });
         }
 
@@ -227,7 +250,7 @@ export default class DonationModule {
           )
           .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
+        await interaction.editReply({ embeds: [embed] });
       }
     };
 
@@ -244,13 +267,19 @@ export default class DonationModule {
             .setMaxValue(25)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply();
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         const limit = interaction.options.getInteger('limit') || 10;
         const leaderboard = donationManager.getLeaderboard(interaction.guildId!, limit);
 
         if (leaderboard.length === 0) {
-          return interaction.reply({
-            content: 'No donations recorded yet!',
-            flags: 64
+          return interaction.editReply({
+            content: 'No donations recorded yet!'
           });
         }
 
@@ -276,7 +305,7 @@ export default class DonationModule {
           )
           .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
       }
     };
 
@@ -292,15 +321,21 @@ export default class DonationModule {
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         const user = interaction.options.getUser('user') || interaction.user;
         const donor = donationManager.getDonor(interaction.guildId!, user.id);
 
         if (!donor) {
-          return interaction.reply({
+          return interaction.editReply({
             content: user.id === interaction.user.id 
               ? 'You have no donation record yet!' 
-              : `${user} has no donation record yet!`,
-            flags: 64
+              : `${user} has no donation record yet!`
           });
         }
 
@@ -324,7 +359,7 @@ export default class DonationModule {
           )
           .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
+        await interaction.editReply({ embeds: [embed] });
       }
     };
 
@@ -389,6 +424,13 @@ export default class DonationModule {
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return;
+          throw error;
+        }
+        
         const subcommand = interaction.options.getSubcommand();
         const config = donationManager.getConfig(interaction.guildId!);
 
@@ -398,9 +440,8 @@ export default class DonationModule {
             config.receiverRoleIds.push(role.id);
             donationManager.updateConfig(interaction.guildId!, config);
           }
-          return interaction.reply({
-            content: `${emojis.success} Added ${role} as a receiver role!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Added ${role} as a receiver role!`
           });
         }
 
@@ -408,9 +449,8 @@ export default class DonationModule {
           const role = interaction.options.getRole('role', true);
           config.receiverRoleIds = config.receiverRoleIds.filter(id => id !== role.id);
           donationManager.updateConfig(interaction.guildId!, config);
-          return interaction.reply({
-            content: `${emojis.success} Removed ${role} from receiver roles!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Removed ${role} from receiver roles!`
           });
         }
 
@@ -418,36 +458,32 @@ export default class DonationModule {
           const role = interaction.options.getRole('role', true);
           const threshold = interaction.options.getNumber('threshold', true);
           donationManager.addRoleReward(interaction.guildId!, role.id, threshold);
-          return interaction.reply({
-            content: `${emojis.success} Added ${role} as a reward for $${threshold.toFixed(2)}!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Added ${role} as a reward for $${threshold.toFixed(2)}!`
           });
         }
 
         if (subcommand === 'remove-reward') {
           const role = interaction.options.getRole('role', true);
           donationManager.removeRoleReward(interaction.guildId!, role.id);
-          return interaction.reply({
-            content: `${emojis.success} Removed ${role} from role rewards!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Removed ${role} from role rewards!`
           });
         }
 
         if (subcommand === 'set-channel') {
           const channel = interaction.options.getChannel('channel', true);
           donationManager.updateConfig(interaction.guildId!, { notificationChannelId: channel.id });
-          return interaction.reply({
-            content: `${emojis.success} Set notification channel to <#${channel.id}>!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Set notification channel to <#${channel.id}>!`
           });
         }
 
         if (subcommand === 'set-message') {
           const message = interaction.options.getString('message', true);
           donationManager.updateConfig(interaction.guildId!, { thankYouMessage: message });
-          return interaction.reply({
-            content: `${emojis.success} Updated thank you message!`,
-            flags: 64
+          return interaction.editReply({
+            content: `${emojis.success} Updated thank you message!`
           });
         }
 
@@ -487,7 +523,7 @@ export default class DonationModule {
               }
             );
 
-          return interaction.reply({ embeds: [embed], flags: 64 });
+          return interaction.editReply({ embeds: [embed] });
         }
       }
     };

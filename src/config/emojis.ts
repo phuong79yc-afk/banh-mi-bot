@@ -63,6 +63,9 @@ export const EMOJI_IDS = {
   "id": "1555408162738282576",
   "gear": "1555432467442438174",
   "wrench": "1555432391105974342",
+  "ticket": "1556255994244501555",
+  "scroll": "1556501024896720956",
+  "ledger": "1556500307641376778",
 } as const;
 
 // Helper function to get emoji string (animated format)
@@ -130,4 +133,7 @@ export const emojis = {
   id: getEmoji('id'),
   gear: getEmoji('gear'),
   wrench: getEmoji('wrench'),
+  ticket: getEmoji('ticket'),
+  scroll: getEmoji('scroll'),
+  ledger: getEmoji('ledger'),
 } as const;

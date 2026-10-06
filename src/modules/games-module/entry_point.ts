@@ -36,25 +36,25 @@ export default class GamesModule {
     const gtnCommand = {
       data: new SlashCommandBuilder()
         .setName('gtn-start')
-        .setDescription('Bắt đầu trò chơi Đoán Số')
+        .setDescription('🎮 Bắt đầu trò chơi Đoán Số')
         .addIntegerOption(option =>
           option
             .setName('rounds')
-            .setDescription('Số vòng chơi (1-10)')
+            .setDescription('🔢 Số vòng chơi (1-10)')
             .setMinValue(1)
             .setMaxValue(10)
         )
         .addIntegerOption(option =>
           option
             .setName('duration')
-            .setDescription('Thời gian mỗi vòng (30-300 giây)')
+            .setDescription('⏱️ Thời gian mỗi vòng (30-300 giây)')
             .setMinValue(30)
             .setMaxValue(300)
         )
         .addIntegerOption(option =>
           option
             .setName('range')
-            .setDescription('Phạm vi số tối đa (10-1000)')
+            .setDescription('🎯 Phạm vi số tối đa (10-1000)')
             .setMinValue(10)
             .setMaxValue(1000)
         ),

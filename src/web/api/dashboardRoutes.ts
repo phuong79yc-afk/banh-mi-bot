@@ -202,5 +202,208 @@ export function createDashboardRoutes(client: Client): Router {
     });
   });
 
+  // ========================================
+  // QUEST, SHOP & USER DATA ROUTES
+  // ========================================
+  
+  // Get user coins (blue + gold)
+  router.get('/user/:userId/coins', (req: Request, res: Response) => {
+    const { userId } = req.params;
+    
+    try {
+      const Database = require('better-sqlite3');
+      const path = require('path');
+      const dbPath = path.join(process.cwd(), 'data', 'economy.db');
+      
+      const db = new Database(dbPath);
+      
+      // Get user data from database (balance = blue coins)
+      const row = db.prepare('SELECT balance, gold_balance FROM daily_users WHERE user_id = ?').get(userId);
+      
+      db.close();
+      
+      if (!row) {
+        return res.json({
+          success: true,
+          blueCoins: 0,
+          goldCoins: 0,
+          coins: 0 // legacy field
+        });
+      }
+      
+      res.json({
+        success: true,
+        blueCoins: row.balance || 0,
+        goldCoins: row.gold_balance || 0,
+        coins: row.balance || 0 // legacy field for backward compatibility
+      });
+    } catch (error) {
+      console.error('Error fetching coins:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch coins',
+        blueCoins: 0,
+        goldCoins: 0
+      });
+    }
+  });
+  
+  // Get user inventory
+  router.get('/user/:userId/inventory', (req: Request, res: Response) => {
+    const { userId } = req.params;
+    
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
+      
+      if (!fs.existsSync(inventoryPath)) {
+        return res.json({
+          success: true,
+          inventory: {}
+        });
+      }
+      
+      const data: any = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
+      const uid = userId as string;
+      const inventory = data[uid] || {};
+      
+      res.json({
+        success: true,
+        inventory: inventory
+      });
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch inventory'
+      });
+    }
+  });
+  
+  // Shop items endpoint removed - now handled by shopRoutes.ts at /api/shop/items
+  
+  // Get user quests
+  router.get('/user/:userId/quests', (req: Request, res: Response) => {
+    const { userId } = req.params;
+    
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const questsPath = path.join(process.cwd(), 'data', 'quests.json');
+      
+      if (!fs.existsSync(questsPath)) {
+        return res.json({
+          success: true,
+          daily: [],
+          weekly: [],
+          totalEarned: 0
+        });
+      }
+      
+      const data: any = JSON.parse(fs.readFileSync(questsPath, 'utf8'));
+      const userData = data[userId as string] || {};
+      
+      // Define available quests
+      const dailyQuests = [
+        { id: 'msg_10', text: 'Gửi 10 tin nhắn', target: 10, reward: 100, type: 'message' },
+        { id: 'msg_50', text: 'Gửi 50 tin nhắn', target: 50, reward: 500, type: 'message' },
+        { id: 'shop_3', text: 'Dùng /shop 3 lần', target: 3, reward: 150, type: 'command' },
+        { id: 'daily_1', text: 'Dùng /daily hôm nay', target: 1, reward: 200, type: 'command' }
+      ];
+      
+      const weeklyQuests = [
+        { id: 'msg_week', text: 'Gửi 200 tin nhắn trong tuần', target: 200, reward: 2000, type: 'message' },
+        { id: 'shop_week', text: 'Dùng /shop 10 lần trong tuần', target: 10, reward: 1500, type: 'command' }
+      ];
+      
+      // Get progress
+      const dailyProg = userData.quests?.daily?.prog || {};
+      const weeklProg = userData.quests?.weekly?.prog || {};
+      const dailyClaimed = userData.quests?.daily?.claimed || {};
+      const weeklyClaimed = userData.quests?.weekly?.claimed || {};
+      
+      const dailyWithProgress = dailyQuests.map(q => ({
+        ...q,
+        progress: dailyProg[q.id] || 0,
+        claimed: dailyClaimed[q.id] || false,
+        completed: (dailyProg[q.id] || 0) >= q.target
+      }));
+      
+      const weeklyWithProgress = weeklyQuests.map(q => ({
+        ...q,
+        progress: weeklProg[q.id] || 0,
+        claimed: weeklyClaimed[q.id] || false,
+        completed: (weeklProg[q.id] || 0) >= q.target
+      }));
+      
+      res.json({
+        success: true,
+        daily: dailyWithProgress,
+        weekly: weeklyWithProgress,
+        totalEarned: (userData.quests?.daily?.earned || 0) + (userData.quests?.weekly?.earned || 0)
+      });
+    } catch (error) {
+      console.error('Error fetching quests:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch quests'
+      });
+    }
+  });
+  
+  // Get user premium status
+  router.get('/user/:userId/premium', (req: Request, res: Response) => {
+    const { userId } = req.params;
+    
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const premiumPath = path.join(process.cwd(), 'data', 'premium.json');
+      
+      if (!fs.existsSync(premiumPath)) {
+        return res.json({
+          success: true,
+          isPremium: false,
+          tier: 'free',
+          expiresAt: null,
+          benefits: []
+        });
+      }
+      
+      const data: any = JSON.parse(fs.readFileSync(premiumPath, 'utf8'));
+      const uid = userId as string;
+      const premiumData = data[uid];
+      
+      if (!premiumData) {
+        return res.json({
+          success: true,
+          isPremium: false,
+          tier: 'free',
+          expiresAt: null,
+          benefits: []
+        });
+      }
+      
+      // Check if premium expired
+      const now = Date.now();
+      const isPremium = premiumData.expiresAt ? premiumData.expiresAt > now : true;
+      
+      res.json({
+        success: true,
+        isPremium: isPremium,
+        tier: isPremium ? (premiumData.tier || 'premium') : 'free',
+        expiresAt: premiumData.expiresAt || null,
+        benefits: isPremium ? (premiumData.benefits || []) : []
+      });
+    } catch (error) {
+      console.error('Error fetching premium status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch premium status'
+      });
+    }
+  });
+
   return router;
 }

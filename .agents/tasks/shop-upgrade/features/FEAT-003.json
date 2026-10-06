@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Update purchase logic để support multi-currency payment: users chọn currency để trả (cowoncy, blueTicket, hoặc goldTicket) khi mua item. Kiểm tra balance đủ không, trừ tiền từ currency đã chọn, update inventory. Thêm purchase history và transaction log. Feature này phụ thuộc vào FEAT-001 (multi-currency system) và FEAT-002 (pricing đã được define).",
+  "status": "pending",
+  "steps": [
+    "1. Update shop collector trong /shop command: khi user click select menu, hiển thị 3 buttons để chọn currency (💎 Cowoncy | 🎫 Vé Xanh | 🏆 Vé Vàng)",
+    "2. Implement currency selection: tạo ButtonBuilder cho 3 currencies với customId: purchase_<itemId>_<currency>",
+    "3. Update purchase logic: đọc currency từ button customId, lấy giá tương ứng từ item.prices[currency]",
+    "4. Check balance: getUserBalance(userId, currency) >= item.prices[currency]",
+    "5. Nếu đủ tiền: removeCurrency(userId, item.prices[currency], currency), addToInventory(userId, itemId), assign Discord role",
+    "6. Nếu không đủ: hiển thị error embed với balance hiện tại và số tiền còn thiếu",
+    "7. Tạo purchase confirmation embed: hiển thị item đã mua, currency đã dùng, số tiền trả, balance còn lại cả 3 currencies",
+    "8. Implement transaction log: tạo data/transactions.json với structure { userId, itemId, currency, amount, timestamp }",
+    "9. Log mọi transaction thành công vào transactions.json để tracking",
+    "10. Update /revoke command: khi admin revoke role, KHÔNG hoàn tiền (theo policy hiện tại), chỉ remove role và inventory",
+    "11. Thêm purchase history command /history (optional): hiển thị 10 transactions gần nhất của user"
+  ],
+  "acceptance_criteria": [
+    "User có thể chọn currency để trả khi mua item (3 buttons hiển thị sau khi chọn item)",
+    "Purchase logic kiểm tra đúng balance theo currency đã chọn",
+    "Trừ tiền từ đúng currency, cộng item vào inventory, assign role",
+    "Error handling khi không đủ tiền: hiển thị rõ ràng balance và thiếu bao nhiêu",
+    "Confirmation embed hiển thị đầy đủ: item, currency paid, amount, remaining balance (cả 3 currencies)",
+    "Transactions được log đầy đủ vào transactions.json",
+    "/revoke vẫn hoạt động bình thường (không hoàn tiền)",
+    "VIP roles (LIMITED) vẫn giữ privileges: /nickname + /customrole + x2 coins từ /daily"
+  ],
+  "verification": [
+    "npm run build - build thành công",
+    "Test purchase với cowoncy: chọn item, chọn 💎 Cowoncy, verify trừ đúng số tiền, role được add",
+    "Test purchase với blueTicket: verify trừ từ blueTicket balance, giá đúng theo ratio",
+    "Test purchase với goldTicket: verify trừ từ goldTicket balance",
+    "Test không đủ tiền: chọn item đắt, verify error message hiển thị đúng",
+    "Test confirmation embed: verify hiển thị đầy đủ thông tin purchase",
+    "Verify transactions.json: check log entries có đúng format và timestamp",
+    "Test /revoke: admin revoke role, verify role removed, inventory cleared, KHÔNG hoàn tiền",
+    "Test VIP privileges vẫn hoạt động sau khi purchase LIMITED role"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

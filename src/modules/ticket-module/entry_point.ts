@@ -49,12 +49,12 @@ export default class TicketModule {
     const setupCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-setup')
-        .setDescription('Thiết lập hệ thống ticket lần đầu')
+        .setDescription('⚙️ Thiết lập hệ thống ticket lần đầu')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addBooleanOption(option =>
           option
             .setName('force')
-            .setDescription('Buộc setup lại từ đầu (xóa config cũ)')
+            .setDescription('🔄 Buộc setup lại từ đầu (xóa config cũ)')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -165,7 +165,7 @@ export default class TicketModule {
 
         const supportRole = await interaction.guild?.roles.create({
           name: 'Hỗ trợ Ticket',
-          color: 0x1ABC9C,
+          colors: { primaryColor: 0x1ABC9C },
           permissions: [],
           mentionable: true
         });

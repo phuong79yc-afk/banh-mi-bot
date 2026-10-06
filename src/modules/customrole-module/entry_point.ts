@@ -147,7 +147,7 @@ export default class CustomRoleModule {
         try {
           const role = await interaction.guild!.roles.create({
             name,
-            color: color as ColorResolvable,
+            colors: color ? { primaryColor: color as ColorResolvable } : undefined,
             reason: `Custom role created by admin for ${user.tag}`
           });
 

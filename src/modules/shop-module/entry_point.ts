@@ -72,7 +72,7 @@ const SHOP_ITEMS: ShopItem[] = [
     id: 'chutiem',
     name: 'Chủ Tiệm',
     description: '👑 Role đỏ độc nhất - Ông chủ của tiệm bánh cuốn\n🎁 Daily bonus: +10% xu',
-    price: 200000,
+    price: 500000,
     emoji: '🏪',
     tag: 'EXCLUSIVE',
     category: 'bot-roles',
@@ -471,50 +471,59 @@ export default class ShopModule {
     const shopCommand = {
       data: new SlashCommandBuilder()
         .setName('shop')
-        .setDescription('Xem shop và mua bot roles'),
+        .setDescription('🛒 Xem shop và mua bot roles'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        // Check if already deferred/replied (by hook or other code)
-        if (!interaction.deferred && !interaction.replied) {
+        try {
+          // Track quest progress (dynamic import to avoid circular dependency)
           try {
-            await interaction.deferReply();
-          } catch (error: any) {
-            if (error.code === 10062 || error.code === 40060) return;
-            throw error;
-          }
-        }
-        
-        const userId = interaction.user.id;
-        const shopData = buildShop(interaction.client, userId);
-        
-        const response = await interaction.editReply(shopData);
-        
-        // Collector
-        const collector = response.createMessageComponentCollector({
-          time: 300000
-        });
-        
-        collector.on('collect', async i => {
-          if (i.user.id !== interaction.user.id) {
-            await i.reply({
-              content: `❌ Bạn không thể dùng shop này!`,
-              flags: 64
-            });
-            return;
+            const { trackCommand } = await import('../quest-module/entry_point');
+            trackCommand(interaction.user.id, 'shop');
+          } catch (err) {
+            console.error('Failed to track quest:', err);
           }
           
-          // Pagination button
-          if (i.customId.startsWith('shop_page:')) {
-            const targetPage = parseInt(i.customId.split(':')[1]);
-            await i.update(buildShop(i.client, userId, targetPage));
-            return;
+          // Check if already deferred/replied (by hook or other code)
+          if (!interaction.deferred && !interaction.replied) {
+            try {
+              await interaction.deferReply();
+            } catch (error: any) {
+              if (error.code === 10062 || error.code === 40060) return;
+              throw error;
+            }
           }
           
-          // Refresh button
-          if (i.customId.startsWith('shop_refresh:')) {
-            const currentPage = parseInt(i.customId.split(':')[1]);
-            await i.update(buildShop(i.client, userId, currentPage));
-            return;
-          }
+          const userId = interaction.user.id;
+          const shopData = buildShop(interaction.client, userId, 1);
+          
+          const response = await interaction.editReply(shopData);
+          
+          // Collector
+          const collector = response.createMessageComponentCollector({
+            time: 300000
+          });
+          
+          collector.on('collect', async i => {
+            if (i.user.id !== interaction.user.id) {
+              await i.reply({
+                content: `❌ Bạn không thể dùng shop này!`,
+                flags: 64
+              });
+              return;
+            }
+            
+            // Pagination button
+            if (i.customId.startsWith('shop_page:')) {
+              const targetPage = parseInt(i.customId.split(':')[1]);
+              await i.update(buildShop(i.client, userId, targetPage));
+              return;
+            }
+            
+            // Refresh button
+            if (i.customId.startsWith('shop_refresh:')) {
+              const currentPage = parseInt(i.customId.split(':')[1]);
+              await i.update(buildShop(i.client, userId, currentPage));
+              return;
+            }
           
           // VIP Info button
           if (i.customId === 'shop_vipinfo') {
@@ -655,6 +664,20 @@ export default class ShopModule {
             components: []
           }).catch(() => {});
         });
+        } catch (error: any) {
+          console.error('[Shop] Error in shop command:', error);
+          const errorMsg = `${emojis.error} Có lỗi xảy ra khi mở shop! Thử lại sau nhé.`;
+          
+          try {
+            if (interaction.deferred || interaction.replied) {
+              await interaction.editReply({ content: errorMsg });
+            } else {
+              await interaction.reply({ content: errorMsg, flags: 64 });
+            }
+          } catch (replyError) {
+            console.error('[Shop] Failed to send error message:', replyError);
+          }
+        }
       }
     };
 
@@ -662,7 +685,7 @@ export default class ShopModule {
     const inventoryCommand = {
       data: new SlashCommandBuilder()
         .setName('inventory')
-        .setDescription('Xem inventory của bạn'),
+        .setDescription('🎒 Xem inventory của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         if (!interaction.deferred && !interaction.replied) {
           try {
@@ -715,11 +738,11 @@ export default class ShopModule {
     const balanceCommand = {
       data: new SlashCommandBuilder()
         .setName('balance')
-        .setDescription('Xem số dư tiền')
+        .setDescription('💰 Xem số dư tiền')
         .addUserOption(option =>
           option
             .setName('user')
-            .setDescription('User cần xem')
+            .setDescription('👤 User cần xem')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -733,35 +756,44 @@ export default class ShopModule {
         }
         
         const targetUser = interaction.options.getUser('user') || interaction.user;
+        
+        // Check if bot
+        if (targetUser.bot) {
+          return interaction.editReply({
+            content: 'Bot không có tài khoản xu.'
+          });
+        }
+
+        // Get member - handle both slash and prefix commands
+        let member: any = null;
+        try {
+          member = interaction.options?.getMember?.('user') || interaction.member;
+        } catch (e) {
+          // Prefix command - get member from guild
+          if (interaction.guild) {
+            member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+          }
+        }
+        
+        const name = member?.displayName ?? targetUser.username;
+        
+        // Get balance from coins.json (shop uses coins.json for cowoncy)
         const bal = getUserBalance(targetUser.id);
         
-        // Load banner
-        const bannerPath = path.join(process.cwd(), 'assets', 'banners', 'balance-banner.gif');
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'balance-banner.gif' });
-        
-        const embed = new EmbedBuilder()
-          .setColor('#FFD700')
-          .setImage('attachment://balance-banner.gif')
-          .setAuthor({
-            name: `${targetUser.username}'s Balance`,
-            iconURL: targetUser.displayAvatarURL()
-          })
-          .setDescription(
-            `╔═══════════════════════════════╗\n` +
-            `║   ${emojis.coin} YOUR BALANCE             ║\n` +
-            `╚═══════════════════════════════╝\n\n` +
-            `${emojis.coin} Coin:      ${formatNumber(bal.cowoncy)}\n` +
-            `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `${emojis.info} Kiếm thêm tiền:\n` +
-            `• /daily - Điểm danh hàng ngày\n` +
-            `• /quest - Hoàn thành nhiệm vụ`
-          )
-          .setFooter({ text: `Requested by ${interaction.user.tag}` })
-          .setTimestamp();
+        // Get daily data for streak info
+        const Database = require('better-sqlite3');
+        const dbPath = path.join(process.cwd(), 'data', 'economy.db');
+        const db = new Database(dbPath);
+        const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
+        const stmtEnsure = db.prepare(`
+          INSERT OR IGNORE INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins)
+          VALUES (?, 0, 0, 0, 0, 0)
+        `);
+        stmtEnsure.run(targetUser.id);
+        const dailyData: any = stmtGetUser.get(targetUser.id);
         
         await interaction.editReply({
-          embeds: [embed],
-          files: [bannerAttachment]
+          content: `${emojis.coin} | **${name}** đang có **${formatNumber(bal.cowoncy)}** ${emojis.coin} · **${dailyData?.gold_balance || 0}** ${emojis.gem} | ${emojis.fire} Streak: ${dailyData?.streak || 0} ngày · ${emojis.chart} Check-ins: ${dailyData?.total_checkins || 0} lần`
         });
       }
     };
@@ -770,7 +802,7 @@ export default class ShopModule {
     const revokeCommand = {
       data: new SlashCommandBuilder()
         .setName('revoke')
-        .setDescription(`${emojis.refresh} Thu hồi role đã mua (Admin only)`)
+        .setDescription(`🔄 Thu hồi role đã mua (Admin only)`)
         .addUserOption(option =>
           option
             .setName('user')

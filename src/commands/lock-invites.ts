@@ -3,33 +3,41 @@ import { emojis } from '../config/emojis';
 
 export const data = new SlashCommandBuilder()
   .setName('lock-invites')
-  .setDescription('Khóa/mở khóa tất cả invite links / Lock/unlock all invite links')
+  .setDescription('🔒 Khóa/mở khóa tất cả invite links')
   .addSubcommand(subcommand =>
     subcommand
       .setName('lock')
-      .setDescription('Vô hiệu hóa tất cả invite links / Disable all invite links')
+      .setDescription('🔐 Vô hiệu hóa tất cả invite links')
       .addBooleanOption(option =>
         option
           .setName('delete_existing')
-          .setDescription('Xóa tất cả invite hiện có / Delete all existing invites')
+          .setDescription('🗑️ Xóa tất cả invite hiện có')
           .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('unlock')
-      .setDescription('Cho phép tạo invite links lại / Allow creating invite links again')
+      .setDescription('🔓 Cho phép tạo invite links lại')
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('status')
-      .setDescription('Kiểm tra trạng thái invite lock / Check invite lock status')
+      .setDescription('🔍 Kiểm tra trạng thái invite lock')
   );
 
 // Store lock state per guild
 const inviteLockState = new Map<string, boolean>();
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  // Defer immediately to prevent timeout
+  try {
+    await interaction.deferReply();
+  } catch (error: any) {
+    if (error.code === 10062) return;
+    throw error;
+  }
+
   if (!interaction.guild) {
     return interaction.editReply({ content: `${emojis.error} Lệnh này chỉ dùng trong máy chủ!` });
   }
@@ -43,10 +51,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === 'lock') {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply();
-    }
-
     const deleteExisting = interaction.options.getBoolean('delete_existing') || false;
 
     try {
@@ -114,9 +118,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       await interaction.editReply({ content: `${emojis.error} Lỗi khi khóa invites: ${error.message}` });
     }
   } else if (subcommand === 'unlock') {
-    if (!interaction.deferred && !interaction.replied) {
-    }
-
     try {
       const channels = await interaction.guild.channels.fetch();
       let unlockedCount = 0;

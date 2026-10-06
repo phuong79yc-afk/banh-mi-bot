@@ -1,0 +1,39 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Thêm multi-currency system với 3 loại tiền (Cowoncy 💎, Vé Xanh 🎫, Vé Vàng 🏆) và backward-compatible migration từ coins.json sang currencies.json. Migration tự động chuyển coins cũ thành cowoncy khi lần đầu load data. Đây là nền tảng cho tất cả features khác nên phải hoàn thành trước.",
+  "status": "pending",
+  "steps": [
+    "1. Tạo interface CurrencyBalance trong src/modules/coins-module/entry_point.ts: { cowoncy: number, blueTicket: number, goldTicket: number }",
+    "2. Tạo data/currencies.json với structure { [userId]: CurrencyBalance } nếu chưa tồn tại",
+    "3. Viết migration function migrateCoinsToCurrencies() để đọc data/coins.json, chuyển coins thành cowoncy (1:1 ratio), ghi vào currencies.json, backup coins.json thành coins.json.bak",
+    "4. Update loadCoins() thành loadCurrencies(): CurrencyData và saveCurrencies(data)",
+    "5. Update getUserCoins() thành getUserBalance(userId, currency?: 'cowoncy'|'blueTicket'|'goldTicket'): number, default = 'cowoncy'",
+    "6. Update addCoins/removeCoins thành addCurrency/removeCurrency với currency parameter",
+    "7. Update setCoins thành setCurrency với currency parameter",
+    "8. Chạy migration tự động khi module initialize nếu currencies.json không tồn tại nhưng coins.json tồn tại",
+    "9. Update /coins check subcommand để hiển thị cả 3 loại tiền trong 1 embed với Unicode box drawing",
+    "10. Update /coins add/remove/set subcommands để có thêm option chọn currency type (default = cowoncy cho backward compatibility)",
+    "11. Update /coins leaderboard để hiển thị top theo từng currency type (thêm currency option)"
+  ],
+  "acceptance_criteria": [
+    "File currencies.json được tạo với đúng structure CurrencyBalance",
+    "Migration chuyển đổi thành công coins.json sang currencies.json và backup",
+    "Tất cả functions coins cũ vẫn hoạt động với cowoncy làm default",
+    "/coins check hiển thị đẹp cả 3 loại tiền với box drawing",
+    "/coins add/remove/set có option currency hoạt động đúng",
+    "/coins leaderboard có option currency và hiển thị top 10 đúng",
+    "Existing users với coins cũ được auto-migrate sang cowoncy"
+  ],
+  "verification": [
+    "npm run build - build thành công không lỗi",
+    "Test migration: backup data/coins.json, xóa currencies.json, chạy bot, verify currencies.json được tạo với data từ coins.json",
+    "Test /coins check - hiển thị cả 3 loại tiền",
+    "Test /coins add user:@test amount:100 currency:blueTicket - cộng đúng",
+    "Test /coins remove user:@test amount:50 currency:goldTicket - trừ đúng",
+    "Test /coins leaderboard currency:cowoncy - hiển thị top 10",
+    "Test backward compatibility: user cũ vẫn thấy cowoncy balance"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

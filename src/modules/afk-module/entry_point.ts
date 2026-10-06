@@ -36,17 +36,17 @@ export default class AFKModule {
     const afkCommand = {
       data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Đặt trạng thái AFK')
+        .setDescription('💤 Đặt trạng thái AFK')
         .addStringOption(option =>
           option
             .setName('reason')
-            .setDescription('Lý do AFK')
+            .setDescription('📝 Lý do AFK')
             .setRequired(false)
         )
         .addBooleanOption(option =>
           option
             .setName('silent')
-            .setDescription('Thực hiện lệnh này trong chế độ im lặng')
+            .setDescription('🔇 Thực hiện lệnh này trong chế độ im lặng')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -73,7 +73,7 @@ export default class AFKModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-remove')
-        .setDescription('Xóa trạng thái AFK'),
+        .setDescription('❌ Xóa trạng thái AFK'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const afkUser = afkManager.removeAFK(interaction.guildId!, interaction.user.id);
 
@@ -97,7 +97,7 @@ export default class AFKModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-list')
-        .setDescription('Xem danh sách người dùng AFK trong server'),
+        .setDescription('📃 Xem danh sách người dùng AFK trong server'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const allAFK = afkManager.getAllAFK();
         const guildAFK = allAFK.filter(a => a.guildId === interaction.guildId);

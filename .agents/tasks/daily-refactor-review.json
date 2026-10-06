@@ -1,0 +1,10 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Migration field name mismatch — JSON contains `current_streak` for one user and `streak` for another (also `last_checkin_date` vs `lastDaily`). Migration reads `userData.streak` but one user has `current_streak`. Normalize the read to check both field names or run a one-time script to standardize daily.json before deploying.",
+    "Literal fire emoji in leaderboard — Line 488 uses `🔥` instead of `emojis.fire`. Replace with `${emojis.fire}` for consistency with the rest of the module.",
+    "Placeholder banner URL — All three embeds use `https://i.imgur.com/placeholder.png`. Replace with the actual banner URL or remove `.setImage()` if no banner is intended.",
+    "SQL comment mismatch — Line 343 says \"Increments by 1 in the SQL trigger\" but there is no trigger in the schema. The increment happens via `total_checkins + 1` in the UPDATE clause. Remove or correct the comment."
+  ],
+  "reviewDoc": "c:\\projects\\code\\.agents\\tasks\\daily-refactor-review.md"
+}

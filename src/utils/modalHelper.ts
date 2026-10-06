@@ -86,12 +86,12 @@ export class ModalHelper {
           new ButtonBuilder()
             .setCustomId('modal_mute')
             .setLabel('Mute')
-            .setEmoji('🔇')
+            .setEmoji('<a:mute:1555853916405628998>')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_unmute')
             .setLabel('Unmute')
-            .setEmoji('🔊')
+            .setEmoji('<a:unmute:1555853968154824784>')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_clear')
@@ -704,7 +704,7 @@ export class ModalHelper {
 
       // MORE MODERATION
       case 'mute':
-        modal.setCustomId('modal_submit_mute').setTitle('🔇 Mute User');
+        modal.setCustomId('modal_submit_mute').setTitle('Mute User');
         modal.addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
@@ -724,7 +724,7 @@ export class ModalHelper {
         break;
 
       case 'unmute':
-        modal.setCustomId('modal_submit_unmute').setTitle('🔊 Unmute User');
+        modal.setCustomId('modal_submit_unmute').setTitle('Unmute User');
         modal.addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
@@ -737,7 +737,7 @@ export class ModalHelper {
         break;
 
       case 'unban':
-        modal.setCustomId('modal_submit_unban').setTitle('✅ Unban User');
+        modal.setCustomId('modal_submit_unban').setTitle('Unban User');
         modal.addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()

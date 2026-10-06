@@ -1,0 +1,13 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Channel filter never triggers — All quest definitions leave channelId undefined, so the channel filter in trackProgress() (line 148) never restricts message tracking to a specific channel. Either remove the filter or populate channelId in quest definitions (confirmed).",
+    "Weekly Monday offset is correct but opaque — The formula (dayOfWeek + 6) % 7 correctly maps Sunday (0) to 6 and advances Monday to 0, but the modular arithmetic is harder to read than (dayOfWeek === 0 ? 6 : dayOfWeek - 1). Consider adding a comment or simplifying (confirmed).",
+    "Cap clipping is silent during partial claims — When the daily cap clips a quest reward mid-claim, the user receives a generic 'daily limit reached' message but not the specific amount clipped per quest. A user claiming 3 quests worth 100, 200, 300 with only 250 room left sees 'gained 250' and may not realize the 300-reward quest was clipped to 50. Add per-quest clipping detail or make the message more explicit (likely).",
+    "No migration path from old schema — The old quests.json uses { quests: { questId: { progress, completed } }, totalCompleted, totalRewards, lastReset }. The new code expects { quests: { daily: { key, prog, claimed, earned }, weekly: { ... } }, done, book }. Users with existing quest data will lose all progress on first load. Add a migration check in loadUser() or document the breaking change (confirmed).",
+    "Room calculation fails after first clip — When claiming multiple quests with a cap, the code writes room = isFinite(room) ? room - reward : Infinity. If room is finite and reward exceeds room, the subtraction goes negative. The next quest will see negative room and clip incorrectly. Fix: room = isFinite(room) ? Math.max(0, room - reward) : Infinity (confirmed).",
+    "trackProgress reads user twice per call — trackProgress() calls loadUser(userId) at the start (line 140), then getSlot() calls loadUser(userId) again (line 117). The first load is unused; the function should call getSlot() directly and rely on its internal load (confirmed).",
+    "StringSelectMenu custom ID embeds stale period — The custom ID is quest:view:${user.id}:${period}, where period is the current period when the menu was built (line 205). When the user switches from daily to weekly, the collector reads periodFromId from the custom ID (line 243) but never uses it for the view action. The view handler reads the new period from i.values[0] (line 248), so the stale period in the ID is dead data. Remove it or use it consistently (confirmed)."
+  ],
+  "reviewDoc": "c:\\projects\\code\\.agents\\tasks\\quest-refactor-review.md"
+}

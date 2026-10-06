@@ -90,7 +90,7 @@ export function createEnhancedEmbed(options: EnhancedEmbedOptions): EmbedBuilder
 export const EmbedTemplates = {
   success: (title: string, description: string) =>
     createEnhancedEmbed({
-      title: `✅ ${title}`,
+      title: `<a:white_check_mark:1555921911395909722> ${title}`,
       description,
       color: 'success',
     }),

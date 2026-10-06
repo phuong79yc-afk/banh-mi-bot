@@ -29,24 +29,24 @@ export default class AutoresponderModule {
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-add')
-        .setDescription('Thêm tự động trả lời')
+        .setDescription('➕ Thêm tự động trả lời')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addStringOption(option =>
           option
             .setName('trigger')
-            .setDescription('Từ khóa kích hoạt')
+            .setDescription('🔑 Từ khóa kích hoạt')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('response')
-            .setDescription('Nội dung trả lời')
+            .setDescription('💬 Nội dung trả lời')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('mode')
-            .setDescription('Chế độ khớp')
+            .setDescription('⚙️ Chế độ khớp')
             .setRequired(false)
             .addChoices(
               { name: 'Bằng nhau', value: 'equal' },
@@ -58,7 +58,7 @@ export default class AutoresponderModule {
         .addBooleanOption(option =>
           option
             .setName('ignorecase')
-            .setDescription('Bỏ qua chữ hoa/thường')
+            .setDescription('🔤 Bỏ qua chữ hoa/thường')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -105,12 +105,12 @@ export default class AutoresponderModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-remove')
-        .setDescription('Xóa tự động trả lời')
+        .setDescription('➖ Xóa tự động trả lời')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addStringOption(option =>
           option
             .setName('trigger')
-            .setDescription('Từ khóa kích hoạt')
+            .setDescription('🔑 Từ khóa kích hoạt')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -136,7 +136,7 @@ export default class AutoresponderModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-list')
-        .setDescription('Xem danh sách tự động trả lời'),
+        .setDescription('📃 Xem danh sách tự động trả lời'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const autoresponders = autoresponderManager.getAll(interaction.guildId!);
 
@@ -167,11 +167,11 @@ export default class AutoresponderModule {
     const viewCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-view')
-        .setDescription('Xem chi tiết tự động trả lời')
+        .setDescription('🔍 Xem chi tiết tự động trả lời')
         .addStringOption(option =>
           option
             .setName('trigger')
-            .setDescription('Từ khóa kích hoạt')
+            .setDescription('🔑 Từ khóa kích hoạt')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {

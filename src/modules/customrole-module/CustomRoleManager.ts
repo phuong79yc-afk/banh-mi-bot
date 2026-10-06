@@ -123,7 +123,7 @@ class CustomRoleManager {
         // Create role in new guild
         const newRole = await toGuild.roles.create({
           name: roleData.name,
-          color: roleData.color as ColorResolvable,
+          colors: roleData.color ? { primaryColor: roleData.color as ColorResolvable } : undefined,
           reason: `Migrated from ${fromGuild.name}`
         });
 

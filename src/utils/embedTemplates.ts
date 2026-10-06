@@ -65,7 +65,7 @@ export class EmbedTemplates {
     const embed = new EmbedBuilder()
       .setColor(color || this.COLORS.SUCCESS)
       .setAuthor({
-        name: `✅ ${action} Successfully`,
+        name: `<a:white_check_mark:1555921911395909722> ${action} Successfully`,
         iconURL: targetUser.displayAvatarURL()
       })
       .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))

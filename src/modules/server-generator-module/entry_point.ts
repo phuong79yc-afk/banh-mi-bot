@@ -48,17 +48,17 @@ export default class ServerGeneratorModule {
       
       // Check admin permission
       if (!message.member?.permissions.has(PermissionFlagsBits.Administrator)) {
-        return message.reply(`${emojis.error} Bạn cần quyền Administrator!`);
+        return message.reply(`❌ Bạn cần quyền Administrator!`);
       }
 
       const prompt = message.content.slice(5).trim();
       if (prompt.length < 10) {
-        return message.reply(`${emojis.error} Prompt quá ngắn! Tối thiểu 10 ký tự.\n\nVí dụ: \`!gen gaming cute Vietnam\``);
+        return message.reply(`❌ Prompt quá ngắn! Tối thiểu 10 ký tự.\n\nVí dụ: \`!gen gaming cute Vietnam\``);
       }
 
-      console.log(`${emojis.art} Text command by ${message.author.tag}: ${prompt.substring(0, 100)}`);
+      console.log(`🎨 Text command by ${message.author.tag}: ${prompt.substring(0, 100)}`);
       
-      const reply = await message.reply(`${emojis.loading} Đang generate với AI...`);
+      const reply = await message.reply(`⏳ Đang generate với AI...`);
       
       // Call generation directly
       try {
@@ -468,21 +468,28 @@ Remember: Less is more. Only decorate when the user wants it!`;
     const generatorCommand = {
       data: new SlashCommandBuilder()
         .setName('generator')
-        .setDescription(`${emojis.sparkles} Tạo cấu trúc Discord server bằng AI`)
+        .setDescription(`✨ Tạo cấu trúc Discord server bằng AI 🎨`)
         .addStringOption(option =>
           option
             .setName('prompt')
-            .setDescription('Mô tả server (Ví dụ: gaming cute, VN English voice)')
+            .setDescription('🎯 Mô tả server (Ví dụ: gaming cute, VN English voice)')
             .setRequired(true) // Required to avoid modal timeout
             .setMaxLength(500)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
+        // Defer NGAY từ đầu để tránh timeout
+        try {
+          await interaction.deferReply({ flags: 64 });
+        } catch (error: any) {
+          if (error.code === 10062) return; // Already expired
+          throw error;
+        }
+        
         if (!interaction.guild) {
-          return interaction.reply({
-            content: `${emojis.error} **Lỗi!** Command chỉ dùng trong server!`,
-            flags: 64
+          return interaction.editReply({
+            content: `❌ **Lỗi!** Command chỉ dùng trong server!`
           });
         }
 
@@ -490,16 +497,13 @@ Remember: Less is more. Only decorate when the user wants it!`;
         
         // Kiểm tra nếu không có prompt
         if (!promptOption) {
-          return interaction.reply({
-            content: `${emojis.warning} **Thiếu prompt!**\n\nVui lòng nhập mô tả server:\n\`\`\`\n/generator prompt:server gaming VN\n\`\`\`\nHoặc dùng text command:\n\`\`\`\n!gen server gaming VN\n\`\`\``,
-            flags: 64
+          return interaction.editReply({
+            content: `⚠️ **Thiếu prompt!**\n\nVui lòng nhập mô tả server:\n\`\`\`\n/generator prompt:server gaming VN\n\`\`\`\nHoặc dùng text command:\n\`\`\`\n!gen server gaming VN\n\`\`\``
           });
         }
         
         // User provided prompt - process directly
         console.log(`${emojis.art} Generator by ${interaction.user.tag}: ${promptOption.substring(0, 100)}`);
-        
-        await interaction.deferReply({ flags: 64 });
         
         try {
           // Call generation directly
@@ -518,11 +522,11 @@ Remember: Less is more. Only decorate when the user wants it!`;
               .setAccentColor(0xED4245)
               .addTextDisplayComponents(
                 (text) => text.setContent(
-                  `# ${emojis.error} Lỗi AI!\n\n` +
-                  `${emojis.warning} Không thể tạo server design\n\n` +
+                  `# ❌ Lỗi AI!\n\n` +
+                  `⚠️ Không thể tạo server design\n\n` +
                   `━━━━━━━━━━━━━━━━━━━━\n\n` +
                   `**Error:**\n\`\`\`\n${error.message}\`\`\`\n\n` +
-                  `${emojis.info} *Vui lòng thử lại sau*`
+                  `ℹ️ *Vui lòng thử lại sau*`
                 )
               );
             

@@ -1,0 +1,54 @@
+======================================
+  CÁCH THÊM ẢNH CHO LỆNH /DAILY
+======================================
+
+📁 Đặt ảnh ở đâu?
+-----------------
+Folder này: c:\projects\code\assets\
+
+📝 Tên files phải đúng:
+----------------------
+✅ daily-icon.png       (Icon nhỏ, 256x256px)
+✅ daily-banner.png     (Banner lớn, 1200x300px)
+   hoặc daily-banner.gif (có thể dùng GIF animated)
+
+📐 Kích thước khuyến nghị:
+--------------------------
+- daily-icon.png: 256x256 pixels (vuông)
+- daily-banner.png: 1200x300 pixels (ngang)
+
+🎨 Format hỗ trợ:
+-----------------
+✅ PNG (tốt nhất cho icon)
+✅ GIF (cho animated)
+✅ JPEG (cho ảnh thật)
+
+📦 Kích thước file:
+-------------------
+- Tối đa 8MB mỗi file
+- Nên giữ dưới 1MB để load nhanh
+
+⚡ Sau khi thêm ảnh:
+-------------------
+1. Rebuild bot:
+   npm run build
+
+2. Restart bot:
+   npm start
+
+3. Test với lệnh /daily trong Discord
+
+✅ HOÀN THÀNH!
+
+======================================
+
+💡 TIP: Nếu muốn dùng ảnh online (dễ hơn):
+1. Upload ảnh lên imgur.com
+2. Copy link (ví dụ: https://i.imgur.com/abc123.png)
+3. Mở file .env
+4. Thêm dòng:
+   DAILY_THUMBNAIL=https://i.imgur.com/abc123.png
+   DAILY_BANNER=https://i.imgur.com/def456.gif
+5. Restart bot
+
+======================================

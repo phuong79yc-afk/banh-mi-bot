@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quests - Bánh Cuốn Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e1a;--surface:#111827;--surface-2:#1f2937;--border:#374151;--text:#f9fafb;--text-2:#e5e7eb;--text-3:#9ca3af;--primary:#8b5cf6;--primary-hover:#7c3aed;--primary-light:rgba(139,92,246,0.1);--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--shadow:0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3)}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+.app{display:flex;min-height:100vh}
+.sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;overflow-y:auto}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+.logo-area{padding:24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--primary),#a78bfa);border-radius:12px;display:grid;place-items:center;font-weight:900;font-size:18px;box-shadow:0 0 20px rgba(139,92,246,0.4)}
+.logo-text{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+.nav{padding:16px 12px}
+.nav-section{margin-bottom:24px}
+.nav-label{padding:0 12px 8px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);letter-spacing:0.5px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:10px;color:var(--text-3);cursor:pointer;transition:all 0.2s;font-size:14px;font-weight:600;position:relative;text-decoration:none}
+.nav-item:hover{background:var(--surface-2);color:var(--text-2)}
+.nav-item.active{background:var(--primary-light);color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.nav-icon{width:20px;height:20px;opacity:0.8}
+.nav-item.active .nav-icon{opacity:1}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--primary);border-radius:0 10px 10px 0}
+.main{flex:1;margin-left:280px;background:var(--bg)}
+.topbar{height:72px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:20px;position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:rgba(17,24,39,0.8)}
+.search-box{flex:1;max-width:500px;position:relative}
+.search-box input{width:100%;height:44px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:0 16px 0 44px;color:var(--text);font-size:14px;font-family:inherit;transition:all 0.2s}
+.search-box input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;opacity:0.5}
+.topbar-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.icon-btn{width:44px;height:44px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;cursor:pointer;transition:all 0.2s;position:relative}
+.icon-btn:hover{background:var(--surface);border-color:var(--primary)}
+.icon-btn .dot{position:absolute;top:8px;right:8px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--surface)}
+.user-btn{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s}
+.user-btn:hover{background:var(--surface);border-color:var(--primary)}
+.user-avatar{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--primary),#a78bfa);object-fit:cover}
+.user-name{font-size:14px;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.content{padding:32px}
+.page-header{margin-bottom:32px}
+.page-title{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:8px;background:linear-gradient(135deg,var(--text),var(--text-3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.page-subtitle{font-size:16px;color:var(--text-3)}
+.progress-card{background:linear-gradient(135deg,var(--primary),#a78bfa);border-radius:20px;padding:32px;margin-bottom:32px;position:relative;overflow:hidden}
+.progress-card::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');opacity:0.5}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;position:relative}
+.progress-title{font-size:24px;font-weight:800}
+.progress-value{font-size:48px;font-weight:900;margin-bottom:8px;position:relative}
+.progress-label{font-size:14px;opacity:0.9;position:relative}
+.progress-bar{height:12px;background:rgba(255,255,255,0.2);border-radius:999px;overflow:hidden;position:relative}
+.progress-fill{height:100%;background:#fff;border-radius:999px;transition:width 1s cubic-bezier(0.16,1,0.3,1)}
+.quests-grid{display:grid;gap:20px}
+.quest-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.3s;position:relative;overflow:hidden}
+.quest-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary),#a78bfa);transform:scaleX(0);transform-origin:left;transition:transform 0.3s}
+.quest-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow)}
+.quest-card:hover::before{transform:scaleX(1)}
+.quest-card.completed{opacity:0.7}
+.quest-card.completed::before{transform:scaleX(1);background:var(--success)}
+.quest-header{display:flex;align-items:start;gap:16px;margin-bottom:16px}
+.quest-icon{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--primary),#a78bfa);display:grid;place-items:center;font-size:28px;flex-shrink:0;box-shadow:0 8px 16px rgba(139,92,246,0.2)}
+.quest-info{flex:1}
+.quest-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.quest-desc{font-size:14px;color:var(--text-3)}
+.quest-reward{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--primary-light);border-radius:10px;font-size:14px;font-weight:700;color:var(--primary);width:fit-content}
+.quest-progress{margin-top:16px}
+.quest-progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px;font-weight:600}
+.quest-progress-bar{height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.quest-progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),#a78bfa);border-radius:999px;transition:width 1s}
+.badge{padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;text-transform:uppercase}
+.badge.success{background:rgba(16,185,129,0.1);color:var(--success)}
+.badge.pending{background:rgba(139,92,246,0.1);color:var(--primary)}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.quest-card{animation:slideUp 0.6s cubic-bezier(0.16,1,0.3,1) backwards}
+.quest-card:nth-child(1){animation-delay:0.05s}
+.quest-card:nth-child(2){animation-delay:0.1s}
+.quest-card:nth-child(3){animation-delay:0.15s}
+.quest-card:nth-child(4){animation-delay:0.2s}
+.quest-card:nth-child(5){animation-delay:0.25s}
+@media(max-width:968px){.sidebar{width:0;transform:translateX(-100%)}.main{margin-left:0}.topbar,.content{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-icon">BC</div>
+      <div class="logo-text">Bánh Cuốn</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Overview</div>
+        <div class="nav-item" onclick="window.location.href='/dashboard.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item active">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Quests
+          <span class="badge">3/5</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='/shop.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+          Shop
+        </div>
+        <div class="nav-item" onclick="window.location.href='/profile.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profile
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Manage</div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+          Servers
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/></svg>
+          Settings
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Upgrade</div>
+        <div class="nav-item" style="color:#f59e0b">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Premium
+        </div>
+      </div>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="search-box">
+        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="Tìm quests...">
+      </div>
+      <div class="topbar-right">
+        <div class="icon-btn">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <div class="dot"></div>
+        </div>
+        <div class="user-btn" onclick="window.location.href='/profile.html'">
+          <span class="user-name" id="userName">User</span>
+          <img class="user-avatar" id="userAvatar" src="" alt="">
+        </div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="page-header">
+        <h1 class="page-title">Daily Quests</h1>
+        <p class="page-subtitle">Hoàn thành nhiệm vụ để nhận coin rewards</p>
+      </div>
+      <div class="progress-card">
+        <div class="progress-header">
+          <div class="progress-title">🎯 Tiến độ hôm nay</div>
+          <div class="badge success">Reset trong 8h</div>
+        </div>
+        <div class="progress-value">3/5</div>
+        <div class="progress-label">Quests hoàn thành</div>
+        <div class="progress-bar" style="margin-top:16px">
+          <div class="progress-fill" style="width:60%"></div>
+        </div>
+      </div>
+      <div class="quests-grid">
+        <div class="quest-card completed">
+          <div class="quest-header">
+            <div class="quest-icon">✅</div>
+            <div class="quest-info">
+              <div class="quest-title">Điểm danh hàng ngày</div>
+              <div class="quest-desc">Sử dụng lệnh /daily để điểm danh</div>
+            </div>
+            <div class="quest-reward">+50 <span style="opacity:0.7">💰</span></div>
+          </div>
+          <div class="quest-progress">
+            <div class="quest-progress-header">
+              <span style="color:var(--success)">✓ Hoàn thành</span>
+              <span style="color:var(--success)">1/1</span>
+            </div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width:100%;background:var(--success)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="quest-card">
+          <div class="quest-header">
+            <div class="quest-icon">💬</div>
+            <div class="quest-info">
+              <div class="quest-title">Nhắn tin trong server</div>
+              <div class="quest-desc">Gửi 10 tin nhắn trong server</div>
+            </div>
+            <div class="quest-reward">+100 <span style="opacity:0.7">💰</span></div>
+          </div>
+          <div class="quest-progress">
+            <div class="quest-progress-header">
+              <span style="color:var(--primary)">Đang làm</span>
+              <span>7/10</span>
+            </div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width:70%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="quest-card completed">
+          <div class="quest-header">
+            <div class="quest-icon">❤️</div>
+            <div class="quest-info">
+              <div class="quest-title">React tin nhắn</div>
+              <div class="quest-desc">React vào 5 tin nhắn bất kỳ</div>
+            </div>
+            <div class="quest-reward">+75 <span style="opacity:0.7">💰</span></div>
+          </div>
+          <div class="quest-progress">
+            <div class="quest-progress-header">
+              <span style="color:var(--success)">✓ Hoàn thành</span>
+              <span style="color:var(--success)">5/5</span>
+            </div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width:100%;background:var(--success)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="quest-card">
+          <div class="quest-header">
+            <div class="quest-icon">🔊</div>
+            <div class="quest-info">
+              <div class="quest-title">Tham gia voice channel</div>
+              <div class="quest-desc">Ở trong voice 30 phút</div>
+            </div>
+            <div class="quest-reward">+150 <span style="opacity:0.7">💰</span></div>
+          </div>
+          <div class="quest-progress">
+            <div class="quest-progress-header">
+              <span style="color:var(--text-3)">Chưa bắt đầu</span>
+              <span>0/30</span>
+            </div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="quest-card completed">
+          <div class="quest-header">
+            <div class="quest-icon">➕</div>
+            <div class="quest-info">
+              <div class="quest-title">Mời bot vào server khác</div>
+              <div class="quest-desc">Share bot với bạn bè của bạn</div>
+            </div>
+            <div class="quest-reward">+200 <span style="opacity:0.7">💰</span></div>
+          </div>
+          <div class="quest-progress">
+            <div class="quest-progress-header">
+              <span style="color:var(--success)">✓ Hoàn thành</span>
+              <span style="color:var(--success)">1/1</span>
+            </div>
+            <div class="quest-progress-bar">
+              <div class="quest-progress-fill" style="width:100%;background:var(--success)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+if(!localStorage.getItem('discord_user'))window.location.href='/?login=required'
+const user=JSON.parse(localStorage.getItem('discord_user'))
+document.getElementById('userName').textContent=user.username
+document.getElementById('userAvatar').src=user.avatar||'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%238b5cf6"/></svg>'
+</script>
+</body>
+</html>

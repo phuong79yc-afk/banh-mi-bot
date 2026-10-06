@@ -4,7 +4,7 @@
   "description": "A Discord bot built with discord.js v14 and TypeScript",
   "main": "dist/src/index.js",
   "scripts": {
-    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('assets', 'dist/assets', {recursive: true}); fs.mkdirSync('dist/data', {recursive: true});\"",
+    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('assets', 'dist/assets', {recursive: true}); fs.cpSync('public', 'dist/public', {recursive: true}); fs.mkdirSync('dist/data', {recursive: true});\"",
     "start": "node --expose-gc dist/src/index.js",
     "start:deploy": "node --expose-gc dist/src/deploy-commands.js && node --expose-gc dist/src/index.js",
     "dev": "npm run build && nodemon --watch src --ext ts --exec \"npm run build && npm start\"",
@@ -32,6 +32,7 @@
     "@types/express": "^5.0.6",
     "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
+    "better-sqlite3": "^11.10.0",
     "canvas": "^3.2.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -49,6 +50,7 @@
     "nodemailer": "^9.0.6"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.12.12",
     "nodemon": "^3.1.14",
     "puppeteer": "^25.10.0",

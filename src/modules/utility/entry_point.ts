@@ -296,17 +296,17 @@ export default class UtilityModule {
     const pollCommand = {
       data: new SlashCommandBuilder()
         .setName('poll')
-        .setDescription('${emojis.chart} Tạo bình chọn')
+        .setDescription('📊 Tạo bình chọn')
         .addStringOption(option =>
           option
             .setName('question')
-            .setDescription('Câu hỏi bình chọn')
+            .setDescription('❓ Câu hỏi bình chọn')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('options')
-            .setDescription('Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)')
+            .setDescription('📃 Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -354,7 +354,7 @@ export default class UtilityModule {
         .addStringOption(option =>
           option
             .setName('expression')
-            .setDescription('Biểu thức toán học (vd: 2+2, 5*10)')
+            .setDescription('🔢 Biểu thức toán học (vd: 2+2, 5*10)')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -389,13 +389,13 @@ export default class UtilityModule {
         .addIntegerOption(option =>
           option
             .setName('min')
-            .setDescription('Giá trị tối thiểu')
+            .setDescription('🔢 Giá trị tối thiểu')
             .setRequired(false)
         )
         .addIntegerOption(option =>
           option
             .setName('max')
-            .setDescription('Giá trị tối đa')
+            .setDescription('🔢 Giá trị tối đa')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -429,7 +429,7 @@ export default class UtilityModule {
         .addStringOption(option =>
           option
             .setName('options')
-            .setDescription('Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)')
+            .setDescription('📋 Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -707,7 +707,7 @@ export default class UtilityModule {
     const infoCommand = {
       data: new SlashCommandBuilder()
         .setName('information')
-        .setDescription('${emojis.info} Thông tin về bot'),
+        .setDescription('ℹ️ Thông tin về bot'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           await interaction.deferReply();
@@ -914,7 +914,7 @@ export default class UtilityModule {
         .addBooleanOption(option =>
           option
             .setName('force')
-            .setDescription('Buộc tạo lại từ đầu (xóa rules cũ)')
+            .setDescription('🔄 Buộc tạo lại từ đầu (xóa rules cũ)')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {

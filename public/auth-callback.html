@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đang đăng nhập...</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  margin:0;
+  font-family:'Poppins',system-ui,sans-serif;
+  background:#1a1b1e;
+  color:#fff;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.container{
+  text-align:center;
+  animation:fadeIn 0.6s;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.spinner{
+  width:64px;
+  height:64px;
+  margin:0 auto 24px;
+  border:6px solid #3a3c43;
+  border-top-color:#8068ec;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{
+  to{transform:rotate(360deg)}
+}
+h1{
+  font-size:24px;
+  font-weight:600;
+  margin:0 0 12px;
+}
+p{
+  color:#b5bac1;
+  font-size:15px;
+}
+.error{
+  color:#f23f43;
+  background:#f23f4322;
+  padding:16px 24px;
+  border-radius:12px;
+  margin-top:24px;
+  max-width:400px;
+}
+.retry-btn{
+  margin-top:16px;
+  background:#8068ec;
+  color:#fff;
+  border:0;
+  padding:12px 24px;
+  border-radius:8px;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+}
+.retry-btn:hover{
+  background:#6b55d9;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="spinner"></div>
+  <h1 id="status">Đang xác thực...</h1>
+  <p id="message">Vui lòng đợi trong giây lát</p>
+  <div id="errorContainer" style="display:none">
+    <div class="error" id="errorMessage"></div>
+    <button class="retry-btn" onclick="window.location.href='/login.html'">Thử lại</button>
+  </div>
+</div>
+
+<script>
+const status = document.getElementById('status');
+const message = document.getElementById('message');
+const errorContainer = document.getElementById('errorContainer');
+const errorMessage = document.getElementById('errorMessage');
+
+async function handleCallback() {
+  try {
+    // Get authorization code from URL
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    
+    if (error) {
+      throw new Error(`Discord OAuth error: ${error}`);
+    }
+    
+    if (!code) {
+      throw new Error('No authorization code received');
+    }
+    
+    console.log('✅ Got authorization code');
+    status.textContent = 'Đang lấy thông tin tài khoản...';
+    
+    // Exchange code for token
+    const response = await fetch('/api/auth/discord/callback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Authentication failed');
+    }
+    
+    console.log('✅ Authentication successful:', data.user.username);
+    
+    // Store auth token
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('user_data', JSON.stringify(data.user));
+    
+    status.textContent = 'Đăng nhập thành công!';
+    message.textContent = `Chào mừng ${data.user.username}! Đang chuyển hướng...`;
+    
+    // Redirect to dashboard after 1 second
+    setTimeout(() => {
+      window.location.href = '/index.html';
+    }, 1000);
+    
+  } catch (error) {
+    console.error('❌ Authentication error:', error);
+    
+    status.textContent = 'Đăng nhập thất bại';
+    message.style.display = 'none';
+    document.querySelector('.spinner').style.display = 'none';
+    
+    errorMessage.textContent = error.message || 'Không thể xác thực với Discord. Vui lòng thử lại.';
+    errorContainer.style.display = 'block';
+  }
+}
+
+// Run callback handler
+handleCallback();
+</script>
+</body>
+</html>

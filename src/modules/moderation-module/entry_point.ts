@@ -253,17 +253,29 @@ export default class ModerationModule {
 
         try {
           const channel = interaction.channel as TextChannel;
+          
+          if (!channel) {
+            return interaction.reply({
+              content: `${emojis.error} Không thể xóa tin nhắn trong kênh này!`,
+              flags: 64
+            });
+          }
+
           const deleted = await channel.bulkDelete(amount, true);
 
-          await interaction.reply({
+          return interaction.reply({
             content: `${emojis.success} Đã xóa **${deleted.size}** tin nhắn!`,
             flags: 64
           });
         } catch (error) {
-          await interaction.reply({
-            content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể xóa tin nhắn'}`,
-            flags: 64
-          });
+          // Only reply if not already replied
+          if (!interaction.replied && !interaction.deferred) {
+            return interaction.reply({
+              content: `${emojis.error} Lỗi: ${error instanceof Error ? error.message : 'Không thể xóa tin nhắn'}`,
+              flags: 64
+            });
+          }
+          console.error('[moderation-clear] Error:', error);
         }
       }
     };

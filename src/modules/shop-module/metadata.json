@@ -1,0 +1,35 @@
+{
+  "name": "shop-module",
+  "displayName": "Shop System",
+  "description": "Hệ thống shop Vietnamese themed roles với coins",
+  "version": "1.0.0",
+  "author": "Bánh Cuốn Bot",
+  "category": "economy",
+  "enabled": true,
+  "dependencies": [],
+  "permissions": [
+    "Administrator"
+  ],
+  "commands": [
+    {
+      "name": "shop",
+      "description": "Xem shop và mua items",
+      "permissions": []
+    },
+    {
+      "name": "inventory",
+      "description": "Xem inventory của bạn",
+      "permissions": []
+    },
+    {
+      "name": "balance",
+      "description": "Xem số coins",
+      "permissions": []
+    },
+    {
+      "name": "revoke",
+      "description": "Thu hồi role đã mua (Admin only)",
+      "permissions": ["Administrator"]
+    }
+  ]
+}

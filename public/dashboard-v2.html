@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard - Banhcuon-bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--nav:#2f3136;--bg:#36393f;--card:#3b3e45;--line:#4a4d55;--purple:#8068ec;--text:#fff;--muted:#d4d6da;--gold:#e2b93b;--ok:#43b581}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Poppins',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:inherit;text-decoration:none}
+.app{display:flex;min-height:100vh}
+.sidebar{width:280px;background:var(--nav);border-right:1px solid #26282c;position:fixed;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--line);border-radius:10px}
+.logo-area{padding:24px 20px;border-bottom:1px solid #26282c;display:flex;align-items:center;gap:12px}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--purple),#9d84f5);border-radius:12px;display:grid;place-items:center;font-weight:700;font-size:18px;box-shadow:0 0 20px rgba(128,104,236,0.4)}
+.logo-text{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.nav{padding:16px 12px}
+.nav-section{margin-bottom:24px}
+.nav-label{padding:0 12px 8px;font-size:11px;font-weight:600;text-transform:uppercase;color:#72767d;letter-spacing:0.5px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;color:#b9bbbe;cursor:pointer;transition:all 0.15s;font-size:16px;font-weight:500;position:relative}
+.nav-item:hover{background:#393c43;color:#dcddde}
+.nav-item.active{background:var(--purple);color:#fff}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:#fff;border-radius:0 10px 10px 0}
+.nav-icon{width:20px;height:20px;opacity:0.8}
+.nav-item.active .nav-icon{opacity:1}
+.badge{margin-left:auto;padding:2px 8px;background:var(--purple);color:#fff;border-radius:6px;font-size:11px;font-weight:600}
+.main{flex:1;margin-left:280px;background:var(--bg)}
+.topbar{height:68px;background:var(--nav);border-bottom:1px solid #26282c;display:flex;align-items:center;padding:0 32px;gap:20px;position:sticky;top:0;z-index:10}
+.search-box{flex:1;max-width:500px;position:relative}
+.search-box input{width:100%;height:44px;background:#202225;border:1px solid #000;border-radius:8px;padding:0 16px 0 44px;color:var(--text);font-size:15px;font-family:inherit;transition:all 0.15s}
+.search-box input:focus{outline:none;border-color:var(--purple);background:#2f3136}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;opacity:0.4}
+.topbar-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.icon-btn{width:44px;height:44px;border-radius:8px;background:#202225;border:none;display:grid;place-items:center;cursor:pointer;transition:all 0.15s;position:relative;color:#b9bbbe}
+.icon-btn:hover{background:#393c43;color:#dcddde}
+.icon-btn .dot{position:absolute;top:8px;right:8px;width:8px;height:8px;background:#ed4245;border-radius:50%;border:2px solid var(--nav)}
+.user-btn{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 12px;background:#202225;border-radius:8px;cursor:pointer;transition:all 0.15s}
+.user-btn:hover{background:#393c43}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),#9d84f5);object-fit:cover}
+.user-name{font-size:14px;font-weight:600;color:#dcddde}
+.content{padding:32px}
+.page-header{margin-bottom:32px}
+.page-title{font-size:32px;font-weight:700;margin-bottom:8px;letter-spacing:-0.5px}
+.page-subtitle{font-size:16px;color:var(--muted)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;margin-bottom:40px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px;transition:all 0.2s;cursor:pointer;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--purple);transform:scaleX(0);transform-origin:left;transition:transform 0.2s}
+.stat-card:hover{border-color:var(--purple);transform:translateY(-2px)}
+.stat-card:hover::before{transform:scaleX(1)}
+.stat-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.stat-icon{width:48px;height:48px;border-radius:10px;background:rgba(128,104,236,0.15);display:grid;place-items:center}
+.stat-icon svg{width:24px;height:24px;stroke:var(--purple);fill:none;stroke-width:2}
+.stat-trend{padding:4px 10px;background:rgba(67,181,129,0.15);color:var(--ok);border-radius:6px;font-size:12px;font-weight:600}
+.stat-value{font-size:36px;font-weight:700;letter-spacing:-1px;margin-bottom:4px}
+.stat-label{font-size:14px;color:var(--muted);font-weight:500}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.section-title{font-size:20px;font-weight:700;letter-spacing:-0.5px}
+.view-all{color:var(--purple);font-size:14px;font-weight:600;cursor:pointer}
+.view-all:hover{text-decoration:underline}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-bottom:40px}
+.feature-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px;transition:all 0.2s;position:relative;overflow:hidden}
+.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--purple),#9d84f5);transform:scaleX(0);transform-origin:left;transition:transform 0.2s}
+.feature-card:hover{border-color:var(--purple);transform:translateY(-2px)}
+.feature-card:hover::before{transform:scaleX(1)}
+.feature-icon{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--purple),#9d84f5);display:grid;place-items:center;margin-bottom:20px;font-size:28px}
+.feature-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.feature-desc{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px}
+.feature-btn{background:rgba(128,104,236,0.15);color:var(--purple);border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;width:100%}
+.feature-btn:hover{background:var(--purple);color:#fff}
+.server-list{display:grid;gap:16px}
+.server-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;transition:all 0.2s}
+.server-card:hover{border-color:var(--purple);transform:translateX(4px)}
+.server-avatar{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--purple),#9d84f5);display:grid;place-items:center;font-size:24px;font-weight:700;flex-shrink:0}
+.server-info{flex:1}
+.server-name{font-size:16px;font-weight:700;margin-bottom:6px}
+.server-meta{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--muted)}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600}
+.status-badge.active{background:rgba(67,181,129,0.15);color:var(--ok)}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.stat-card{animation:slideUp 0.4s cubic-bezier(0.16,1,0.3,1) backwards}
+.stat-card:nth-child(1){animation-delay:0.05s}
+.stat-card:nth-child(2){animation-delay:0.1s}
+.stat-card:nth-child(3){animation-delay:0.15s}
+.stat-card:nth-child(4){animation-delay:0.2s}
+.feature-card{animation:slideUp 0.4s cubic-bezier(0.16,1,0.3,1) backwards}
+.feature-card:nth-child(1){animation-delay:0.05s}
+.feature-card:nth-child(2){animation-delay:0.1s}
+.feature-card:nth-child(3){animation-delay:0.15s}
+.feature-card:nth-child(4){animation-delay:0.2s}
+.feature-card:nth-child(5){animation-delay:0.25s}
+.feature-card:nth-child(6){animation-delay:0.3s}
+@media(max-width:968px){.sidebar{width:0;transform:translateX(-100%)}.main{margin-left:0}.topbar{padding:0 16px}.content{padding:20px 16px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-icon">BC</div>
+      <div class="logo-text">BANHCUON</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">MENU</div>
+        <div class="nav-item active">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" onclick="window.location.href='/quest.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Quests
+          <span class="badge">3/5</span>
+        </div>
+        <div class="nav-item" onclick="window.location.href='/shop.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+          Shop
+        </div>
+        <div class="nav-item" onclick="window.location.href='/profile.html'">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profile
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">QUẢN LÝ</div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+          Servers
+        </div>
+        <div class="nav-item">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/></svg>
+          Settings
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">PREMIUM</div>
+        <div class="nav-item" style="color:var(--gold)">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Premium
+        </div>
+      </div>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="Tìm kiếm...">
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <div class="dot"></div>
+        </button>
+        <div class="user-btn" onclick="window.location.href='/profile.html'">
+          <span class="user-name" id="userName">Demo User</span>
+          <img class="user-avatar" id="userAvatar" src="" alt="">
+        </div>
+      </div>
+    </div>
+    <div class="content" id="mainContent">
+      <div style="text-align:center;padding:80px 20px">
+        <div style="width:40px;height:40px;border:3px solid var(--line);border-top-color:var(--purple);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px"></div>
+        <p style="color:var(--muted)">Đang tải dashboard...</p>
+      </div>
+    </div>
+  </main>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>
+function checkAuth(){const u=localStorage.getItem('discord_user');if(!u){window.location.href='/?login=required';return null}return JSON.parse(u)}
+function load(){const u=checkAuth();if(!u)return;document.getElementById('userName').textContent=u.username;document.getElementById('userAvatar').src=u.avatar||'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%238068ec"/></svg>';
+document.getElementById('mainContent').innerHTML=`
+<div class="page-header">
+  <h1 class="page-title">Chào mừng trở lại, ${u.username}! 👋</h1>
+  <p class="page-subtitle">Đây là dashboard quản lý bot của bạn</p>
+</div>
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-header">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      </div>
+      <div class="stat-trend">↑ 12%</div>
+    </div>
+    <div class="stat-value">2,450</div>
+    <div class="stat-label">💰 Coin Balance</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      </div>
+    </div>
+    <div class="stat-value">3/5</div>
+    <div class="stat-label">🎯 Quest Hôm Nay</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+      </div>
+    </div>
+    <div class="stat-value">7</div>
+    <div class="stat-label">🛍️ Items Đã Mua</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-header">
+      <div class="stat-icon">
+        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+    </div>
+    <div class="stat-value">12</div>
+    <div class="stat-label">🔥 Ngày Streak</div>
+  </div>
+</div>
+<div class="section-header">
+  <h2 class="section-title">Tính năng nổi bật</h2>
+  <a class="view-all" href="#features">Xem tất cả →</a>
+</div>
+<div class="features-grid">
+  <div class="feature-card">
+    <div class="feature-icon">✅</div>
+    <h3 class="feature-title">Quest System</h3>
+    <p class="feature-desc">Hoàn thành nhiệm vụ hàng ngày để kiếm coin. Tracking real-time và auto reward.</p>
+    <button class="feature-btn" onclick="window.location.href='/quest.html'">Xem Quest →</button>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">🛒</div>
+    <h3 class="feature-title">Shop & Items</h3>
+    <p class="feature-desc">9 vật phẩm độc đáo: role màu, badge, premium features. Auto role creation.</p>
+    <button class="feature-btn" onclick="window.location.href='/shop.html'">Mua Sắm →</button>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">👤</div>
+    <h3 class="feature-title">Profile</h3>
+    <p class="feature-desc">Hồ sơ cá nhân với badge, màu sắc, thông số. Customize profile của bạn.</p>
+    <button class="feature-btn" onclick="window.location.href='/profile.html'">Xem Profile →</button>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">⚔️</div>
+    <h3 class="feature-title">Minecraft</h3>
+    <p class="feature-desc">Tạo animated emoji Minecraft với 150+ blocks. Custom server banner.</p>
+    <button class="feature-btn">Tạo Emoji →</button>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">⚙️</div>
+    <h3 class="feature-title">Settings</h3>
+    <p class="feature-desc">Moderation, autoresponder, sticky messages. Full server management suite.</p>
+    <button class="feature-btn">Cài đặt →</button>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">👑</div>
+    <h3 class="feature-title">Premium</h3>
+    <p class="feature-desc">Profile màu vàng, advanced stats. Exclusive features cho VIP members.</p>
+    <button class="feature-btn">Upgrade →</button>
+  </div>
+</div>
+<div class="section-header">
+  <h2 class="section-title">Servers của bạn</h2>
+  <a class="view-all" href="#servers">Quản lý →</a>
+</div>
+<div class="server-list">
+  <div class="server-card">
+    <div class="server-avatar">BC</div>
+    <div class="server-info">
+      <div class="server-name">Bánh Cuốn Community</div>
+      <div class="server-meta">
+        <span>1,234 members</span>
+        <span>•</span>
+        <span class="status-badge active">Active</span>
+      </div>
+    </div>
+  </div>
+  <div class="server-card">
+    <div class="server-avatar">VN</div>
+    <div class="server-info">
+      <div class="server-name">Vietnam Gaming</div>
+      <div class="server-meta">
+        <span>567 members</span>
+        <span>•</span>
+        <span class="status-badge active">Active</span>
+      </div>
+    </div>
+  </div>
+  <div class="server-card">
+    <div class="server-avatar">MC</div>
+    <div class="server-info">
+      <div class="server-name">Minecraft VN</div>
+      <div class="server-meta">
+        <span>890 members</span>
+        <span>•</span>
+        <span class="status-badge active">Active</span>
+      </div>
+    </div>
+  </div>
+</div>
+`}
+load()
+</script>
+</body>
+</html>

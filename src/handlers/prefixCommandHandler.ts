@@ -1,6 +1,7 @@
 import { Client, Message, EmbedBuilder } from 'discord.js';
 import { createEnhancedEmbed } from '../utils/embedHelper';
 import { emojis } from '../config/emojis';
+import { getModuleLoader } from '../index';
 
 const PREFIX = '!';
 
@@ -375,7 +376,7 @@ export function setupPrefixCommands(client: Client) {
           // Send DM to user
           try {
             const dmEmbed = createEnhancedEmbed({
-              title: '🔇 Bạn đã bị mute',
+              title: '<a:mute:1555853916405628998> Bạn đã bị mute',
               description: 
                 `Bạn đã bị mute trong **${message.guild.name}**\n\n` +
                 `**Thời gian:** ${Math.floor(duration / 1000 / 60)} phút\n` +
@@ -389,7 +390,7 @@ export function setupPrefixCommands(client: Client) {
           }
 
           const embed = createEnhancedEmbed({
-            title: '🔇 User đã bị mute',
+            title: '<a:mute:1555853916405628998> User đã bị mute',
             description: 
               `**User:** ${targetUser.tag}\n` +
               `**Thời gian:** ${Math.floor(duration / 1000 / 60)} phút\n` +
@@ -453,7 +454,7 @@ export function setupPrefixCommands(client: Client) {
           // Send DM to user
           try {
             const dmEmbed = createEnhancedEmbed({
-              title: '🔊 Bạn đã được unmute',
+              title: '<a:unmute:1555853968154824784> Bạn đã được unmute',
               description: 
                 `Bạn đã được unmute trong **${message.guild.name}**\n\n` +
                 `**Lý do:** ${reason}\n` +
@@ -466,7 +467,7 @@ export function setupPrefixCommands(client: Client) {
           }
 
           const embed = createEnhancedEmbed({
-            title: '🔊 User đã được unmute',
+            title: '<a:unmute:1555853968154824784> User đã được unmute',
             description: 
               `**User:** ${targetUser.tag}\n` +
               `**Lý do:** ${reason}\n` +
@@ -903,6 +904,169 @@ export function setupPrefixCommands(client: Client) {
         embed.setDescription(description);
 
         await message.reply({ embeds: [embed] });
+      }
+
+      // BC Q - Quest command shortcut
+      else if (commandName === 'bc' && args[0] === 'q') {
+        const moduleLoader = getModuleLoader();
+        if (!moduleLoader) {
+          return message.reply(`${emojis.error} Module loader chưa sẵn sàng!`);
+        }
+        
+        const questModuleInfo = moduleLoader.getModuleInfo('quest-module');
+        if (!questModuleInfo || !questModuleInfo.instance) {
+          return message.reply(`${emojis.error} Quest module chưa được load!`);
+        }
+        
+        const questCommand = questModuleInfo.instance.commands.get('quest');
+        if (!questCommand) {
+          return message.reply(`${emojis.error} Quest command không tồn tại!`);
+        }
+        
+        // Create mock interaction
+        const mockInteraction: any = {
+          user: message.author,
+          guild: message.guild,
+          member: message.member,
+          channel: message.channel,
+          client: client,
+          deferred: false,
+          replied: false,
+          deferReply: async () => { mockInteraction.deferred = true; },
+          editReply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+          reply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+        };
+        
+        await questCommand.execute(mockInteraction);
+      }
+
+      // BC BAL - Balance command shortcut
+      else if (commandName === 'bc' && args[0] === 'bal') {
+        const moduleLoader = getModuleLoader();
+        if (!moduleLoader) {
+          return message.reply(`${emojis.error} Module loader chưa sẵn sàng!`);
+        }
+        
+        const shopModuleInfo = moduleLoader.getModuleInfo('shop-module');
+        if (!shopModuleInfo || !shopModuleInfo.instance) {
+          return message.reply(`${emojis.error} Shop module chưa được load!`);
+        }
+        
+        const balanceCommand = shopModuleInfo.instance.commands.get('balance');
+        if (!balanceCommand) {
+          return message.reply(`${emojis.error} Balance command không tồn tại!`);
+        }
+        
+        // Create mock interaction
+        const mockInteraction: any = {
+          user: message.author,
+          guild: message.guild,
+          member: message.member,
+          channel: message.channel,
+          client: client,
+          deferred: false,
+          replied: false,
+          options: {
+            getUser: () => null, // Default to command author
+          },
+          deferReply: async () => { mockInteraction.deferred = true; },
+          editReply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+          reply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+        };
+        
+        await balanceCommand.execute(mockInteraction);
+      }
+
+      // BC S - Shop command shortcut
+      else if (commandName === 'bc' && args[0] === 's') {
+        const moduleLoader = getModuleLoader();
+        if (!moduleLoader) {
+          return message.reply(`${emojis.error} Module loader chưa sẵn sàng!`);
+        }
+        
+        const shopModuleInfo = moduleLoader.getModuleInfo('shop-module');
+        if (!shopModuleInfo || !shopModuleInfo.instance) {
+          return message.reply(`${emojis.error} Shop module chưa được load!`);
+        }
+        
+        const shopCommand = shopModuleInfo.instance.commands.get('shop');
+        if (!shopCommand) {
+          return message.reply(`${emojis.error} Shop command không tồn tại!`);
+        }
+        
+        // Create mock interaction
+        const mockInteraction: any = {
+          user: message.author,
+          guild: message.guild,
+          member: message.member,
+          channel: message.channel,
+          client: client,
+          deferred: false,
+          replied: false,
+          deferReply: async () => { mockInteraction.deferred = true; },
+          editReply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+          reply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+        };
+        
+        await shopCommand.execute(mockInteraction);
+      }
+
+      // BC CV - Convert command shortcut
+      else if (commandName === 'bc' && args[0] === 'cv') {
+        const moduleLoader = getModuleLoader();
+        if (!moduleLoader) {
+          return message.reply(`${emojis.error} Module loader chưa sẵn sàng!`);
+        }
+        
+        const convertModuleInfo = moduleLoader.getModuleInfo('convert-module');
+        if (!convertModuleInfo || !convertModuleInfo.instance) {
+          return message.reply(`${emojis.error} Convert module chưa được load!`);
+        }
+        
+        const convertCommand = convertModuleInfo.instance.commands.get('convert');
+        if (!convertCommand) {
+          return message.reply(`${emojis.error} Convert command không tồn tại!`);
+        }
+        
+        // Create mock interaction
+        const mockInteraction: any = {
+          user: message.author,
+          guild: message.guild,
+          member: message.member,
+          channel: message.channel,
+          client: client,
+          deferred: false,
+          replied: false,
+          deferReply: async () => { mockInteraction.deferred = true; },
+          editReply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+          reply: async (data: any) => { 
+            mockInteraction.replied = true;
+            return message.reply(data); 
+          },
+        };
+        
+        await convertCommand.execute(mockInteraction);
       }
 
     } catch (error) {

@@ -161,6 +161,51 @@ client.once('clientReady' as any, async () => {
   // Initialize modules
   await initializeModules();
 
+  // Auto-deploy commands to Discord
+  try {
+    console.log('🚀 Deploying commands to Discord...');
+    
+    const commands = [];
+    for (const [name, command] of client.commands) {
+      if (command.data) {
+        commands.push(command.data.toJSON());
+      }
+    }
+    
+    console.log(`📋 Found ${commands.length} commands to deploy`);
+    
+    const { REST } = require('@discordjs/rest');
+    const { Routes } = require('discord-api-types/v10');
+    
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
+    
+    // Try guild deploy first (faster), fallback to global if no guild
+    const guildId = process.env.GUILD_ID || '1482354951689605150';
+    
+    try {
+      await rest.put(
+        Routes.applicationGuildCommands(client.user!.id, guildId),
+        { body: commands }
+      );
+      console.log(`✅ Deployed ${commands.length} commands to guild ${guildId}`);
+    } catch (guildError: any) {
+      // If guild deploy fails, try global
+      if (guildError.code === 50001) {
+        console.log('⚠️ No guild access, deploying globally...');
+        await rest.put(
+          Routes.applicationCommands(client.user!.id),
+          { body: commands }
+        );
+        console.log(`✅ Deployed ${commands.length} commands globally`);
+      } else {
+        throw guildError;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error deploying commands:', error);
+    console.log('⚠️ Commands not deployed - use manual deploy script');
+  }
+
   // Start web server
   const { startWebServer } = require('./web/server');
   const port = process.env.PORT || 3000;

@@ -1,23 +1,24 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { memoryOptimizer } from '../utils/memoryOptimizer';
+import { emojis } from '../config/emojis';
 import os from 'os';
 
 export const data = new SlashCommandBuilder()
   .setName('performance')
-  .setDescription('📊 Kiểm tra hiệu suất và memory của bot')
+  .setDescription('📈 Kiểm tra hiệu suất và memory của bot')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addSubcommand(sub =>
     sub
       .setName('stats')
-      .setDescription('Xem thống kê hiệu suất'))
+      .setDescription('📊 Xem thống kê hiệu suất'))
   .addSubcommand(sub =>
     sub
       .setName('cleanup')
-      .setDescription('Dọn dẹp memory ngay lập tức'))
+      .setDescription('🧹 Dọn dẹp memory ngay lập tức'))
   .addSubcommand(sub =>
     sub
       .setName('report')
-      .setDescription('Xem báo cáo chi tiết'));
+      .setDescription('📋 Xem báo cáo chi tiết'));
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   const subcommand = interaction.options.getSubcommand();
@@ -46,35 +47,35 @@ async function showStats(interaction: ChatInputCommandInteraction) {
 
   const embed = new EmbedBuilder()
     .setColor('#00ff00')
-    .setTitle('📊 Bot Performance Stats')
+    .setTitle(`${emojis.chart} Bot Performance Stats`)
     .addFields(
       {
-        name: '⏱️ Uptime',
+        name: `${emojis.clock} Uptime`,
         value: `${days}d ${hours}h ${minutes}m ${seconds}s`,
         inline: true
       },
       {
-        name: '💾 Heap Used',
+        name: `${emojis.database} Heap Used`,
         value: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
         inline: true
       },
       {
-        name: '💾 Heap Total',
+        name: `${emojis.database} Heap Total`,
         value: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
         inline: true
       },
       {
-        name: '📦 RSS',
+        name: `${emojis.cache} RSS`,
         value: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`,
         inline: true
       },
       {
-        name: '🔗 External',
+        name: `${emojis.link} External`,
         value: `${(mem.external / 1024 / 1024).toFixed(2)} MB`,
         inline: true
       },
       {
-        name: '🖥️ System Memory',
+        name: `${emojis.server} System Memory`,
         value: `${((os.totalmem() - os.freemem()) / 1024 / 1024 / 1024).toFixed(2)} GB / ${(os.totalmem() / 1024 / 1024 / 1024).toFixed(2)} GB`,
         inline: true
       }
@@ -85,7 +86,7 @@ async function showStats(interaction: ChatInputCommandInteraction) {
   if (stats.history.length > 0) {
     const lastCleanup = stats.history[stats.history.length - 1];
     embed.addFields({
-      name: '🧹 Last Cleanup',
+      name: `${emojis.delete} Last Cleanup`,
       value: `Freed ${lastCleanup.freed > 0 ? '+' : ''}${lastCleanup.freed.toFixed(2)} MB`,
       inline: false
     });
@@ -107,20 +108,20 @@ async function performCleanup(interaction: ChatInputCommandInteraction) {
 
   const embed = new EmbedBuilder()
     .setColor(freed > 0 ? '#00ff00' : '#ffaa00')
-    .setTitle('🧹 Memory Cleanup Complete')
+    .setTitle(`${emojis.delete} Memory Cleanup Complete`)
     .addFields(
       {
-        name: 'Before',
+        name: `${emojis.chart} Before`,
         value: `${before.toFixed(2)} MB`,
         inline: true
       },
       {
-        name: 'After',
+        name: `${emojis.chart} After`,
         value: `${after.toFixed(2)} MB`,
         inline: true
       },
       {
-        name: 'Freed',
+        name: `${emojis.sparkles} Freed`,
         value: `${freed > 0 ? '+' : ''}${freed.toFixed(2)} MB`,
         inline: true
       }
@@ -154,7 +155,7 @@ async function showReport(interaction: ChatInputCommandInteraction) {
 
   const embed = new EmbedBuilder()
     .setColor('#0099ff')
-    .setTitle('📋 Detailed Memory Report')
+    .setTitle(`${emojis.document} Detailed Memory Report`)
     .setDescription(description)
     .setTimestamp();
 

@@ -38,11 +38,11 @@ export default class SnipeModule {
     const snipeCommand = {
       data: new SlashCommandBuilder()
         .setName('snipe')
-        .setDescription('Xem tin nhắn đã xóa gần đây')
+        .setDescription('🔍 Xem tin nhắn đã xóa gần đây')
         .addIntegerOption(option =>
           option
             .setName('page')
-            .setDescription('Số trang (1-10)')
+            .setDescription('📄 Số trang (1-10)')
             .setRequired(false)
             .setMinValue(1)
             .setMaxValue(10)
@@ -50,7 +50,7 @@ export default class SnipeModule {
         .addChannelOption(option =>
           option
             .setName('channel')
-            .setDescription('Chọn kênh')
+            .setDescription('📺 Chọn kênh')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -118,11 +118,11 @@ export default class SnipeModule {
     const editsnipeCommand = {
       data: new SlashCommandBuilder()
         .setName('editsnipe')
-        .setDescription('Xem tin nhắn đã chỉnh sửa gần đây')
+        .setDescription('✏️ Xem tin nhắn đã chỉnh sửa gần đây')
         .addIntegerOption(option =>
           option
             .setName('page')
-            .setDescription('Số trang (1-10)')
+            .setDescription('📄 Số trang (1-10)')
             .setRequired(false)
             .setMinValue(1)
             .setMaxValue(10)
@@ -130,7 +130,7 @@ export default class SnipeModule {
         .addChannelOption(option =>
           option
             .setName('channel')
-            .setDescription('Chọn kênh')
+            .setDescription('📺 Chọn kênh')
             .setRequired(false)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {

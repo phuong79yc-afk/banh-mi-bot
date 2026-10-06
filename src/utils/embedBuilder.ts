@@ -12,7 +12,7 @@ export const Colors = {
 export function createSuccessEmbed(title: string, description: string, footer?: string) {
   const embed = new EmbedBuilder()
     .setColor(Colors.Success)
-    .setTitle(`✅ ${title}`)
+    .setTitle(`<a:white_check_mark:1555921911395909722> ${title}`)
     .setDescription(description)
     .setTimestamp();
   
