@@ -4,8 +4,10 @@ import { Player } from 'discord-player';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { validateEnv } from './utils/envValidator';
 
 dotenv.config();
+validateEnv(); // Validate environment variables before proceeding
 
 // Extend Client type để thêm commands collection
 declare module 'discord.js' {

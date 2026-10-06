@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Client, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
+import { validateAdminAuth, validateUserId } from '../../utils/validation';
 
 // Helper function to get role color based on item
 function getColorForItem(itemId: string): number {
@@ -99,16 +100,8 @@ export function createShopRoutes(client: Client): Router {
   });
   
   // Reset shop data (coins, inventory, roles)
-  router.post('/reset', async (req: Request, res: Response) => {
-    const { userId, adminPassword } = req.body;
-    
-    // Simple admin check (you can improve this)
-    if (adminPassword !== process.env.ADMIN_PASSWORD && adminPassword !== 'reset123') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized'
-      });
-    }
+  router.post('/reset', validateAdminAuth, async (req: Request, res: Response) => {
+    const { userId } = req.body;
     
     try {
       const fs = require('fs');
@@ -397,18 +390,10 @@ export function createShopRoutes(client: Client): Router {
   });
   
   // Revoke/Remove role from user (Admin only)
-  router.post('/revoke', async (req: Request, res: Response) => {
+  router.post('/revoke', validateAdminAuth, async (req: Request, res: Response) => {
     console.log('🔄 POST /revoke HIT! Body:', req.body);
     
-    const { itemId, userId, guildId, adminPassword } = req.body;
-    
-    // Simple admin check
-    if (adminPassword !== process.env.ADMIN_PASSWORD && adminPassword !== 'admin123') {
-      return res.status(403).json({
-        success: false,
-        error: 'Unauthorized - Invalid admin password'
-      });
-    }
+    const { itemId, userId, guildId } = req.body;
     
     try {
       const guild = client.guilds.cache.get(guildId);
