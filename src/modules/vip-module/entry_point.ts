@@ -28,6 +28,11 @@ const NICKNAME_COOLDOWN_PATH = path.join(process.cwd(), 'data', 'vip_nickname_co
 
 // ==================== HELPER FUNCTIONS ====================
 
+// NOTE: VIP module intentionally uses synchronous file I/O for transactional consistency.
+// Async operations could create race conditions where multiple concurrent commands 
+// (transfer, lottery, bonus) might read stale data before writes complete, leading to
+// balance corruption. Synchronous I/O ensures atomic read-modify-write operations.
+
 // Read JSON file safely
 function readJSON(filePath: string): any {
   try {
@@ -436,6 +441,13 @@ export default class VIPModule {
           return;
         }
 
+        // Check transfer cooldown
+        const cooldownCheck = checkCooldown(interaction.user.id, TRANSFER_COOLDOWN_PATH, TRANSFER_COOLDOWN_MS);
+        if (cooldownCheck.onCooldown) {
+          await interaction.editReply(`❌ Bạn phải đợi ${cooldownCheck.timeLeft}s để chuyển xu tiếp!`);
+          return;
+        }
+
         const targetUser = interaction.options.getUser('user', true);
         const amount = interaction.options.getInteger('amount', true);
 
@@ -446,6 +458,12 @@ export default class VIPModule {
 
         if (targetUser.bot) {
           await interaction.editReply('❌ Không thể chuyển xu cho bot!');
+          return;
+        }
+
+        // Check max transfer amount
+        if (amount > MAX_TRANSFER_AMOUNT) {
+          await interaction.editReply(`❌ Số lượng chuyển tối đa là ${MAX_TRANSFER_AMOUNT.toLocaleString()} ${emojis.coin}!`);
           return;
         }
 
@@ -466,6 +484,9 @@ export default class VIPModule {
         coinsData[interaction.user.id] = senderBalance - amount;
         coinsData[targetUser.id] = (coinsData[targetUser.id] || 0) + amount;
         fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
+
+        // Set cooldown after successful transfer
+        setCooldown(interaction.user.id, TRANSFER_COOLDOWN_PATH);
 
         const embed = new EmbedBuilder()
           .setColor(0x00ff00)
@@ -561,6 +582,33 @@ export default class VIPModule {
         }
 
         const tickets = interaction.options.getInteger('tickets', true);
+        
+        // Check daily ticket limit
+        const lotteryUsagePath = LOTTERY_USAGE_PATH;
+        let lotteryUsage: any = {};
+        if (fs.existsSync(lotteryUsagePath)) {
+          lotteryUsage = JSON.parse(fs.readFileSync(lotteryUsagePath, 'utf8'));
+        }
+        
+        const userId = interaction.user.id;
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        if (!lotteryUsage[userId]) {
+          lotteryUsage[userId] = { date: today, count: 0 };
+        }
+        
+        // Reset count if it's a new day
+        if (lotteryUsage[userId].date !== today) {
+          lotteryUsage[userId] = { date: today, count: 0 };
+        }
+        
+        // Check if user would exceed daily limit
+        if (lotteryUsage[userId].count + tickets > LOTTERY_MAX_TICKETS_PER_DAY) {
+          const remaining = LOTTERY_MAX_TICKETS_PER_DAY - lotteryUsage[userId].count;
+          await interaction.editReply(`❌ Bạn chỉ có thể mua thêm ${remaining} vé hôm nay! (Giới hạn: ${LOTTERY_MAX_TICKETS_PER_DAY} vé/ngày)`);
+          return;
+        }
+
         const ticketPrice = 10000;
         const totalCost = tickets * ticketPrice;
 
@@ -612,6 +660,10 @@ export default class VIPModule {
         coinsData[interaction.user.id] = balance + netProfit;
         fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
 
+        // Update daily ticket count
+        lotteryUsage[userId].count += tickets;
+        fs.writeFileSync(lotteryUsagePath, JSON.stringify(lotteryUsage, null, 2));
+
         const embed = new EmbedBuilder()
           .setColor(netProfit >= 0 ? 0x00ff00 : 0xff0000)
           .setTitle(`${emojis.sparkles} Kết quả xổ số VIP`)
@@ -646,6 +698,13 @@ export default class VIPModule {
           return;
         }
 
+        // Check nickname cooldown
+        const cooldownCheck = checkCooldown(interaction.user.id, NICKNAME_COOLDOWN_PATH, NICKNAME_COOLDOWN_MS);
+        if (cooldownCheck.onCooldown) {
+          await interaction.editReply(`❌ Bạn phải đợi ${cooldownCheck.timeLeft}s để đổi nickname tiếp!`);
+          return;
+        }
+
         const nickname = interaction.options.getString('nickname');
         const member = interaction.member;
 
@@ -656,6 +715,9 @@ export default class VIPModule {
 
         try {
           await (member as any).setNickname(nickname);
+          
+          // Set cooldown after successful nickname change
+          setCooldown(interaction.user.id, NICKNAME_COOLDOWN_PATH);
           
           const embed = new EmbedBuilder()
             .setColor(0xe2b93b)

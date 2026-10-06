@@ -20,9 +20,7 @@ const config: EnvConfig = {
     'OWNER_ID'
   ],
   defaults: {
-    PORT: '3000',
-    DASHBOARD_USERNAME: 'admin',
-    DASHBOARD_PASSWORD: 'admin123'
+    PORT: '3000'
   }
 };
 
@@ -58,6 +56,17 @@ export function validateEnv(): void {
   if (missingOptional.length > 0) {
     console.warn('⚠️  Optional environment variables not set:');
     missingOptional.forEach(key => console.warn(`  - ${key}`));
+  }
+  
+  // Check for sensitive credentials - fail if not set
+  const sensitiveVars = ['ADMIN_PASSWORD', 'JWT_SECRET', 'DASHBOARD_PASSWORD'];
+  const missingSensitive = sensitiveVars.filter(key => !process.env[key]);
+  
+  if (missingSensitive.length > 0) {
+    console.error('❌ Missing sensitive credentials (required for web server security):');
+    missingSensitive.forEach(key => console.error(`  - ${key}`));
+    console.error('\nThese MUST be set in production. Set them in .env file.');
+    console.error('The web server will not start without these credentials.\n');
   }
   
   console.log('✅ Environment variables validated\n');

@@ -6,6 +6,18 @@ import { createShopRoutes } from './api/shopRoutes';
 import rateLimit from 'express-rate-limit';
 
 export function startWebServer(client: Client, port: number = 3000) {
+  // Check for required security credentials before starting
+  const requiredCredentials = ['ADMIN_PASSWORD', 'JWT_SECRET', 'DASHBOARD_PASSWORD'];
+  const missing = requiredCredentials.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error('❌ Cannot start web server: Missing required credentials:');
+    missing.forEach(key => console.error(`  - ${key}`));
+    console.error('\nSet these in your .env file for security.');
+    console.error('Web server startup aborted.\n');
+    return; // Don't start the server
+  }
+  
   const app = express();
 
   // Middleware - CORS

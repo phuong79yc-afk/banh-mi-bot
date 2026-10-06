@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 
 export function validateUserId(req: Request, res: Response, next: NextFunction) {
   const { userId } = req.body;
@@ -16,11 +17,33 @@ export function validateAdminAuth(req: Request, res: Response, next: NextFunctio
     return res.status(500).json({ success: false, error: 'Admin auth not configured' });
   }
   
-  if (adminPassword !== validPassword) {
+  // Use constant-time comparison to prevent timing attacks
+  if (!timingSafeEqual(adminPassword, validPassword)) {
     return res.status(403).json({ success: false, error: 'Unauthorized' });
   }
   
   next();
+}
+
+// Constant-time string comparison to prevent timing attacks
+function timingSafeEqual(a: string | undefined, b: string): boolean {
+  if (!a) return false;
+  
+  // Ensure both strings are the same length for comparison
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  
+  // If lengths differ, compare against a dummy buffer to prevent timing leak
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufB, bufB); // Dummy comparison
+    return false;
+  }
+  
+  try {
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
 }
 
 export function sanitizeString(input: string, maxLength: number = 100): string {

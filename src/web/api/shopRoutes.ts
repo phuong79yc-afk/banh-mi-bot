@@ -170,7 +170,7 @@ export function createShopRoutes(client: Client): Router {
   });
   
   // Purchase item from shop
-  router.post('/purchase', async (req: Request, res: Response) => {
+  router.post('/purchase', validateUserId, async (req: Request, res: Response) => {
     console.log('🎯 POST /purchase HIT! Body:', req.body);
     console.log('🎯 Headers:', req.headers);
     const { userId, guildId, itemId } = req.body;

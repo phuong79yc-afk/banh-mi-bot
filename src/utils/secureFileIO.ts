@@ -2,6 +2,22 @@ import fs from 'fs/promises';
 import path from 'path';
 import { coinsCache, inventoryCache, cooldownCache } from './fileCache';
 
+/**
+ * Secure File I/O Utilities
+ * 
+ * Provides async file operations with path traversal protection and optional caching.
+ * 
+ * MIGRATION STATUS:
+ * - VIP module: Uses synchronous I/O intentionally for transactional consistency
+ * - Shop routes: Uses synchronous I/O for atomic operations during purchases
+ * - Daily module: Uses SQLite with prepared statements (no file I/O)
+ * - Dashboard routes: Could migrate to async (low-frequency reads)
+ * 
+ * This module is ready for use but migration is incomplete. Modules handling
+ * financial transactions (coins, purchases) use synchronous I/O to prevent
+ * race conditions where concurrent operations could corrupt balances.
+ */
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 
 // Validate that path is within data directory
