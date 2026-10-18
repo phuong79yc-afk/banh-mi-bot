@@ -76,10 +76,11 @@ runMigrations();
 // Prepared statements
 const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
 const stmtUpsertUser = db.prepare(`
-  INSERT INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
-  VALUES (@user_id, @balance, @streak, @max_streak, @total_checkins, @last_daily)
+  INSERT INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins, last_daily)
+  VALUES (@user_id, @balance, @gold_balance, @streak, @max_streak, @total_checkins, @last_daily)
   ON CONFLICT(user_id) DO UPDATE SET
     balance = balance + @balance,
+    gold_balance = gold_balance + @gold_balance,
     streak = @streak,
     max_streak = MAX(max_streak, @max_streak),
     total_checkins = total_checkins + 1,
@@ -394,6 +395,7 @@ export default class DailyModule {
         stmtUpsertUser.run({
           user_id: userId,
           balance: rewards.total,
+          gold_balance: 1, // 1 vé vàng mỗi lần daily
           streak,
           max_streak: Math.max(userDataBefore.max_streak, streak),
           total_checkins: 1, // tăng thêm 1 qua mệnh đề UPDATE
