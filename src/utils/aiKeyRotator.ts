@@ -22,37 +22,74 @@ class AIKeyRotator {
   
   /**
    * Load all API keys from environment variables
-   * Format: GROQ_API_KEY_1, GROQ_API_KEY_2, etc.
+   * Format: GROQ_API_KEY_1, GROQ_API_KEY_2, etc. OR GROQ_API_KEYS (comma-separated)
    */
   private loadKeysFromEnv() {
-    // Load Groq keys
-    let i = 1;
-    while (true) {
-      const key = process.env[`GROQ_API_KEY${i === 1 ? '' : `_${i}`}`];
-      if (!key) break;
-      
-      this.groqKeys.push({
-        key,
-        failCount: 0,
-        lastFail: 0,
-        blocked: false
-      });
-      i++;
+    // Load Groq keys from GROQ_API_KEYS (comma-separated) first
+    if (process.env.GROQ_API_KEYS) {
+      const keys = process.env.GROQ_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
+      for (const key of keys) {
+        this.groqKeys.push({
+          key,
+          failCount: 0,
+          lastFail: 0,
+          blocked: false
+        });
+      }
+    } else {
+      // Fallback: Load individual keys GROQ_API_KEY, GROQ_API_KEY_2, etc.
+      let i = 1;
+      while (true) {
+        const key = process.env[`GROQ_API_KEY${i === 1 ? '' : `_${i}`}`];
+        if (!key) break;
+        
+        this.groqKeys.push({
+          key,
+          failCount: 0,
+          lastFail: 0,
+          blocked: false
+        });
+        i++;
+      }
     }
     
-    // Load Gemini keys
-    i = 1;
-    while (true) {
-      const key = process.env[`GOOGLE_API_KEY${i === 1 ? '' : `_${i}`}`];
-      if (!key) break;
-      
-      this.geminiKeys.push({
-        key,
-        failCount: 0,
-        lastFail: 0,
-        blocked: false
-      });
-      i++;
+    // Load Gemini keys from GEMINI_API_KEYS (comma-separated) first
+    if (process.env.GEMINI_API_KEYS) {
+      const keys = process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
+      for (const key of keys) {
+        this.geminiKeys.push({
+          key,
+          failCount: 0,
+          lastFail: 0,
+          blocked: false
+        });
+      }
+    } else if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+      // Fallback: single key from GEMINI_API_KEY or GOOGLE_API_KEY
+      const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      if (key) {
+        this.geminiKeys.push({
+          key,
+          failCount: 0,
+          lastFail: 0,
+          blocked: false
+        });
+      }
+    } else {
+      // Fallback: Load individual keys GOOGLE_API_KEY, GOOGLE_API_KEY_2, etc.
+      let i = 1;
+      while (true) {
+        const key = process.env[`GOOGLE_API_KEY${i === 1 ? '' : `_${i}`}`];
+        if (!key) break;
+        
+        this.geminiKeys.push({
+          key,
+          failCount: 0,
+          lastFail: 0,
+          blocked: false
+        });
+        i++;
+      }
     }
     
     console.log(`🔑 Loaded ${this.groqKeys.length} Groq key(s), ${this.geminiKeys.length} Gemini key(s)`);
