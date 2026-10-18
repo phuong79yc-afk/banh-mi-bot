@@ -37,12 +37,13 @@ const ROLE_BONUS_CONFIG = [
 ];
 
 // ==================== DATABASE INITIALIZATION ====================
-// Ensure data directory exists
-if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
-  fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
+// Ensure data directory exists (supports DATABASE_PATH env var for persistent storage)
+const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
+const db = new Database(path.join(dataDir, 'economy.db'));
 
 // Enable WAL mode for better concurrency and data consistency
 db.pragma('journal_mode = WAL');
@@ -120,7 +121,7 @@ function getNextMidnightUnix(): number {
 
 // ==================== JSON → SQLITE MIGRATION ====================
 function migrateFromJson(): void {
-  const dataPath = path.join(process.cwd(), 'data', 'daily.json');
+  const dataPath = path.join(dataDir, 'daily.json');
   if (!fs.existsSync(dataPath)) {
     console.log('[Daily] No daily.json found, skipping migration');
     return;

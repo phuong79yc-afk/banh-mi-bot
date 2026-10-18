@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Fix AI module 'Groq is not initialized' error and add comprehensive error handling. Error occurs at line 223 in chatWithGroq when keyRotator.getGroqKey() returns null. Add graceful fallback and user-friendly error messages.",
+  "status": "pending",
+  "steps": [
+    "1. Read src/modules/ai-module/entry_point.ts line 360-380 (chatWithGroq method) - the error 'Groq is not initialized' is thrown when keyRotator.getGroqKey() returns null. This happens when GROQ_API_KEYS env var is empty or all keys are blocked.",
+    "2. Read src/utils/aiKeyRotator.ts line 100-120 (getGroqKey method) - returns null when groqKeys array is empty (no keys loaded from env).",
+    "3. In ai-module entry_point.ts, modify handleAIChat to check provider availability BEFORE showing loading card. If user selects 'groq:*' model but no Groq keys available, immediately show error: 'Groq không khả dụng. Vui lòng thử Gemini model.' Do NOT proceed to generate().",
+    "4. In ai-module entry_point.ts, modify handleAIChat to check provider availability for 'gemini:*' models similarly.",
+    "5. Add a fallback mechanism in handleAIChat: if selected provider unavailable, auto-switch to available provider if any. Groq unavailable -> try Gemini. Gemini unavailable -> try Groq. Both unavailable -> show error 'Không có AI provider nào khả dụng.'",
+    "6. Update chatWithGroq and chatWithGemini methods to return more specific error messages: distinguish between 'no keys configured' vs 'all keys rate-limited' vs 'API error'.",
+    "7. Wrap entire handleAIChat try-catch block to catch any unhandled errors and show user-friendly error card instead of crashing.",
+    "8. Add checkKeys() call result to module initialization logs - show warning if no providers available on startup.",
+    "9. Update /ai-models command to show warning badge next to providers with 0 keys active."
+  ],
+  "acceptance_criteria": [
+    "/ai command does not crash when GROQ_API_KEYS is empty or invalid",
+    "/ai command shows clear error message 'Groq không khả dụng, vui lòng thử Gemini' when Groq keys missing",
+    "/ai command auto-switches to Gemini if Groq selected but unavailable (and vice versa)",
+    "/ai command shows 'Không có AI provider nào khả dụng' when both Groq and Gemini keys missing",
+    "Error messages are in Vietnamese, user-friendly, and suggest alternatives",
+    "Bot logs show clear warnings on startup if AI keys missing: '⚠️ No Groq keys available' or '⚠️ No Gemini keys available'",
+    "/ai-models command shows 🔴 status for providers with 0 active keys"
+  ],
+  "verification": [
+    "Build: npm run build",
+    "Test 1 - No Groq keys: Remove GROQ_API_KEYS from .env, keep GEMINI_API_KEYS. Start bot. Run /ai message:'test' model:groq - should show error or auto-switch to Gemini. Check logs for warning about Groq.",
+    "Test 2 - No Gemini keys: Remove GEMINI_API_KEYS, keep GROQ_API_KEYS. Start bot. Run /ai message:'test' model:gemini - should show error or auto-switch to Groq.",
+    "Test 3 - No keys at all: Remove both key env vars. Start bot. Logs should show warnings for both. Run /ai - should show 'không có provider nào khả dụng'.",
+    "Test 4 - Valid keys: Restore keys. Run /ai - should work normally. Check /ai-models shows correct status.",
+    "Verify no unhandled promise rejections in console logs during error scenarios"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

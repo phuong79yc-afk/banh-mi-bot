@@ -7,13 +7,14 @@ import path from 'path';
  * This ensures all tables exist before modules try to query them
  */
 export function initializeDatabase() {
-  // Ensure data directory exists
-  const dataDir = path.join(process.cwd(), 'data');
+  // Ensure data directory exists (supports DATABASE_PATH env var for persistent storage)
+  const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
   const dbPath = path.join(dataDir, 'economy.db');
+  console.log(`🗄️  Using database path: ${dbPath}`);
   const db = new Database(dbPath);
 
   // Enable WAL mode for better concurrency

@@ -1,0 +1,7 @@
+{
+  "task_id": "fix-bot-railway",
+  "task_description": "Fix Discord bot database persistence, Components V2 instability, AI module errors, and music module issues when deployed on Railway",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

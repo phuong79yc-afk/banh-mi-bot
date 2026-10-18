@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-002",
+  "type": "fix",
+  "description": "Apply smartReply auto-fallback wrapper to all modules using Components V2 to fix random V2 display failures on Railway. The smartReply utility (src/utils/smartReply.ts) automatically falls back from V2 to EmbedBuilder when V2 fails, but most modules build V2 components directly without using it.",
+  "status": "pending",
+  "steps": [
+    "1. Read src/utils/smartReply.ts to understand the smartReply() and smartEditReply() API. These take {title, description, color, fields, footer, thumbnail} and try V2 first, falling back to EmbedBuilder on error.",
+    "2. Convert src/modules/utility/entry_point.ts /help command (line 526-640) - the help command uses ContainerBuilder directly. Wrap the initial reply in a try-catch that falls back to EmbedBuilder format, OR refactor to build data structure first then use smartReply helper for initial message. The dropdown collector can stay as-is since V2 updates.",
+    "3. Convert src/modules/utility/entry_point.ts /information command (line 642-730) - similar pattern, wrap V2 reply with try-catch fallback to EmbedBuilder.",
+    "4. Convert src/modules/balance-module/entry_point.ts - compensate and bulk-compensate commands already use EmbedBuilder (line 210, 337, 402), but balance command uses Components V2 (line 458) without fallback. NO CHANGE NEEDED - already uses EmbedBuilder.",
+    "5. Review src/modules/daily-module/entry_point.ts - uses ContainerBuilder extensively for /daily, /daily-stats, /daily-leaderboard. These are complex multi-section V2 layouts. Add try-catch wrapper around interaction.editReply() calls to catch V2 errors and fall back to simplified EmbedBuilder format showing just reward summary and streak.",
+    "6. Review src/modules/vip-module/entry_point.ts - uses ContainerBuilder for VIP info panels. Add try-catch around sendV2() calls (line 286) to fall back to EmbedBuilder.",
+    "7. Review src/modules/games-module/entry_point.ts - uses ContainerBuilder for game cards. Add try-catch fallback to simple text-based EmbedBuilder.",
+    "8. Review src/modules/afk-module/entry_point.ts - uses ContainerBuilder. Add try-catch fallback.",
+    "9. Review src/modules/music-module/entry_point.ts - uses ContainerBuilder for now-playing cards. Add try-catch fallback to simple EmbedBuilder with track title/duration.",
+    "10. Search for remaining 'new ContainerBuilder()' usage in modules not yet covered: autoresponder-module, customrole-module, giveaway-module, minecraft-module, quest-module, shop-module, ticket-module, settings-module, etc. Add fallback wrappers to each.",
+    "11. Update src/utils/smartReply.ts to export a 'safeV2Reply' wrapper function that takes interaction and a builder function, tries V2, catches errors and falls back to building EmbedBuilder from V2 structure. This makes conversion easier for complex multi-component V2 layouts."
+  ],
+  "acceptance_criteria": [
+    "All modules using ContainerBuilder have try-catch error handling that falls back to EmbedBuilder",
+    "/help command works even if V2 fails - shows simplified embed list of commands",
+    "/daily command works even if V2 fails - shows reward amount and streak in EmbedBuilder",
+    "/ai command already handles errors - verify it still works",
+    "Music commands show now-playing info even if V2 fails",
+    "No command completely fails to respond when V2 components don't render"
+  ],
+  "verification": [
+    "Build: npm run build",
+    "Start bot: npm start",
+    "Test /help command - should show help menu with dropdown or fallback embed",
+    "Test /daily command - should show reward card or fallback embed with reward amount",
+    "Test /information command - should show bot info",
+    "Simulate V2 failure by temporarily throwing error in ContainerBuilder usage - verify fallback triggers and EmbedBuilder reply sent",
+    "Check console logs for 'V2 failed, falling back to Embed' warnings"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

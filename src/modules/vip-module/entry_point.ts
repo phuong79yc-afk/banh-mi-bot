@@ -214,7 +214,8 @@ const VIP_TIERS: VIPTier[] = [
 ];
 
 // ==================== DATABASE ====================
-const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
+const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
+const db = new Database(path.join(dataDir, 'economy.db'));
 
 interface UserData {
   user_id: string;
@@ -421,7 +422,7 @@ function buildVipBonus(interaction: ChatInputCommandInteraction): ContainerBuild
     text(
       `${emojis.success || '✅'} Chức năng claim đang phát triển, sẽ có trong bản cập nhật tiếp theo.`,
     ),
-  ]);
+  ]);     
 }
 
 // ==================== MODULE ====================

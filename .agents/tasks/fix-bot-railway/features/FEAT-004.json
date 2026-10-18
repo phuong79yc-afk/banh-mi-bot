@@ -1,0 +1,41 @@
+{
+  "id": "FEAT-004",
+  "type": "fix",
+  "description": "Investigate and fix music module not working. Music module exists at src/modules/music-module/entry_point.ts and uses discord-player v7 with prefix commands (!bc play, !bc skip, etc.). Need to verify module loads, registers commands, and handles errors properly.",
+  "status": "pending",
+  "steps": [
+    "1. Read src/modules/music-module/entry_point.ts fully to understand architecture. Uses discord-player Player, prefix commands (PREFIX = '!bc'), Components V2 for now-playing cards.",
+    "2. Check if music module is enabled/loaded: search for music-module metadata.json to verify enabled:true. Check main bot index.ts or module loader for music module registration.",
+    "3. Verify discord-player dependencies in package.json: discord-player@^7.2.0, @discord-player/extractor@^7.2.0, ffmpeg-static@^5.3.0. All present - CONFIRMED.",
+    "4. Check if Player is initialized in music module constructor or initialize() method. discord-player v7 requires Player instance and extractors registration.",
+    "5. Common music module failure modes: (a) Player not initialized, (b) extractors not registered, (c) missing ffmpeg, (d) voice connection errors, (e) no error handling on prefix commands.",
+    "6. Add comprehensive error handling to music prefix command handler: wrap all play/skip/pause/etc handlers in try-catch, log errors to console with specific error type (voice channel not found, track not found, playback error, etc.).",
+    "7. Add V2 fallback error handling to nowPlaying card rendering - if V2 fails, fall back to simple text reply or EmbedBuilder with track title and duration.",
+    "8. Add startup verification in music module initialize() - check if Player initialized successfully, log warning if extractors fail to load.",
+    "9. Check for prefix command event listener registration - music module must listen to 'messageCreate' event and parse !bc commands. Verify this listener is registered.",
+    "10. Test music commands: !bc play [song], !bc queue, !bc skip. Check console logs for errors. Common errors: 'No voice channel', 'Track not found', 'Extractor error'."
+  ],
+  "acceptance_criteria": [
+    "Music module loads successfully on bot startup, logs show '🎵 Music module initialized' or similar",
+    "!bc play [song name] command responds (either plays music or shows clear error message)",
+    "!bc queue command shows current queue or 'No songs in queue' message",
+    "!bc skip command skips to next song or shows 'Nothing playing' message",
+    "All music command errors are caught and logged with specific error details, not generic crashes",
+    "V2 now-playing cards have EmbedBuilder fallback if V2 fails",
+    "Console logs show clear errors when music commands fail: 'User not in voice channel', 'Track not found for query: [song]', 'Extractor failed: [extractor name]'"
+  ],
+  "verification": [
+    "Build: npm run build",
+    "Start bot: npm start",
+    "Check console logs for 'Music module initialized' message",
+    "Join a voice channel in Discord test server",
+    "Send '!bc play never gonna give you up' in text channel",
+    "Verify bot responds with now-playing card or error message (not crash)",
+    "If plays: verify !bc skip, !bc pause, !bc queue commands work",
+    "If error: check console logs for specific error message, verify it's user-friendly",
+    "Leave voice channel, run !bc play again - should show 'Join a voice channel first' error",
+    "Test with invalid song: !bc play asdfqwerzxcv123 - should show 'No results found' or similar"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

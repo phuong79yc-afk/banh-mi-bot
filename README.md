@@ -35,11 +35,20 @@ GUILD_ID=your_server_id  # Optional: Instant deploy (5s) thay vì global (1h)
 # AI Keys (cách nhau bằng dấu phẩy)
 GROQ_API_KEYS=key1,key2,key3,key4
 
+# Database path (for persistent storage, especially on Railway)
+DATABASE_PATH=/app/data  # Optional: defaults to ./data if not set
+
 # Web dashboard
 PORT=3001
 ```
 
 **Lấy GUILD_ID:** Right-click server > Copy ID (cần bật Developer Mode)
+
+**DATABASE_PATH Configuration:**
+- **Local development:** Leave unset or use `./data` (default)
+- **Railway deployment:** Set to `/app/data` or path to mounted persistent volume
+- Railway uses ephemeral filesystem - without DATABASE_PATH pointing to a persistent volume, daily rewards and xu balances will reset on each redeploy
+- Example Railway setup: Mount volume at `/app/data` and set `DATABASE_PATH=/app/data`
 
 ---
 

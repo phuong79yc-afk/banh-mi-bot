@@ -213,7 +213,8 @@ export function createDashboardRoutes(client: Client): Router {
     try {
       const Database = require('better-sqlite3');
       const path = require('path');
-      const dbPath = path.join(process.cwd(), 'data', 'economy.db');
+      const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
+      const dbPath = path.join(dataDir, 'economy.db');
       
       const db = new Database(dbPath);
       
