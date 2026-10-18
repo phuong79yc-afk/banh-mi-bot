@@ -3,30 +3,11 @@ import {
   Collection,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  // Components V2
-  ContainerBuilder,
-  MessageFlags,
-  SectionBuilder,
-  TextDisplayBuilder,
-  FileBuilder
+  EmbedBuilder
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import Database from 'better-sqlite3';
 import path from 'path';
-
-// ==================== COMPONENTS V2 HELPERS ====================
-const V2 = MessageFlags.IsComponentsV2;
-const NO_PING = { parse: [] as never[] };
-
-function txt(content: string) {
-  return new TextDisplayBuilder().setContent(content);
-}
-
-function simple(color: number, title: string, desc?: string) {
-  return new ContainerBuilder()
-    .setPrimaryColor(color)
-    .addTextDisplayComponents(txt(`## ${title}${desc ? `\n${desc}` : ''}`));
-}
 
 // ==================== DATABASE ====================
 const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
