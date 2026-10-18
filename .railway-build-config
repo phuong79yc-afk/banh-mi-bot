@@ -1,0 +1,12 @@
+# Railway Build Configuration
+
+## Force fresh npm install
+# This ensures Railway doesn't use cached old discord.js version
+
+BUILD_DATE=2026-10-18
+DISCORD_JS_VERSION=14.28.0
+FORCE_CLEAN_INSTALL=true
+
+# Railway should run:
+# npm ci --prefer-offline=false --no-audit
+# This forces fresh install from npm registry
