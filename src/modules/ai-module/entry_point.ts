@@ -498,7 +498,7 @@ export default class AIModule {
   }
 
   // ───────── /ai ─────────
-  private async handleAIChat(interaction: ChatInputCommandInteraction) {
+  private async handleAIChat(interaction: ChatInputCommandInteraction): Promise<void> {
     console.log(`[AI] handleAIChat called by ${interaction.user.tag} (${interaction.user.id})`);
     
     // DEFER IMMEDIATELY to prevent timeout
@@ -559,12 +559,18 @@ export default class AIModule {
             // Wait 1s then continue with alternate provider
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Recursive call with alternate provider
+            // Recursive call with alternate provider - create new interaction-like object
             const newModelOption = `${alternateProvider}:${alternateModel}`;
-            interaction.options['_hoistedOptions'] = interaction.options['_hoistedOptions'].map((opt: any) => 
-              opt.name === 'model' ? {...opt, value: newModelOption} : opt
-            );
-            return this.handleAIChat(interaction);
+            const modifiedInteraction = Object.create(interaction);
+            modifiedInteraction.options = {
+              ...interaction.options,
+              getString: (name: string, required?: boolean) => {
+                if (name === 'model') return newModelOption;
+                return interaction.options.getString(name, required);
+              },
+              getBoolean: interaction.options.getBoolean.bind(interaction.options)
+            };
+            return this.handleAIChat(modifiedInteraction);
           } else {
             // No providers available
             await interaction.editReply({
