@@ -1,11 +1,19 @@
-import { 
-  Client, 
-  Collection, 
-  SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  EmbedBuilder
+import {
+  Client,
+  Collection,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  // ===== Components V2 =====
+  ContainerBuilder,
+  SectionBuilder,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
 } from 'discord.js';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
 import { picture, combineFiles } from '../../utils/pictureHelper';
 import Database from 'better-sqlite3';
@@ -16,8 +24,8 @@ import path from 'path';
 const BASE_REWARD = 100;
 const STREAK_BONUS_PER_DAY = 10;
 const STREAK_BONUS_MAX = 100;
-const BOOSTER_PERCENT = 5;
 const TIMEZONE = 'Asia/Ho_Chi_Minh';
+const TZ_OFFSET_MS = 7 * 60 * 60 * 1000; // Asia/Ho_Chi_Minh = UTC+7
 
 // Role bonus config - roles from shop get % bonus
 const ROLE_BONUS_CONFIG = [
@@ -29,21 +37,21 @@ const ROLE_BONUS_CONFIG = [
 ];
 
 // ==================== DATABASE INITIALIZATION ====================
-
 // Ensure data directory exists
 if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
   fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
 }
 
-// Initialize SQLite database
 const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
 
-// Run database migrations
+// Enable WAL mode for better concurrency and data consistency
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+
 function runMigrations() {
-  // Check if gold_balance column exists
-  const tableInfo = db.prepare("PRAGMA table_info(daily_users)").all() as any[];
+  const tableInfo = db.prepare('PRAGMA table_info(daily_users)').all() as any[];
   const hasGoldBalance = tableInfo.some((col: any) => col.name === 'gold_balance');
-  
+
   if (!hasGoldBalance) {
     console.log('[Migration] Adding gold_balance column to daily_users table...');
     db.exec('ALTER TABLE daily_users ADD COLUMN gold_balance INTEGER NOT NULL DEFAULT 0');
@@ -51,7 +59,6 @@ function runMigrations() {
   }
 }
 
-// Create table and run migrations
 db.exec(`
   CREATE TABLE IF NOT EXISTS daily_users (
     user_id TEXT PRIMARY KEY,
@@ -90,17 +97,12 @@ interface UserDailyData {
 }
 
 // ==================== TIMEZONE-AWARE DATE UTILITIES ====================
-
-/**
- * Get today's date as YYYY-MM-DD string in configured timezone
- */
+/** Ngày hôm nay dạng YYYY-MM-DD theo múi giờ cấu hình */
 function getTodayString(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(new Date());
 }
 
-/**
- * Calculate days between two YYYY-MM-DD date strings
- */
+/** Số ngày giữa hai chuỗi YYYY-MM-DD */
 function daysBetween(a: string, b: string): number {
   const [y1, m1, d1] = a.split('-').map(Number);
   const [y2, m2, d2] = b.split('-').map(Number);
@@ -108,44 +110,31 @@ function daysBetween(a: string, b: string): number {
 }
 
 /**
- * Get Unix timestamp for next midnight in configured timezone
+ * Unix timestamp (giây) của 00:00 ngày kế tiếp theo giờ VN.
+ * Tính từ chuỗi ngày hôm nay nên không phụ thuộc múi giờ của máy chủ.
  */
 function getNextMidnightUnix(): number {
-  const now = new Date();
-  const tzOffset = 7 * 60; // Asia/Ho_Chi_Minh is UTC+7
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const localMs = utcMs + tzOffset * 60000;
-  const localDate = new Date(localMs);
-  
-  // Set to next midnight
-  localDate.setHours(24, 0, 0, 0);
-  
-  // Convert back to UTC timestamp
-  const nextMidnightLocal = localDate.getTime();
-  const nextMidnightUtc = nextMidnightLocal - tzOffset * 60000;
-  
-  return Math.floor(nextMidnightUtc / 1000);
+  const [y, m, d] = getTodayString().split('-').map(Number);
+  return Math.floor((Date.UTC(y, m - 1, d + 1) - TZ_OFFSET_MS) / 1000);
 }
 
 // ==================== JSON → SQLITE MIGRATION ====================
-
 function migrateFromJson(): void {
   const dataPath = path.join(process.cwd(), 'data', 'daily.json');
-  
   if (!fs.existsSync(dataPath)) {
     console.log('[Daily] No daily.json found, skipping migration');
     return;
   }
-  
+
   try {
     const jsonData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
     let migrated = 0;
-    
+
     const insertStmt = db.prepare(`
       INSERT OR IGNORE INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    
+
     for (const [userId, userData] of Object.entries(jsonData) as [string, any][]) {
       const result = insertStmt.run(
         userId,
@@ -155,9 +144,10 @@ function migrateFromJson(): void {
         userData.total_checkins || 0,
         userData.lastDaily || userData.last_checkin_date || null
       );
+
       if (result.changes > 0) migrated++;
     }
-    
+
     console.log(`[Daily] Migrated ${migrated} users from JSON to SQLite`);
   } catch (error) {
     console.error('[Daily] Migration error:', error);
@@ -165,146 +155,159 @@ function migrateFromJson(): void {
 }
 
 // ==================== DATA ACCESS HELPERS ====================
-
-// Helper function to check if user checked in today
-function hasCheckedInToday(userId: string): boolean {
-  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
-  if (!row || !row.last_daily) return false;
-  
-  const today = getTodayString();
-  return row.last_daily === today;
-}
-
-// Helper function to get or create user data
 function getUserData(userId: string): UserDailyData {
   const row = stmtGetUser.get(userId) as UserDailyData | undefined;
-  
-  return row ?? {
-    user_id: userId,
-    balance: 0,
-    gold_balance: 0,
-    streak: 0,
-    max_streak: 0,
-    total_checkins: 0,
-    last_daily: null
-  };
+  return (
+    row ?? {
+      user_id: userId,
+      balance: 0,
+      gold_balance: 0,
+      streak: 0,
+      max_streak: 0,
+      total_checkins: 0,
+      last_daily: null,
+    }
+  );
+}
+
+function hasCheckedInToday(userId: string): boolean {
+  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
+  return !!row?.last_daily && row.last_daily === getTodayString();
 }
 
 // ==================== REWARD CALCULATION ====================
-
 interface RewardBreakdown {
   base: number;
   streakBonus: number;
+  streakCapped: boolean;
   roleBonus: number;
-  roleName?: string;
+  roleId?: string;
   rolePercent?: number;
   total: number;
 }
 
-function calculateReward(
-  streak: number, 
-  interaction: ChatInputCommandInteraction
-): RewardBreakdown {
+function calculateReward(streak: number, interaction: ChatInputCommandInteraction): RewardBreakdown {
   const base = BASE_REWARD;
-  const streakBonus = Math.min(streak * STREAK_BONUS_PER_DAY, STREAK_BONUS_MAX);
+  const rawStreakBonus = streak * STREAK_BONUS_PER_DAY;
+  const streakBonus = Math.min(rawStreakBonus, STREAK_BONUS_MAX);
   const subtotal = base + streakBonus;
-  
-  // Check for role bonus (highest % wins)
-  let roleBonus = 0;
-  let bestRole: { roleId: string; percent: number; name: string } | undefined;
-  
+
+  // Role bonus (% cao nhất được tính, không cộng dồn)
+  let bestRole: { roleId: string; percent: number } | undefined;
   const member = interaction.member;
+
   if (member && typeof member.roles !== 'string' && 'cache' in member.roles) {
     for (const config of ROLE_BONUS_CONFIG) {
       if (config.roleId && member.roles.cache.has(config.roleId)) {
         if (!bestRole || config.percent > bestRole.percent) {
-          bestRole = { ...config, roleId: config.roleId! };
+          bestRole = { roleId: config.roleId, percent: config.percent };
         }
       }
     }
   }
-  
-  if (bestRole) {
-    roleBonus = Math.floor(subtotal * bestRole.percent / 100);
-  }
-  
+
+  const roleBonus = bestRole ? Math.floor((subtotal * bestRole.percent) / 100) : 0;
+
   return {
     base,
     streakBonus,
+    streakCapped: rawStreakBonus >= STREAK_BONUS_MAX,
     roleBonus,
-    roleName: bestRole?.name,
+    roleId: bestRole?.roleId,
     rolePercent: bestRole?.percent,
-    total: subtotal + roleBonus
+    total: subtotal + roleBonus,
   };
 }
 
-// ==================== VIP ROLE CHECK (DEPRECATED - Use calculateReward instead) ====================
-
-function hasBoosterRole(interaction: ChatInputCommandInteraction): boolean {
-  const vipNames = ['Premium Member', 'Bot Developer', 'Bot Owner'];
-  const member = interaction.member;
-  
-  // In guilds, member.roles is GuildMemberRoleManager with cache
-  if (member && typeof member.roles !== 'string' && 'cache' in member.roles) {
-    return member.roles.cache.some((r: any) =>
-      vipNames.some(v => r.name.includes(v))
-    );
-  }
-  
-  return false;
-}
-
 // ==================== STREAK LOGIC ====================
-
 interface CheckInResult {
   success: boolean;
   alreadyClaimed?: boolean;
   streak?: number;
-  isNewStreak?: boolean;
 }
 
-/**
- * Process user check-in with timezone-aware streak calculation
- */
 function processCheckIn(userId: string): CheckInResult {
   const userData = getUserData(userId);
   const today = getTodayString();
-  
-  // Check if already claimed today
+
   if (userData.last_daily) {
     const diff = daysBetween(userData.last_daily, today);
-    if (diff === 0) {
-      return { success: false, alreadyClaimed: true };
-    }
+    if (diff === 0) return { success: false, alreadyClaimed: true };
+    if (diff === 1) return { success: true, streak: userData.streak + 1 }; // Streak tiếp tục
   }
-  
-  // Calculate new streak
-  let newStreak = 1;
-  let isNewStreak = true;
-  
-  if (userData.last_daily) {
-    const diff = daysBetween(userData.last_daily, today);
-    if (diff === 1) {
-      // Streak continues
-      newStreak = userData.streak + 1;
-      isNewStreak = false;
-    }
-    // If diff > 1, streak resets to 1 (already set above)
-  }
-  
-  const newMaxStreak = Math.max(userData.max_streak, newStreak);
-  
+
+  // Lần đầu, hoặc đứt chuỗi -> về 1
+  return { success: true, streak: 1 };
+}
+
+// ==================== COMPONENTS V2 HELPERS ====================
+const V2 = MessageFlags.IsComponentsV2;
+const NO_PING = { parse: [] as never[] };
+
+const COLOR_GREEN = 0x7be0b0;
+const COLOR_BLUE = 0x5865f2;
+const COLOR_GOLD = 0xffd700;
+
+const fmt = (n: number) => n.toLocaleString('vi-VN');
+
+const text = (content: string) => new TextDisplayBuilder().setContent(content);
+
+const divider = (size: SeparatorSpacingSize = SeparatorSpacingSize.Small) =>
+  new SeparatorBuilder().setDivider(true).setSpacing(size);
+
+/** Thanh tiến độ ▰▰▰▱▱▱ */
+function bar(progress: number, target: number, size = 10): string {
+  const ratio = Math.max(0, Math.min(1, progress / target));
+  const filled = Math.round(ratio * size);
+  return '▰'.repeat(filled) + '▱'.repeat(size - filled);
+}
+
+/** Cột mốc streak kế tiếp */
+function nextMilestone(streak: number): number {
+  if (streak < 7) return 7;
+  if (streak < 30) return 30;
+  if (streak < 100) return 100;
+  return (Math.floor(streak / 100) + 1) * 100;
+}
+
+/** Dòng tiến độ streak tới cột mốc */
+function streakProgressLine(streak: number): string {
+  const target = nextMilestone(streak);
+  return `${emojis.fire} \`${bar(streak, target)}\` **${streak}/${target}** ngày`;
+}
+
+function milestoneMessage(streak: number): string | null {
+  if (streak === 7) return `${emojis.gift} **Cột mốc 1 tuần!** Bạn thật kiên trì!`;
+  if (streak === 30) return `${emojis.sparkles} **Cột mốc 1 tháng!** Tuyệt vời!`;
+  if (streak === 100) return `${emojis.trophy} **Cột mốc 100 ngày!** Huyền thoại!`;
+  if (streak > 0 && streak % 10 === 0) return `${emojis.sparkles} **Cột mốc ${streak} ngày!** Tuyệt vời!`;
+  return null;
+}
+
+/** Ảnh thumbnail từ pictureHelper */
+function loadImages(fallbackAvatar: string) {
+  const thumbnail = picture(process.env.DAILY_THUMBNAIL, 'daily-icon.png');
+  const files = combineFiles([thumbnail]);
+
   return {
-    success: true,
-    streak: newStreak,
-    isNewStreak
+    thumbUrl: thumbnail ? thumbnail.url : fallbackAvatar,
+    files,
   };
 }
 
+function addHeader(container: ContainerBuilder, title: string, subtitle: string, thumbUrl: string) {
+  container.addSectionComponents(
+    new SectionBuilder()
+      .addTextDisplayComponents(text(title), text(subtitle))
+      .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbUrl))
+  );
+}
+
+// ==================== MODULE ====================
 export default class DailyModule {
   name = 'daily-module';
   description = 'Hệ thống điểm danh hàng ngày';
-  version = '1.0.0';
+  version = '2.0.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -315,274 +318,275 @@ export default class DailyModule {
   }
 
   async initialize() {
-    console.log(`📅 Daily check-in module initialized`);
-    migrateFromJson(); // Run JSON → SQLite migration
+    console.log('📅 Daily check-in module initialized');
+    migrateFromJson();
     this.registerCommands();
     console.log(`✅ Daily module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
-    // /daily command
+    // ==================== /daily ====================
     const dailyCommand = {
-      data: new SlashCommandBuilder()
-        .setName('daily')
-        .setDescription('📅 Điểm danh hàng ngày để nhận thưởng'),
+      data: new SlashCommandBuilder().setName('daily').setDescription('Điểm danh hàng ngày để nhận xu và vé vàng'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
           throw error;
         }
-        
+
         const userId = interaction.user.id;
         const user = interaction.user;
-        
-        // Step 1: Process check-in
+        const avatar = user.displayAvatarURL({ size: 256 });
+        const nextMidnight = getNextMidnightUnix();
+
+        // Bước 1: xử lý điểm danh
         const result = processCheckIn(userId);
-        
-        // Handle already claimed
+
+        // ---------- Đã điểm danh hôm nay ----------
         if (result.alreadyClaimed) {
           const data = getUserData(userId);
-          const nextMidnight = getNextMidnightUnix();
-          
-          const lines = [
-            `- Bạn đã điểm danh hôm nay rồi ${emojis.success}`,
-            `${emojis.fire} Điểm danh liên tục **${data.streak}** ngày`,
-            `${emojis.clock} Điểm danh tiếp <t:${nextMidnight}:R>`,
-          ];
-          
-          const description = lines.map(l => `> ${l}`).join('\n');
-          
-          const alreadyEmbed = new EmbedBuilder()
-            .setColor('#5865f2')
-            .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
-            .setDescription(description)
-            .setFooter({ 
-              text: `${user.username} • Banhcuon-bot`,
-              iconURL: user.displayAvatarURL()
-            });
-          
-          // Add thumbnail and banner
-          const thumbnail = picture(process.env.DAILY_THUMBNAIL, 'daily-icon.png');
-          const banner = picture(process.env.DAILY_BANNER, 'banners/daily-banner.gif');
-          
-          if (thumbnail) {
-            alreadyEmbed.setThumbnail(thumbnail.url);
-          } else {
-            alreadyEmbed.setThumbnail(user.displayAvatarURL());
-          }
-          
-          if (banner) {
-            alreadyEmbed.setImage(banner.url);
-          }
-          
-          const files = combineFiles([thumbnail, banner]);
-          
-          await interaction.editReply({ 
-            embeds: [alreadyEmbed],
-            files: files.length > 0 ? files : undefined
+          const { thumbUrl, files } = loadImages(avatar);
+
+          const container = new ContainerBuilder();
+
+          addHeader(
+            container,
+            '# 📅 Điểm danh hằng ngày',
+            `### ${emojis.success} Bạn đã điểm danh hôm nay rồi\n-# ${user.username}`,
+            thumbUrl
+          );
+
+          container
+            .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+            .addTextDisplayComponents(
+              text(
+                [
+                  `### ${emojis.fire} Chuỗi hiện tại`,
+                  streakProgressLine(data.streak),
+                  `-# Kỷ lục: ${data.max_streak} ngày · Tổng: ${data.total_checkins} lần`,
+                ].join('\n')
+              )
+            )
+            .addSeparatorComponents(divider())
+            .addTextDisplayComponents(
+              text(`${emojis.clock} **Điểm danh tiếp:** <t:${nextMidnight}:R>\n-# Banhcuon-bot`)
+            );
+
+          await interaction.editReply({
+            components: [container],
+            flags: V2,
+            allowedMentions: NO_PING,
+            files: files.length > 0 ? files : undefined,
           });
+
           return;
         }
-        
-        // Step 2: Calculate rewards with role bonus
+
+        // ---------- Điểm danh thành công ----------
         const streak = result.streak!;
         const rewards = calculateReward(streak, interaction);
-        
-        // Step 3: Save to database (balance, streak, max_streak, total_checkins, last_daily)
-        const today = getTodayString();
-        const userData = getUserData(userId);
+
+        const userDataBefore = getUserData(userId);
+
         stmtUpsertUser.run({
           user_id: userId,
           balance: rewards.total,
-          streak: streak,
-          max_streak: Math.max(userData.max_streak, streak),
-          total_checkins: 1, // Increments by 1 via UPDATE clause
-          last_daily: today
+          streak,
+          max_streak: Math.max(userDataBefore.max_streak, streak),
+          total_checkins: 1, // tăng thêm 1 qua mệnh đề UPDATE
+          last_daily: getTodayString(),
         });
-        
-        // Step 4: Track quest progress (dynamic import to avoid circular dependency)
-        console.log(`[Daily] Attempting to track quest for user ${userId}`);
+
+        const userDataAfter = getUserData(userId);
+
+        // Ghi nhận tiến độ quest (dynamic import để tránh circular dependency)
         try {
           const { trackCommand } = await import('../quest-module/entry_point');
           trackCommand(userId, 'daily');
-          console.log(`[Daily] Successfully tracked quest for user ${userId}`);
         } catch (error) {
           console.error('[Daily] Failed to track quest:', error);
         }
-        
-        // Step 5: Build embed with quote-style formatting
-        const lines: string[] = [
-          `• Điểm danh hằng ngày ~ \`${rewards.base}\` ${emojis.coin}`,
-          `${emojis.fire} Điểm danh liên tục **${streak}** ngày ~ \`${rewards.streakBonus}\` ${emojis.coin}`,
+
+        const { thumbUrl, files } = loadImages(avatar);
+
+        const milestone = milestoneMessage(streak);
+
+        // Chi tiết thưởng
+        const rewardLines = [
+          `${emojis.coin} **Điểm danh hằng ngày** ─ \`+${fmt(rewards.base)}\``,
+          `${emojis.fire} **Chuỗi ${streak} ngày** ─ \`+${fmt(rewards.streakBonus)}\`${rewards.streakCapped ? ' (tối đa)' : ''}`,
         ];
-        
-        // Add role bonus line if applicable
-        if (rewards.roleBonus > 0 && rewards.roleName) {
-          const member = interaction.member;
-          if (member && typeof member.roles !== 'string' && 'cache' in member.roles) {
-            const roleConfig = ROLE_BONUS_CONFIG.find(r => r.name === rewards.roleName);
-            if (roleConfig?.roleId) {
-              lines.push(`• <@&${roleConfig.roleId}> ~ **+${rewards.rolePercent}%** ${emojis.coin}`);
-            }
-          }
+
+        if (rewards.roleBonus > 0 && rewards.roleId) {
+          rewardLines.push(
+            `👑 <@&${rewards.roleId}> **+${rewards.rolePercent}%** ─ \`+${fmt(rewards.roleBonus)}\``
+          );
         }
-        
-        const description =
-          lines.map(l => `> ${l}`).join('\n') +
-          '\n\n' +
-          `> ${emojis.sparkles} **Tổng nhận:** \`${rewards.total}\` ${emojis.coin}`;
-        
-        // Streak milestone messages
-        let milestoneMsg = '';
-        if (streak === 7) {
-          milestoneMsg = `\n\n${emojis.gift} **Cột mốc 1 tuần!** Bạn thật kiên trì!`;
-        } else if (streak === 30) {
-          milestoneMsg = `\n\n${emojis.sparkles} **Cột mốc 1 tháng!** Tuyệt vời!`;
-        } else if (streak === 100) {
-          milestoneMsg = `\n\n${emojis.trophy} **Cột mốc 100 ngày!** Huyền thoại!`;
-        } else if (streak % 10 === 0 && streak > 0) {
-          milestoneMsg = `\n\n${emojis.sparkles} **Cột mốc ${streak} ngày!** Tuyệt vời!`;
+
+        const container = new ContainerBuilder();
+
+        addHeader(
+          container,
+          '# 📅 Điểm danh hằng ngày',
+          `### ${emojis.success} Điểm danh thành công!\n-# ${user.username}`,
+          thumbUrl
+        );
+
+        container
+          .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+          .addTextDisplayComponents(text(rewardLines.join('\n')))
+          .addSeparatorComponents(divider())
+          .addTextDisplayComponents(
+            text(`## ${emojis.sparkles} Tổng nhận: ${fmt(rewards.total)} ${emojis.coin}`)
+          )
+          .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+          .addTextDisplayComponents(
+            text(
+              [
+                `### ${emojis.fire} Tiến độ chuỗi`,
+                streakProgressLine(streak),
+                `-# Kỷ lục: ${userDataAfter.max_streak} ngày · Tổng: ${userDataAfter.total_checkins} lần`,
+              ].join('\n')
+            )
+          );
+
+        if (milestone) {
+          container.addSeparatorComponents(divider()).addTextDisplayComponents(text(milestone));
         }
-        
-        const embed = new EmbedBuilder()
-          .setColor('#7BE0B0')
-          .setAuthor({ name: 'Điểm danh hằng ngày', iconURL: user.displayAvatarURL() })
-          .setDescription(description + milestoneMsg)
-          .setFooter({ 
-            text: `${user.username} • Banhcuon-bot`,
-            iconURL: user.displayAvatarURL()
-          })
-          .setTimestamp();
-        
-        // Add thumbnail and banner images
-        const thumbnail = picture(process.env.DAILY_THUMBNAIL, 'daily-icon.png');
-        const banner = picture(process.env.DAILY_BANNER, 'banners/daily-banner.gif');
-        
-        if (thumbnail) {
-          embed.setThumbnail(thumbnail.url);
-        } else {
-          // Fallback to user avatar
-          embed.setThumbnail(user.displayAvatarURL());
-        }
-        
-        if (banner) {
-          embed.setImage(banner.url);
-        }
-        
-        // Combine files for attachment
-        const files = combineFiles([thumbnail, banner]);
-        
-        await interaction.editReply({ 
-          embeds: [embed],
-          files: files.length > 0 ? files : undefined
+
+        container
+          .addSeparatorComponents(divider())
+          .addTextDisplayComponents(
+            text(
+              [
+                `💰 **Số dư mới:** \`${fmt(userDataAfter.balance)}\` ${emojis.coin}`,
+                `${emojis.clock} **Điểm danh tiếp:** <t:${nextMidnight}:R>`,
+                `-# Banhcuon-bot`,
+              ].join('\n')
+            )
+          );
+
+        await interaction.editReply({
+          components: [container],
+          flags: V2,
+          allowedMentions: NO_PING,
+          files: files.length > 0 ? files : undefined,
         });
-      }
+      },
     };
 
-    // /daily-stats command
+    // ==================== /daily-stats ====================
     const statsCommand = {
-      data: new SlashCommandBuilder()
-        .setName('daily-stats')
-        .setDescription('📊 Xem thống kê điểm danh của bạn'),
+      data: new SlashCommandBuilder().setName('daily-stats').setDescription('Xem thống kê điểm danh của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
           throw error;
         }
-        
+
         const userId = interaction.user.id;
         const data = getUserData(userId);
-        
-        const embed = new EmbedBuilder()
-          .setColor('#5865f2')
-          .setAuthor({
-            name: 'Thống kê điểm danh',
-            iconURL: interaction.user.displayAvatarURL()
-          })
-          .addFields(
-            {
-              name: `${emojis.chart} Tổng số lần điểm danh`,
-              value: `**${data.total_checkins}** lần`,
-              inline: true
-            },
-            {
-              name: `${emojis.trophy} Chuỗi hiện tại`,
-              value: `**${data.streak}** ngày`,
-              inline: true
-            },
-            {
-              name: `${emojis.star} Chuỗi dài nhất`,
-              value: `**${data.max_streak}** ngày`,
-              inline: true
-            },
-            {
-              name: `${emojis.coin} Tổng phần thưởng`,
-              value: `**${data.balance}** coins`,
-              inline: true
-            },
-            {
-              name: `${emojis.calendar} Lần cuối điểm danh`,
-              value: data.last_daily || 'Chưa có',
-              inline: true
-            },
-            {
-              name: `${emojis.clock} Điểm danh hôm nay`,
-              value: hasCheckedInToday(userId) ? `${emojis.success} Đã điểm danh` : `${emojis.warning} Chưa điểm danh`,
-              inline: true
-            }
+        const checkedToday = hasCheckedInToday(userId);
+
+        const container = new ContainerBuilder();
+
+        addHeader(
+          container,
+          `# ${emojis.chart} Thống kê điểm danh`,
+          `-# ${interaction.user.username}`,
+          interaction.user.displayAvatarURL({ size: 256 })
+        );
+
+        container
+          .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+          .addTextDisplayComponents(
+            text(
+              [
+                `${emojis.chart} **Tổng số lần điểm danh:** \`${fmt(data.total_checkins)}\` lần`,
+                `${emojis.coin} **Số dư hiện tại:** \`${fmt(data.balance)}\` ${emojis.coin}`,
+              ].join('\n')
+            )
           )
-          .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-          .setFooter({ 
-            text: interaction.user.tag,
-            iconURL: interaction.user.displayAvatarURL()
-          })
-          .setTimestamp();
-        
-        await interaction.editReply({ embeds: [embed] });
-      }
+          .addSeparatorComponents(divider())
+          .addTextDisplayComponents(
+            text(
+              [
+                `### ${emojis.trophy} Chuỗi điểm danh`,
+                streakProgressLine(data.streak),
+                `${emojis.star} **Dài nhất:** \`${data.max_streak}\` ngày`,
+              ].join('\n')
+            )
+          )
+          .addSeparatorComponents(divider())
+          .addTextDisplayComponents(
+            text(
+              [
+                `${emojis.calendar} **Lần cuối điểm danh:** ${data.last_daily ?? 'Chưa có'}`,
+                `${emojis.clock} **Hôm nay:** ${
+                  checkedToday ? `${emojis.success} Đã điểm danh` : `${emojis.warning} Chưa điểm danh`
+                }`,
+              ].join('\n')
+            )
+          )
+          .addTextDisplayComponents(text('-# Banhcuon-bot'));
+
+        await interaction.editReply({ components: [container], flags: V2, allowedMentions: NO_PING });
+      },
     };
 
-    // /daily-leaderboard command
+    // ==================== /daily-leaderboard ====================
     const leaderboardCommand = {
-      data: new SlashCommandBuilder()
-        .setName('daily-leaderboard')
-        .setDescription('🏆 Xem bảng xếp hạng điểm danh'),
+      data: new SlashCommandBuilder().setName('daily-leaderboard').setDescription('Xem bảng xếp hạng điểm danh'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          // ⚡ DEFER IMMEDIATELY
           await interaction.deferReply();
         } catch (error: any) {
           if (error.code === 10062) return;
           throw error;
         }
-        
+
         const leaderboard = stmtGetAll.all() as UserDailyData[];
-        
+
         if (leaderboard.length === 0) {
-          await interaction.editReply('Chưa có ai điểm danh cả! Hãy là người đầu tiên với `/daily`! 🎯');
+          await interaction.editReply({
+            components: [
+              new ContainerBuilder().addTextDisplayComponents(text('Chưa có ai điểm danh cả! Hãy là người đầu tiên với `/daily`! 🎯')),
+            ],
+            flags: V2,
+          });
           return;
         }
-        
-        const description = leaderboard.map((entry, index) => {
-          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `**${index + 1}.**`;
-          return `${medal} <@${entry.user_id}> • ${emojis.fire} **${entry.streak}** ngày • ${emojis.chart} **${entry.total_checkins}** lần`;
-        }).join('\n');
-        
-        const embed = new EmbedBuilder()
-          .setColor('#ffd700')
-          .setTitle(`${emojis.trophy} Bảng Xếp Hạng Điểm Danh`)
-          .setDescription(description)
-          .setFooter({ text: 'Top 10 người điểm danh nhiều nhất' })
-          .setTimestamp();
-        
-        await interaction.editReply({ embeds: [embed] });
-      }
+
+        const medals = ['🥇', '🥈', '🥉'];
+
+        const line = (entry: UserDailyData, index: number) =>
+          `${medals[index] ?? `**${index + 1}.**`} <@${entry.user_id}>\n` +
+          `-# ${emojis.fire} ${entry.streak} ngày · ${emojis.chart} ${entry.total_checkins} lần`;
+
+        const top3 = leaderboard.slice(0, 3);
+        const rest = leaderboard.slice(3);
+
+        const container = new ContainerBuilder();
+
+        container
+          .addTextDisplayComponents(text(`# ${emojis.trophy} Bảng Xếp Hạng Điểm Danh`), text('-# Top 10 người điểm danh nhiều nhất'))
+          .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+          .addTextDisplayComponents(text(top3.map((e, i) => line(e, i)).join('\n\n')));
+
+        if (rest.length) {
+          container
+            .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+            .addTextDisplayComponents(text(rest.map((e, i) => line(e, i + 3)).join('\n')));
+        }
+
+        container.addTextDisplayComponents(text('-# Banhcuon-bot'));
+
+        await interaction.editReply({ components: [container], flags: V2, allowedMentions: NO_PING });
+      },
     };
 
     this.commands.set('daily', dailyCommand);
@@ -594,3 +598,4 @@ export default class DailyModule {
     console.log('🧹 Daily module cleanup');
   }
 }
+

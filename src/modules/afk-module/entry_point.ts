@@ -1,20 +1,73 @@
-// AFK Module - Entry Point
-import { 
-  Client, 
-  Collection, 
-  SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  EmbedBuilder,
-  Message
+// AFK Module - Entry Point (Components V2)
+
+import {
+  Client,
+  Collection,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  ContainerBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  InteractionContextType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Message,
+  User,
 } from 'discord.js';
-import { afkManager } from './AFKManager';
+import { afkManager, AFKUser } from './AFKManager';
 import { emojis } from '../../config/emojis';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { V2, V2_EPHEMERAL, txt, sep } from '../../utils/v2Helper';
+
+// ───────── Helpers ─────────
+
+const ts = (t: number) => Math.floor(t / 1000);
+
+// Thời gian AFK dạng tiếng Việt, tối đa 2 đơn vị
+const formatDuration = (since: number): string => {
+  const s = Math.max(1, Math.floor((Date.now() - since) / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return h > 0 ? `${d} ngày ${h} giờ` : `${d} ngày`;
+  if (h > 0) return m > 0 ? `${h} giờ ${m} phút` : `${h} giờ`;
+  if (m > 0) return `${m} phút`;
+  return `${s} giây`;
+};
+
+const mentionLines = (mentions: AFKUser['mentions'], limit = 5): string =>
+  mentions
+    .slice(-limit)
+    .reverse()
+    .map(m => `• <@${m.userId}> <t:${ts(m.timestamp)}:R> — [Xem tin nhắn](${m.messageUrl})`)
+    .join('\n');
+
+const avatarOf = (user: User) => new ThumbnailBuilder().setURL(user.displayAvatarURL({ size: 256 }));
+
+const buildWelcomeBack = (user: User, afk: AFKUser): ContainerBuilder => {
+  const count = afk.mentions.length;
+  const header = new SectionBuilder()
+    .addTextDisplayComponents(
+      txt(`## ${emojis.success} Chào mừng trở lại!`),
+      txt(`<@${user.id}> đã AFK **${formatDuration(afk.timestamp)}**\n-# Lý do: ${afk.reason}`),
+    )
+    .setThumbnailAccessory(avatarOf(user));
+
+  return new ContainerBuilder().addSectionComponents(header)
+    .addSeparatorComponents(sep())
+    .addTextDisplayComponents(
+      txt(
+        count > 0
+          ? `📬 Bạn được nhắc tên **${count}** lần:\n${mentionLines(afk.mentions)}`
+          : '📭 Không có ai nhắc tên bạn trong lúc AFK.',
+      ),
+    );
+};
 
 export default class AFKModule {
   name = 'afk-module';
   description = 'AFK System - Set yourself AFK with auto welcome back';
-  version = '1.0.0';
+  version = '1.1.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -32,97 +85,151 @@ export default class AFKModule {
   }
 
   private registerCommands() {
-    // /afk
+    // ───────── /afk ─────────
     const afkCommand = {
       data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('💤 Đặt trạng thái AFK')
-        .addStringOption(option =>
-          option
-            .setName('reason')
-            .setDescription('📝 Lý do AFK')
-            .setRequired(false)
+        .setDescription('Đặt trạng thái AFK với lý do (tùy chọn)')
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o =>
+          o.setName('reason').setDescription('� Lý do AFK').setMaxLength(100).setRequired(false),
         )
-        .addBooleanOption(option =>
-          option
-            .setName('silent')
-            .setDescription('🔇 Thực hiện lệnh này trong chế độ im lặng')
-            .setRequired(false)
+        .addBooleanOption(o =>
+          o.setName('silent').setDescription('� Thực hiện lệnh này trong chế độ im lặng').setRequired(false),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const reason = interaction.options.getString('reason') || 'AFK';
+        const reason = (interaction.options.getString('reason') || 'AFK').trim() || 'AFK';
         const silent = interaction.options.getBoolean('silent') || false;
 
-        // Set AFK
-        afkManager.setAFK(interaction.guildId!, interaction.user.id, reason);
+        // Lấy member để đổi nickname
+        const member = interaction.guild?.members.cache.get(interaction.user.id);
+        let originalNickname: string | undefined;
 
-        const embed = createEnhancedEmbed({
-          title: '💤 AFK Status Set',
-          description: `You are now AFK: **${reason}**\n\nType any message to remove AFK status`,
-          color: 'warning',
-        });
+        if (member) {
+          originalNickname = member.nickname || undefined;
+          try {
+            // Đổi nickname thành [AFK] NAME
+            const displayName = member.displayName;
+            if (!displayName.startsWith('[AFK]')) {
+              await member.setNickname(`[AFK] ${displayName}`);
+            }
+          } catch (error) {
+            // Không có quyền đổi nickname (role cao hơn bot hoặc owner)
+            console.log('Cannot change nickname for', interaction.user.tag);
+          }
+        }
 
-        await interaction.reply({ 
-          embeds: [embed],
-          ephemeral: silent
-        });
-      }
+        const afk = afkManager.setAFK(interaction.guildId!, interaction.user.id, reason, originalNickname);
+
+        const header = new SectionBuilder()
+          .addTextDisplayComponents(txt('## 💤 Đã bật chế độ AFK'), txt(`**${reason}**`))
+          .setThumbnailAccessory(avatarOf(interaction.user));
+
+        const container = new ContainerBuilder().addSectionComponents(header)
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(
+            txt(`${emojis.clock} Bắt đầu <t:${ts(afk.timestamp)}:R>`),
+            txt('-# Gõ tin nhắn bất kỳ hoặc bấm nút bên dưới để tắt AFK • Mỗi lần bị nhắc tên sẽ được ghi lại'),
+          )
+          .addActionRowComponents(
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`afk_remove:${interaction.user.id}`)
+                .setLabel('Tắt AFK')
+                .setEmoji('👋')
+                .setStyle(ButtonStyle.Secondary),
+            ),
+          );
+
+        await interaction.reply({
+          components: [container],
+          flags: silent ? V2_EPHEMERAL : V2,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /afk-remove
+    // ───────── /afk-remove ─────────
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-remove')
-        .setDescription('❌ Xóa trạng thái AFK'),
+        .setDescription('Xóa trạng thái AFK của bạn')
+        .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const afkUser = afkManager.removeAFK(interaction.guildId!, interaction.user.id);
 
         if (!afkUser) {
-          return interaction.reply({
-            content: '${emojis.error} You are not AFK!',
-            flags: 64
-          });
+          const container = new ContainerBuilder().addTextDisplayComponents(
+              txt(`## ${emojis.error} Bạn không ở trạng thái AFK`),
+              txt('-# Dùng `/afk` để bật chế độ AFK.'),
+            );
+          return interaction.reply({ components: [container], flags: V2_EPHEMERAL } as any);
         }
 
-        const duration = afkManager.getTimeElapsed(afkUser.timestamp);
+        // Restore nickname
+        try {
+          const member = interaction.guild?.members.cache.get(interaction.user.id);
+          if (member && member.nickname?.startsWith('[AFK]')) {
+            await member.setNickname(afkUser.originalNickname || null);
+          }
+        } catch (error) {
+          console.log('Cannot restore nickname for', interaction.user.tag);
+        }
 
         await interaction.reply({
-          content: `${emojis.success} Welcome back! You were AFK for **${duration}**.`,
-          flags: 64
-        });
-      }
+          components: [buildWelcomeBack(interaction.user, afkUser)],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /afk-list
+    // ───────── /afk-list ─────────
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-list')
-        .setDescription('📃 Xem danh sách người dùng AFK trong server'),
+        .setDescription('Xem danh sách user AFK trong server')
+        .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const allAFK = afkManager.getAllAFK();
-        const guildAFK = allAFK.filter(a => a.guildId === interaction.guildId);
+        const guildAFK = afkManager
+          .getAllAFK()
+          .filter(a => a.guildId === interaction.guildId)
+          .sort((a, b) => a.timestamp - b.timestamp);
 
         if (guildAFK.length === 0) {
-          return interaction.reply({
-            content: 'No one is AFK in this server!',
-            flags: 64
-          });
+          const container = new ContainerBuilder().addTextDisplayComponents(
+              txt('## 😴 Không có ai đang AFK'),
+              txt('-# Cả server đang online hết rồi!'),
+            );
+          return interaction.reply({ components: [container], flags: V2_EPHEMERAL } as any);
         }
 
-        const embed = createEnhancedEmbed({
-          title: '💤 AFK Users',
-          description: guildAFK
-            .map((afk, i) => {
-              const duration = afkManager.getTimeElapsed(afk.timestamp);
-              return `${i + 1}. <@${afk.userId}> - ${afk.reason} (${duration} ago)`;
-            })
-            .join('\n'),
-          color: 'info',
-          footer: `Total: ${guildAFK.length} AFK users`,
-        });
+        const lines = guildAFK.map(
+          (a, i) => `**${i + 1}.** <@${a.userId}> • <t:${ts(a.timestamp)}:R>\n-# ${a.reason}`,
+        );
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
-      }
+        // Giới hạn text của message V2 (4000 ký tự)
+        const shown: string[] = [];
+        let len = 0;
+        for (const line of lines) {
+          if (len + line.length + 1 > 3200) break;
+          shown.push(line);
+          len += line.length + 1;
+        }
+
+        const rest = lines.length - shown.length;
+        const container = new ContainerBuilder().addTextDisplayComponents(txt('## 💤 Danh sách AFK'))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(shown.join('\n') + (rest > 0 ? `\n… và **${rest}** người khác` : '')))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(`-# Tổng: ${guildAFK.length} người đang AFK`));
+
+        await interaction.reply({
+          components: [container],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
     this.commands.set('afk', afkCommand);
@@ -131,81 +238,135 @@ export default class AFKModule {
   }
 
   private registerEvents() {
-    // Message handler for AFK
+    // Nút "Tắt AFK" trên thẻ /afk (xử lý toàn cục nên vẫn hoạt động sau khi bot restart)
+    this.client.on('interactionCreate', async interaction => {
+      if (!interaction.isButton() || !interaction.customId.startsWith('afk_remove:')) return;
+      if (!interaction.guildId) return;
+
+      const ownerId = interaction.customId.split(':')[1];
+      if (interaction.user.id !== ownerId) {
+        await interaction
+          .reply({
+            components: [
+              new ContainerBuilder().addTextDisplayComponents(txt(`${emojis.error} Nút này không phải của bạn!`)),
+            ],
+            flags: V2_EPHEMERAL,
+          } as any)
+          .catch(() => {});
+        return;
+      }
+
+      const afkUser = afkManager.removeAFK(interaction.guildId, interaction.user.id);
+
+      // Restore nickname
+      if (afkUser) {
+        try {
+          const member = interaction.guild?.members.cache.get(interaction.user.id);
+          if (member && member.nickname?.startsWith('[AFK]')) {
+            await member.setNickname(afkUser.originalNickname || null);
+          }
+        } catch (error) {
+          console.log('Cannot restore nickname for', interaction.user.tag);
+        }
+      }
+
+      const container = afkUser
+        ? buildWelcomeBack(interaction.user, afkUser)
+        : new ContainerBuilder().addTextDisplayComponents(txt('## 👋 Bạn đã tắt AFK rồi'));
+
+      await interaction
+        .update({ components: [container], flags: V2, allowedMentions: { parse: [] } } as any)
+        .catch(error => console.error('Error handling AFK button:', error));
+    });
+
     this.client.on('messageCreate', async (message: Message) => {
       // Ignore bots and DMs
       if (message.author.bot || !message.guild) return;
 
-      // Check if author is AFK - auto remove
+      // ── Tác giả đang AFK -> tự gỡ AFK ──
       const authorAFK = afkManager.getAFK(message.guild.id, message.author.id);
       if (authorAFK) {
-        const duration = afkManager.getTimeElapsed(authorAFK.timestamp);
-        const mentionCount = authorAFK.mentions.length;
-
         afkManager.removeAFK(message.guild.id, message.author.id);
 
+        // Restore nickname
         try {
-          const replyMsg = await (message.channel as any).send({
-            content: `:stopwatch: Welcome back, ${message.author}! You were AFK for **${duration}** and received **${mentionCount}** mention${mentionCount !== 1 ? 's' : ''}.`
-          });
+          const member = message.guild.members.cache.get(message.author.id);
+          if (member && member.nickname?.startsWith('[AFK]')) {
+            await member.setNickname(authorAFK.originalNickname || null);
+          }
+        } catch (error) {
+          console.log('Cannot restore nickname for', message.author.tag);
+        }
 
-          // Auto-delete after 5 seconds
-          setTimeout(async () => {
-            try {
-              await replyMsg.delete();
-            } catch (error) {
-              // Ignore if message already deleted
-            }
-          }, 5000);
+        if (!message.channel.isSendable()) return;
+
+        try {
+          const replyMsg = await message.channel.send({
+            components: [buildWelcomeBack(message.author, authorAFK)],
+            flags: V2,
+            allowedMentions: { parse: [] },
+          } as any);
+
+          // Nếu có người nhắc thì để lâu hơn một chút để kịp đọc
+          const delay = authorAFK.mentions.length > 0 ? 20000 : 6000;
+          setTimeout(() => replyMsg.delete().catch(() => {}), delay);
         } catch (error) {
           console.error('Error sending AFK welcome back:', error);
         }
-
         return;
       }
 
-      // Check for mentions of AFK users
-      const mentions = message.mentions.users;
-      if (mentions.size === 0) return;
+      // ── Có nhắc đến người đang AFK ──
+      if (message.mentions.users.size === 0) return;
 
-      for (const [userId, user] of mentions) {
-        // Skip self-mentions
-        if (userId === message.author.id) continue;
+      const hits: { user: User; afk: AFKUser }[] = [];
+      for (const [userId, user] of message.mentions.users) {
+        if (userId === message.author.id || user.bot) continue;
+        const afk = afkManager.getAFK(message.guild.id, userId);
+        if (!afk) continue;
 
-        const afkUser = afkManager.getAFK(message.guild.id, userId);
-        if (afkUser) {
-          // Add mention to AFK user's log
-          afkManager.addMention(
-            message.guild.id,
-            userId,
-            message.author.id,
-            message.author.username,
-            message.channel.id,
-            message.url
-          );
+        afkManager.addMention(
+          message.guild.id,
+          userId,
+          message.author.id,
+          message.author.username,
+          message.channel.id,
+          message.url,
+        );
 
-          const duration = afkManager.getTimeElapsed(afkUser.timestamp);
+        hits.push({ user, afk });
+      }
 
-          try {
-            const replyMsg = await message.reply({
-              content: `:placard: \`${user.username}\` is currently AFK for <t:${Math.floor(afkUser.timestamp / 1000)}:R>: **${afkUser.reason}**`
-            });
+      if (hits.length === 0) return;
 
-            // Auto-delete after 10 seconds
-            setTimeout(async () => {
-              try {
-                await replyMsg.delete();
-              } catch (error) {
-                // Ignore if message already deleted
-              }
-            }, 10000);
-          } catch (error) {
-            console.error('Error sending AFK notification:', error);
-          }
+      const container = new ContainerBuilder();
 
-          // Only notify once per message
-          break;
-        }
+      hits.slice(0, 3).forEach(({ user, afk }, i) => {
+        if (i > 0) container.addSeparatorComponents(sep(false, false));
+        container.addSectionComponents(
+          new SectionBuilder()
+            .addTextDisplayComponents(
+              txt(`### 💤 ${user.displayName} đang AFK`),
+              txt(`**${afk.reason}**\n-# Từ <t:${ts(afk.timestamp)}:R>`),
+            )
+            .setThumbnailAccessory(avatarOf(user)),
+        );
+      });
+
+      if (hits.length > 3) {
+        container.addTextDisplayComponents(txt(`-# … và ${hits.length - 3} người khác cũng đang AFK`));
+      }
+
+      try {
+        const replyMsg = await message.reply({
+          components: [container],
+          flags: V2,
+          allowedMentions: { parse: [], repliedUser: false },
+        } as any);
+
+        setTimeout(() => replyMsg.delete().catch(() => {}), 10000);
+      } catch (error) {
+        console.error('Error sending AFK notification:', error);
       }
     });
   }
@@ -214,3 +375,4 @@ export default class AFKModule {
     console.log('🧹 AFK module cleanup');
   }
 }
+

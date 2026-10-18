@@ -1,0 +1,12 @@
+{
+  "name": "welcome-system-module",
+  "version": "2.0.0",
+  "description": "Welcome and goodbye system with Components V2 UI and event handlers",
+  "enabled": true,
+  "priority": 12,
+  "type": 1,
+  "slashCommands": [
+    "/welcome-setup",
+    "/goodbye-setup"
+  ]
+}

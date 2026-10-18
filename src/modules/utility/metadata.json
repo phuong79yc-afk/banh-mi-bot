@@ -3,5 +3,17 @@
   "version": "1.0.0",
   "description": "Utility commands with animations",
   "enabled": true,
-  "main_class": "UtilityModule"
+  "main_class": "UtilityModule",
+  "slashCommands": [
+    "poll",
+    "calc",
+    "random",
+    "choose",
+    "help",
+    "information",
+    "rule",
+    "rule-setup",
+    "test-emoji",
+    "event-test"
+  ]
 }

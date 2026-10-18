@@ -1,6 +1,13 @@
-import { Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
-import { emojis } from '../../config/emojis';
+import {
+  Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction,
+  PermissionFlagsBits, ChannelType, MessageFlags, AttachmentBuilder,
+  ContainerBuilder, SectionBuilder, ThumbnailBuilder,
+  ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle,
+} from 'discord.js';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import * as path from 'path';
@@ -10,6 +17,7 @@ export default class UtilityModule {
   description = 'Utility commands (poll, calc, random, choose)';
   version = '1.0.0';
   enabled = true;
+
   client: Client;
   commands: Collection<string, any>;
 
@@ -19,7 +27,7 @@ export default class UtilityModule {
   }
 
   async initialize() {
-    console.log(`🚀 Utility module initialized`);
+    console.log('🚀 Utility module initialized');
     this.registerCommands();
     console.log(`✅ Utility module registered ${this.commands.size} commands`);
   }
@@ -28,7 +36,6 @@ export default class UtilityModule {
   private async generateHelpBanner(): Promise<Buffer> {
     const width = 940;
     const height = 96;
-    
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -38,26 +45,23 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`⚠️ Minecraft font not found, using default`);
+      console.log('⚠️ Minecraft font not found, using default');
     }
 
     // Load Moss Block texture background
     try {
       const texturePath = path.resolve(__dirname, '../../../assets/textures/moss_block.png');
       const texture = await loadImage(texturePath);
-      
       const scaledSize = 64;
       const tempCanvas = createCanvas(scaledSize, scaledSize);
       const tempCtx = tempCanvas.getContext('2d');
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(texture, 0, 0, scaledSize, scaledSize);
-      
       const pattern = ctx.createPattern(tempCanvas, 'repeat');
       if (pattern) {
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, width, height);
       }
-      
       // Darker overlay
       ctx.fillStyle = 'rgba(10, 20, 10, 0.4)';
       ctx.fillRect(0, 0, width, height);
@@ -74,11 +78,9 @@ export default class UtilityModule {
     const drawText = (text: string, x: number, y: number, fontSize: number, color: string) => {
       ctx.font = `${fontSize}px "Minecraft", monospace`;
       ctx.textBaseline = 'top';
-      
       // Shadow
       ctx.fillStyle = '#222222';
       ctx.fillText(text, x + 2, y + 2);
-      
       // Main text
       ctx.fillStyle = color;
       ctx.fillText(text, x, y);
@@ -95,7 +97,7 @@ export default class UtilityModule {
 
     // Title
     drawText('HELP MENU', 88, 20, 28, '#FFFFFF');
-    
+
     // Subtitle
     drawText('View all available commands', 88, 56, 16, '#AAAAAA');
 
@@ -105,7 +107,6 @@ export default class UtilityModule {
     ctx.fillRect(820, 24, 100, 48);
     ctx.fillStyle = '#4752C4';
     ctx.fillRect(822, 26, 96, 44);
-    
     drawText(totalCommands, 845, 32, 24, '#FFFFFF');
     drawText('COMMANDS', 832, 58, 12, '#AAAAAA');
 
@@ -116,7 +117,6 @@ export default class UtilityModule {
   private async generateInfoBanner(): Promise<Buffer> {
     const width = 940;
     const height = 96;
-    
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -126,26 +126,23 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`⚠️ Minecraft font not found, using default`);
+      console.log('⚠️ Minecraft font not found, using default');
     }
 
     // Load End Stone texture background
     try {
       const texturePath = path.resolve(__dirname, '../../../assets/textures/end_stone.png');
       const texture = await loadImage(texturePath);
-      
       const scaledSize = 64;
       const tempCanvas = createCanvas(scaledSize, scaledSize);
       const tempCtx = tempCanvas.getContext('2d');
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(texture, 0, 0, scaledSize, scaledSize);
-      
       const pattern = ctx.createPattern(tempCanvas, 'repeat');
       if (pattern) {
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, width, height);
       }
-      
       // Darker overlay
       ctx.fillStyle = 'rgba(15, 18, 10, 0.35)';
       ctx.fillRect(0, 0, width, height);
@@ -162,11 +159,9 @@ export default class UtilityModule {
     const drawText = (text: string, x: number, y: number, fontSize: number, color: string) => {
       ctx.font = `${fontSize}px "Minecraft", monospace`;
       ctx.textBaseline = 'top';
-      
       // Shadow
       ctx.fillStyle = '#222222';
       ctx.fillText(text, x + 2, y + 2);
-      
       // Main text
       ctx.fillStyle = color;
       ctx.fillText(text, x, y);
@@ -177,14 +172,13 @@ export default class UtilityModule {
     ctx.beginPath();
     ctx.arc(44, 48, 24, 0, Math.PI * 2);
     ctx.fill();
-    
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(40, 36, 8, 8); // dot
     ctx.fillRect(40, 48, 8, 16); // line
 
     // Title
     drawText('BOT INFORMATION', 88, 20, 28, '#FFFFFF');
-    
+
     // Subtitle
     drawText('TypeScript-based Discord Bot with AI', 88, 56, 16, '#AAAAAA');
 
@@ -194,7 +188,6 @@ export default class UtilityModule {
     ctx.fillRect(780, 24, 140, 48);
     ctx.fillStyle = '#3BA55D';
     ctx.fillRect(782, 26, 136, 44);
-    
     drawText('ONLINE', 810, 32, 20, '#FFFFFF');
     drawText(`${uptime}h uptime`, 792, 58, 12, '#E0E0E0');
 
@@ -205,7 +198,6 @@ export default class UtilityModule {
   private async generateRuleBanner(): Promise<Buffer> {
     const width = 940;
     const height = 96;
-    
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
@@ -215,7 +207,7 @@ export default class UtilityModule {
       const minecraftFontPath = path.resolve(__dirname, '../../../assets/fonts/Minecraft.ttf');
       GlobalFonts.registerFromPath(minecraftFontPath, 'Minecraft');
     } catch (e) {
-      console.log(`⚠️ Minecraft font not found, using default`);
+      console.log('⚠️ Minecraft font not found, using default');
     }
 
     // Red gradient background (rule theme)
@@ -224,7 +216,7 @@ export default class UtilityModule {
     gradient.addColorStop(1, '#A32D30');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
-    
+
     // Darker overlay
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.fillRect(0, 0, width, height);
@@ -233,11 +225,9 @@ export default class UtilityModule {
     const drawText = (text: string, x: number, y: number, fontSize: number, color: string) => {
       ctx.font = `${fontSize}px "Minecraft", monospace`;
       ctx.textBaseline = 'top';
-      
       // Shadow
       ctx.fillStyle = '#222222';
       ctx.fillText(text, x + 2, y + 2);
-      
       // Main text
       ctx.fillStyle = color;
       ctx.fillText(text, x, y);
@@ -248,7 +238,7 @@ export default class UtilityModule {
     ctx.fillRect(20, 20, 56, 56);
     ctx.fillStyle = '#E8D4A8';
     ctx.fillRect(24, 24, 48, 48);
-    
+
     // Scroll lines
     ctx.fillStyle = '#8B4513';
     ctx.fillRect(32, 32, 32, 4);
@@ -259,7 +249,7 @@ export default class UtilityModule {
 
     // Title
     drawText('SERVER RULES', 96, 20, 28, '#FFFFFF');
-    
+
     // Subtitle
     drawText('Read and follow these guidelines', 96, 56, 16, '#FFCCCC');
 
@@ -268,7 +258,7 @@ export default class UtilityModule {
     ctx.fillRect(800, 24, 120, 48);
     ctx.fillStyle = '#E6D054';
     ctx.fillRect(802, 26, 116, 44);
-    
+
     // Warning triangle
     ctx.fillStyle = '#ED4245';
     ctx.beginPath();
@@ -277,898 +267,867 @@ export default class UtilityModule {
     ctx.lineTo(870, 52);
     ctx.closePath();
     ctx.fill();
-    
+
     // Exclamation mark
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(858, 40, 4, 6);
     ctx.fillRect(858, 48, 4, 2);
-    
+
     drawText('IMPORTANT', 812, 58, 12, '#8B4513');
 
     return canvas.toBuffer('image/png');
   }
 
-  private registerCommands() {
-    // Store reference to this module instance
-    const self = this;
-    
-    // Poll command
-    const pollCommand = {
-      data: new SlashCommandBuilder()
-        .setName('poll')
-        .setDescription('📊 Tạo bình chọn')
-        .addStringOption(option =>
-          option
-            .setName('question')
-            .setDescription('❓ Câu hỏi bình chọn')
-            .setRequired(true)
-        )
-        .addStringOption(option =>
-          option
-            .setName('options')
-            .setDescription('📃 Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)')
-            .setRequired(true)
-        ),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        const question = interaction.options.getString('question', true);
-        const optionsStr = interaction.options.getString('options', true);
-        const options = optionsStr.split(',').map(opt => opt.trim()).filter(Boolean);
+  // Phân loại lệnh cho /help
+  private categorize(allCommands: any[]) {
+    const categories: Record<string, { emoji: string; commands: { name: string; description: string }[] }> = {};
 
-        if (options.length < 2) {
-          return interaction.reply({
-            content: `${emojis.error} Cần ít nhất 2 options!`,
-            flags: 64
-          });
-        }
+    for (const cmd of allCommands) {
+      const name = cmd.data.name;
+      const description = cmd.data.description || 'No description';
+      let category = 'Khác';
+      let emoji = `${emojis.art}`;
 
-        if (options.length > 10) {
-          return interaction.reply({
-            content: `${emojis.error} Tối đa 10 options!`,
-            flags: 64
-          });
-        }
-
-        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        const optionsText = options.map((opt, i) => `${numberEmojis[i]} ${opt}`).join('\n');
-
-        const embed = createEnhancedEmbed({
-          title: `${emojis.chart} Poll`,
-          description: `**${question}**\n\n${optionsText}\n\n${emojis.users} ${emojis.users} **React để vote!**`,
-          color: 0x5865F2,
-          footer: `Poll by ${interaction.user.username}`,
-        });
-
-        const message = await interaction.reply({ embeds: [embed], fetchReply: true });
-
-        for (let i = 0; i < options.length; i++) {
-          await message.react(numberEmojis[i]);
-        }
+      // Hệ thống xử lí tin nhắn
+      if (name.startsWith('ticket-') || name.startsWith('sticky-') || name.startsWith('autoresponder-')) {
+        category = 'Hệ thống xử lí tin nhắn'; emoji = `${emojis.message}`;
+      } 
+      // Moderation
+      else if (name.startsWith('moderation-')) {
+        category = 'Moderation'; emoji = `${emojis.shield}`;
+      } 
+      // Giải trí
+      else if (
+        name.startsWith('ai-') || name === 'ai' ||
+        ['kiss', 'hug', 'slap', 'bite', 'pat', 'punch', 'handhold'].includes(name) ||
+        name.startsWith('gtn-') || name.startsWith('giveaway-')
+      ) {
+        category = 'Giải trí'; emoji = `${emojis.sparkles}`;
+      } 
+      // Management
+      else if (
+        name.startsWith('customrole-') || name.startsWith('donation-') || 
+        name.startsWith('quickreport-') || name === 'Report Message' || 
+        name.startsWith('generator') || name.startsWith('admin-')
+      ) {
+        category = 'Management'; emoji = `${emojis.gear}`;
+      } 
+      // Economy & Shop
+      else if (
+        name.startsWith('daily') || name.startsWith('balance') || 
+        name.startsWith('shop-') || name.startsWith('quest-') ||
+        name.startsWith('vip-') || name.startsWith('coins-')
+      ) {
+        category = 'Economy'; emoji = `${emojis.coins}`;
       }
+      // Utility
+      else if (
+        ['poll', 'calc', 'random', 'choose', 'information', 'help', 'rule', 'rule-setup'].includes(name) ||
+        name.startsWith('afk-') || name.startsWith('minecraft-') || 
+        name.startsWith('snipe') || name === 'editsnipe' ||
+        name.startsWith('convert-')
+      ) {
+        category = 'Utility'; emoji = `${emojis.wrench}`;
+      }
+
+      (categories[category] ??= { emoji, commands: [] }).commands.push({ name, description });
+    }
+
+    return categories;
+  }
+
+  // Convert emoji string to dropdown-compatible format
+  private getCategoryEmojiForDropdown(category: string): { id: string; name: string } | string {
+    // Map category names to emoji IDs
+    const emojiMap: Record<string, { id: string; name: string }> = {
+      'Hệ thống xử lí tin nhắn': { id: EMOJI_IDS.message, name: 'message' },
+      'Giải trí': { id: EMOJI_IDS.sparkles, name: 'sparkles' },
+      'Economy': { id: EMOJI_IDS.coin, name: 'coin' },
+      'Management': { id: EMOJI_IDS.gear, name: 'gear' },
+      'Moderation': { id: EMOJI_IDS.shield, name: 'shield' },
+      'Utility': { id: EMOJI_IDS.wrench, name: 'wrench' },
+      'Khác': { id: EMOJI_IDS.art, name: 'art' },
     };
 
-    // Calc command
+    return emojiMap[category] || '📦';
+  }
+
+  // Lấy thông tin git cho /information
+  private getGitInfo() {
+    let repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
+    let branchInfo = 'Git info unavailable';
+    let commitsText = '*Không thể lấy thông tin commit*';
+
+    const run = (cmd: string, timeout = 3000) =>
+      execSync(cmd, { cwd: process.cwd(), encoding: 'utf8', timeout }).trim();
+
+    const toVi = (t: string) => t
+      .replace(/(\d+) seconds? ago/, '$1 giây trước')
+      .replace(/(\d+) minutes? ago/, '$1 phút trước')
+      .replace(/(\d+) hours? ago/, '$1 giờ trước')
+      .replace(/(\d+) days? ago/, '$1 ngày trước')
+      .replace(/(\d+) weeks? ago/, '$1 tuần trước')
+      .replace(/(\d+) months? ago/, '$1 tháng trước')
+      .replace(/(\d+) years? ago/, '$1 năm trước');
+
+    try { branchInfo = `Branch: \`${run('git branch --show-current')}\` • ${run('git rev-list --count HEAD')} commits`; } catch {}
+
+    try {
+      const remote = run('git remote get-url origin');
+      if (remote.startsWith('git@github.com:')) repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace(/\.git$/, '');
+      else if (remote.startsWith('https://')) repoUrl = remote.replace(/\.git$/, '');
+    } catch {}
+
+    try {
+      const log = run('git log -5 --pretty=format:"%ar|%h|%s"', 5000);
+      commitsText = log.split('\n').map(line => {
+        const [time, hash, ...rest] = line.replace(/"/g, '').split('|');
+        const msg = rest.join('|').slice(0, 60);
+        return `-# ${toVi(time)}  [\`${hash}\`](${repoUrl}/commit/${hash}) ${msg}`;
+      }).join('\n');
+    } catch {}
+
+    return { repoUrl, branchInfo, commitsText };
+  }
+
+  private registerCommands() {
+    const self = this;
+
+    // ───────── POLL ─────────
+    const pollCommand = {
+      data: new SlashCommandBuilder()
+        .setName('poll').setDescription('Tạo bình chọn')
+        .addStringOption(o => o.setName('question').setDescription('❓ Câu hỏi bình chọn').setRequired(true))
+        .addStringOption(o => o.setName('options').setDescription('Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)').setRequired(true)),
+
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        const question = interaction.options.getString('question', true);
+        const options = interaction.options.getString('options', true).split(',').map(o => o.trim()).filter(Boolean);
+
+        if (options.length < 2 || options.length > 10) {
+          return interaction.reply({
+            content: options.length < 2 ? `${emojis.error} Cần ít nhất 2 options!` : `${emojis.error} Tối đa 10 options!`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        const nums = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        const container = new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.chart} Poll`), txt(`### ${question}`))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(options.map((o, i) => `${nums[i]}  ${o}`).join('\n')))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(`-# ${emojis.users} React để vote • Poll by ${interaction.user.username}`));
+
+        const res = await interaction.reply({ components: [container], flags: V2, withResponse: true });
+        const message = res.resource!.message!;
+        for (let i = 0; i < options.length; i++) await message.react(nums[i]);
+      },
+    };
+
+    // ───────── CALC ─────────
     const calcCommand = {
       data: new SlashCommandBuilder()
-        .setName('calc')
-        .setDescription('🧮 Tính toán biểu thức')
-        .addStringOption(option =>
-          option
-            .setName('expression')
-            .setDescription('🔢 Biểu thức toán học (vd: 2+2, 5*10)')
-            .setRequired(true)
-        ),
+        .setName('calc').setDescription('� Tính toán biểu thức')
+        .addStringOption(o => o.setName('expression').setDescription('� Biểu thức toán học (vd: 2+2, 5*10)').setRequired(true)),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
         const expression = interaction.options.getString('expression', true);
 
         try {
-          // Safe eval - only allow numbers and basic operators
+          // Chỉ cho phép số và toán tử cơ bản
           const sanitized = expression.replace(/[^0-9+\-*/.()%\s]/g, '');
           const result = eval(sanitized);
 
-          const embed = createEnhancedEmbed({
-            title: `${emojis.terminal} Calculator`,
-            description: `**Expression:** \`${expression}\`\n\n# ${result}\n\n${emojis.success} ${emojis.success} ${emojis.success}`,
-            color: 0x57F287,
-          });
+          if (typeof result !== 'number' || !isFinite(result)) throw new Error('Kết quả không hợp lệ');
 
-          await interaction.reply({ embeds: [embed] });
+          const container = new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.terminal} Calculator`))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(`**Expression**\n\`${expression}\``), txt(`# ${result}`));
+
+          await interaction.reply({ components: [container], flags: V2 });
         } catch (error: any) {
-          await interaction.reply({
-            content: `${emojis.error} Invalid expression: ${error.message}`,
-            flags: 64
-          });
+          await interaction.reply({ content: `${emojis.error} Invalid expression: ${error.message}`, flags: MessageFlags.Ephemeral });
         }
-      }
+      },
     };
 
-    // Random command
+    // ───────── RANDOM ─────────
     const randomCommand = {
       data: new SlashCommandBuilder()
-        .setName('random')
-        .setDescription('🎲 Tạo số ngẫu nhiên')
-        .addIntegerOption(option =>
-          option
-            .setName('min')
-            .setDescription('🔢 Giá trị tối thiểu')
-            .setRequired(false)
-        )
-        .addIntegerOption(option =>
-          option
-            .setName('max')
-            .setDescription('🔢 Giá trị tối đa')
-            .setRequired(false)
-        ),
+        .setName('random').setDescription('� Tạo số ngẫu nhiên')
+        .addIntegerOption(o => o.setName('min').setDescription('� Giá trị tối thiểu').setRequired(false))
+        .addIntegerOption(o => o.setName('max').setDescription('� Giá trị tối đa').setRequired(false)),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const min = interaction.options.getInteger('min') || 1;
-        const max = interaction.options.getInteger('max') || 100;
+        const min = interaction.options.getInteger('min') ?? 1;
+        const max = interaction.options.getInteger('max') ?? 100;
 
         if (min >= max) {
-          return interaction.reply({
-            content: `${emojis.error} Min phải nhỏ hơn Max!`,
-            flags: 64
-          });
+          return interaction.reply({ content: `${emojis.error} Min phải nhỏ hơn Max!`, flags: MessageFlags.Ephemeral });
         }
 
         const result = Math.floor(Math.random() * (max - min + 1)) + min;
 
-        const embed = createEnhancedEmbed({
-          title: `${emojis.sparkles} Random Number`,
-          description: `**Range:** ${min} - ${max}\n\n${emojis.sparkles} ${emojis.sparkles} ${emojis.sparkles}\n\n# ${result}\n\n${emojis.success} **Random result!**`,
-          color: 0xFF6B6B,
-        });
+        const container = new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.sparkles} Random Number`), txt(`-# Range: ${min} – ${max}`))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(`# ${result}`));
 
-        await interaction.reply({ embeds: [embed] });
-      }
+        await interaction.reply({ components: [container], flags: V2 });
+      },
     };
 
-    // Choose command with animation
+    // ───────── CHOOSE ─────────
     const chooseCommand = {
       data: new SlashCommandBuilder()
-        .setName('choose')
-        .setDescription('🤔 Chọn giữa các lựa chọn với hiệu ứng')
-        .addStringOption(option =>
-          option
-            .setName('options')
-            .setDescription('📋 Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)')
-            .setRequired(true)
-        ),
+        .setName('choose').setDescription('Chọn giữa các lựa chọn với hiệu ứng')
+        .addStringOption(o => o.setName('options').setDescription('Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)').setRequired(true)),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const optionsStr = interaction.options.getString('options', true);
-        const options = optionsStr.split(',').map(opt => opt.trim()).filter(Boolean);
+        const options = interaction.options.getString('options', true).split(',').map(o => o.trim()).filter(Boolean);
 
         if (options.length < 2) {
-          return interaction.reply({
-            content: `${emojis.error} Cần ít nhất 2 options phân cách bởi dấu phẩy!`,
-            flags: 64
-          });
+          return interaction.reply({ content: `${emojis.error} Cần ít nhất 2 options phân cách bởi dấu phẩy!`, flags: MessageFlags.Ephemeral });
         }
 
-        try {
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062 || error.code === 40060) return;
-          throw error;
-        }
+        try { await interaction.deferReply(); }
+        catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
 
-        // Animation frames with larger emojis
+        const frame = (text: string, color = 0xFEE75C) => ({
+          components: [new ContainerBuilder().addTextDisplayComponents(txt(`## ${text}`))],
+          flags: V2 as any,
+        });
+
         const frames = [
-          `${emojis.loading} **Đang suy nghĩ...**`,
-          `${emojis.loading} **Đang cân nhắc...**`,
-          `${emojis.loading} **Hmmm...**`,
-          `${emojis.sparkles} **Quyết định thôi...**`,
-          `${emojis.success} **Đã chọn!**`
+          `${emojis.loading} Đang suy nghĩ...`, `${emojis.loading} Đang cân nhắc...`,
+          `${emojis.loading} Hmmm...`, `${emojis.sparkles} Quyết định thôi...`,
         ];
 
-        // Show thinking animation
-        for (let i = 0; i < frames.length; i++) {
-          await interaction.editReply({ content: frames[i] });
-          await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay
+        for (const f of frames) {
+          await interaction.editReply(frame(f));
+          await new Promise(r => setTimeout(r, 600));
         }
 
-        // Final choice with large emoji
         const chosen = options[Math.floor(Math.random() * options.length)];
 
-        const text = `## ${emojis.search} Decision Maker\n\n` +
-          `**Options:**\n${options.map(opt => `• ${opt}`).join('\n')}\n\n` +
-          `${emojis.star} ${emojis.star} ${emojis.star}\n\n` +
-          `# ➤ ${chosen}\n\n` +
-          `${emojis.success} ${emojis.success} ${emojis.success}\n\n` +
-          `*${options.length} options available*`;
+        const container = new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.search} Decision Maker`))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(`**Options**\n${options.map(o => ` • ${o}`).join('\n')}`))
+          .addSeparatorComponents(sep(true))
+          .addTextDisplayComponents(txt(`${emojis.star} **Kết quả**\n# ➤ ${chosen}`))
+          .addSeparatorComponents(sep(false, false))
+          .addTextDisplayComponents(txt(`-# ${emojis.success} Chọn từ ${options.length} lựa chọn`));
 
-        await interaction.editReply({ content: text });
-      }
+        await interaction.editReply({ components: [container], flags: V2 });
+      },
     };
 
-    // Help command - Giống 100% GlitchBucket
+    // ───────── HELP ─────────
     const helpCommand = {
-      data: new SlashCommandBuilder()
-        .setName('help')
-        .setDescription('📖 Menu Trợ Giúp - Xem tất cả lệnh'),
+      data: new SlashCommandBuilder().setName('help').setDescription('� Menu Trợ Giúp - Xem tất cả lệnh'),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        // DEFER only once at the start
-        try {
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062 || error.code === 40060) return;
-          throw error;
-        }
-        
-        const client = interaction.client;
+        try { await interaction.deferReply(); }
+        catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
 
-        // Generate help banner
-        const { AttachmentBuilder } = require('discord.js');
-        let bannerAttachment = null;
-        
+        let bannerAttachment: AttachmentBuilder | null = null;
         try {
-          const bannerBuffer = await self.generateHelpBanner();
-          bannerAttachment = new AttachmentBuilder(bannerBuffer, { name: 'help-banner.png' });
-          console.log(`✅ Help banner generated successfully`);
-        } catch (error) {
-          console.error('❌ Error generating help banner:', error);
-        }
+          bannerAttachment = new AttachmentBuilder(await self.generateHelpBanner(), { name: 'help-banner.png' });
+        } catch (error) { console.error('❌ Error generating help banner:', error); }
 
-        // Get all commands from all modules
         const allCommands: any[] = [];
-        client.emit('getAllCommands', allCommands);
+        interaction.client.emit('getAllCommands' as any, allCommands);
 
-        // Categorize commands with descriptions
-        const categories: any = {};
-        
-        for (const cmd of allCommands) {
-          const name = cmd.data.name;
-          const description = cmd.data.description || 'No description';
-          let category = 'Khác';
-          let emoji = `${emojis.art}`;
+        const categories = self.categorize(allCommands);
+        const order = ['Hệ thống xử lí tin nhắn', 'Giải trí', 'Economy', 'Management', 'Moderation', 'Utility', 'Khác'];
+        const stamp = `<t:${Math.floor(Date.now() / 1000)}:R>`;
+        const footer = `-# 🥟 Bánh Cuốn Bot • Tổng: ${allCommands.length} lệnh • Cập nhật ${stamp}`;
 
-          if (name.startsWith('ticket-') || name.startsWith('sticky-') || name.startsWith('autoresponder-')) {
-            category = 'Hệ thống xử lí tin nhắn';
-            emoji = `${emojis.message}`;
-          } else if (name.startsWith('moderation-')) {
-            category = 'Moderation';
-            emoji = `${emojis.shield}`;
-          } else if (name.startsWith('ai-') || name === 'ai' || ['kiss', 'hug', 'slap', 'bite', 'pat', 'punch', 'handhold'].includes(name) || name.startsWith('gtn-') || name.startsWith('giveaway-')) {
-            category = 'Giải trí';
-            emoji = `${emojis.sparkles}`;
-          } else if (name.startsWith('customrole-') || name.startsWith('donation-') || name.startsWith('quickreport-') || name === 'Report Message' || name.startsWith('generator')) {
-            category = 'Management';
-            emoji = `${emojis.gear}`;
-          } else if (['poll', 'calc', 'random', 'choose', 'information', 'help', 'rule', 'rule-setup'].includes(name) || name.startsWith('afk-') || name.startsWith('minecraft-') || name.startsWith('snipe') || name === 'editsnipe') {
-            category = 'Utility';
-            emoji = `${emojis.wrench}`;
-          }
-
-          if (!categories[category]) {
-            categories[category] = { emoji, commands: [] };
-          }
-          categories[category].commands.push({ name, description });
-        }
-
-        // Get current time for footer
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-
-        // Build main embed with custom footer (not using createEnhancedEmbed's auto-footer)
-        const embed = new EmbedBuilder()
-          .setTitle(`${emojis.document} Menu Trợ Giúp`)
-          .setDescription(
-            `**Banh Cuon Bot** là bot Discord TypeScript-based với AI integration, đáp ứng mọi nhu cầu thiết yếu.\n\n` +
-            `• [Server Giải đáp & Hỗ trợ](https://discord.gg/support)\n` +
-            `• [Hướng dẫn Sử dụng](https://docs.bot.com) – [Điều khoản Dịch vụ](https://tos.bot.com) – [Chính sách Bảo mật](https://privacy.bot.com) – [Invite bot!](https://invite.bot.com)\n\n` +
-            `Để xem hướng dẫn về các lệnh có sẵn, sử dụng dropdown phía dưới.`
-          )
-          .setColor(0x5865F2)
-          .addFields(
-            {
-              name: `${emojis.message} Hệ thống xử lí tin nhắn`,
-              value: `**${categories['Hệ thống xử lí tin nhắn']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: `${emojis.sparkles} Giải trí`,
-              value: `**${categories['Giải trí']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: `${emojis.gear} Management`,
-              value: `**${categories['Management']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: `${emojis.shield} Moderation`,
-              value: `**${categories['Moderation']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: `${emojis.wrench} Utility`,
-              value: `**${categories['Utility']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: `${emojis.art} Khác`,
-              value: `**${categories['Khác']?.commands.length || 0}** lệnh`,
-              inline: true
-            },
-            {
-              name: 'Lệnh prefix',
-              value: `15`,
-              inline: true
-            },
-            {
-              name: 'Lệnh slash',
-              value: `${allCommands.length}`,
-              inline: true
-            }
-          )
-          .setFooter({ text: `Banh Cuon Bot • Tổng: ${allCommands.length} lệnh • Hôm nay lúc ${hours}:${minutes}` })
-          .setTimestamp();
-        
-        // Add banner image if generated
-        if (bannerAttachment) {
-          embed.setImage('attachment://help-banner.png');
-        }
-
-        // Create select menu
-        const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        
-        const selectMenu = new StringSelectMenuBuilder()
-          .setCustomId('help_category')
-          .setPlaceholder('Chọn module lệnh...')
-          .addOptions(
-            Object.keys(categories).sort().map(cat => ({
-              label: cat,
-              description: `${categories[cat].commands.length} lệnh`,
-              value: cat
-            }))
+        const selectRow = (disabled = false) =>
+          new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('help_category')
+              .setPlaceholder('Chọn module lệnh...')
+              .setDisabled(disabled)
+              .addOptions(Object.keys(categories).sort().map(cat => ({
+                label: cat, 
+                description: `${categories[cat].commands.length} lệnh`, 
+                value: cat,
+                emoji: self.getCategoryEmojiForDropdown(cat),
+              }))),
           );
 
-        const row1 = new ActionRowBuilder().addComponents(selectMenu);
+        const homeRow = (disabled = false) =>
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId('help_home').setLabel('Trang chủ').setEmoji('🏠')
+              .setStyle(ButtonStyle.Primary).setDisabled(disabled),
+          );
 
-        const prefixBtn = new ButtonBuilder()
-          .setCustomId('help_prefix')
-          .setLabel('Lệnh Prefix')
-          .setStyle(ButtonStyle.Primary);
+        const buildMain = (disabled = false) => {
+          const c = new ContainerBuilder();
+          if (bannerAttachment) c.addMediaGalleryComponents(gallery('attachment://help-banner.png'));
 
-        const slashBtn = new ButtonBuilder()
-          .setCustomId('help_slash')
-          .setLabel('Lệnh Slash')
-          .setStyle(ButtonStyle.Primary);
+          const stats = order
+            .filter(n => categories[n])
+            .map(n => `${categories[n].emoji} **${n}** — \`${categories[n].commands.length}\` lệnh`)
+            .join('\n');
 
-        const row2 = new ActionRowBuilder().addComponents(prefixBtn, slashBtn);
-
-        const replyOptions: any = { 
-          embeds: [embed],
-          components: [row1, row2]
+          return c
+            .addTextDisplayComponents(txt(
+              `## ${emojis.document} Menu Trợ Giúp\n` +
+              `**🥟 Bánh Cuốn Bot** — Bot Discord đa năng với AI, kinh tế, mini-games, và nhiều tính năng khác!`,
+            ))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(
+              `[Server Discord](https://discord.gg/support) • [Hướng dẫn sử dụng](https://docs.bot.com) • ` +
+              `[Mời bot](https://invite.bot.com) • [Website](https://banhcuonbot.com)`,
+            ))
+            .addSeparatorComponents(sep(true))
+            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh prefix:** \`13\``))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(
+              `### ${emojis.music} Music Commands (Prefix: \`!bc\`)\n` +
+              `\`play\` \`pause\` \`resume\` \`skip\` \`stop\` \`queue\` \`volume\` \`loop\`\n` +
+              `\`shuffle\` \`nowplaying/np\` \`seek\` \`pin\` \`pinned\`\n` +
+              `-# ${emojis.info} Ví dụ: \`!bc play never gonna give you up\``
+            ))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(
+              `### ⚡ Phím tắt hữu ích\n` +
+              `\`!bc q\` — Xem nhiệm vụ  •  \`!bc bal\` — Xem số dư\n` +
+              `\`!bc s\` — Mở shop  •  \`!bc cv\` — Đổi tiền\n` +
+              `-# ${emojis.info} Gõ \`!help\` để xem tất cả prefix commands`
+            ))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt('📋 Chọn module ở dropdown bên dưới để xem chi tiết slash commands.'))
+            .addActionRowComponents(selectRow(disabled))
+            .addTextDisplayComponents(txt(footer));
         };
-        
-        if (bannerAttachment) {
-          replyOptions.files = [bannerAttachment];
-        }
 
-        await interaction.editReply(replyOptions);
+        const buildCategory = (name: string) => {
+          const data = categories[name];
+          let list = data.commands
+            .map((cmd, i) => `**${i + 1}. ${cmd.description}**\n-# \`/${cmd.name}\``)
+            .join('\n');
 
-        // Handle interactions
-        const collector = interaction.channel?.createMessageComponentCollector({
-          filter: (i) => (i.customId.startsWith('help_')) && i.user.id === interaction.user.id,
-          time: 300000 // 5 minutes
+          // Giới hạn tổng text của message V2 là 4000 ký tự
+          if (list.length > 3300) list = list.slice(0, 3300).replace(/\n[^\n]*$/, '') + '\n…';
+
+          return new ContainerBuilder().addTextDisplayComponents(txt(`## ${data.emoji} ${name}`), txt(`-# ${data.commands.length} lệnh trong module này`))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(list))
+            .addSeparatorComponents(sep())
+            .addActionRowComponents(selectRow())
+            .addActionRowComponents(homeRow())
+            .addTextDisplayComponents(txt(footer));
+        };
+
+        const message = await interaction.editReply({
+          components: [buildMain()],
+          files: bannerAttachment ? [bannerAttachment] : [],
+          flags: V2,
         });
 
-        collector?.on('collect', async (i) => {
-          // IMPORTANT: Use deferUpdate() instead of deferReply() for button/select menu interactions
+        const collector = message.createMessageComponentCollector({
+          filter: i => i.customId.startsWith('help_') && i.user.id === interaction.user.id,
+          time: 300_000,
+        });
+
+        collector.on('collect', async i => {
           try {
-            await i.deferUpdate();
-          } catch (error) {
-            console.error('Error deferring update:', error);
-            return;
-          }
-          
-          if (i.customId === 'help_category' && i.isStringSelectMenu()) {
-            const selectedCategory = i.values[0];
-            const categoryData = categories[selectedCategory];
-
-            // Create detailed command list with descriptions
-            const commandList = categoryData.commands
-              .map((cmd: any, index: number) => {
-                const cmdName = typeof cmd === 'string' ? cmd : cmd.name;
-                const cmdDesc = typeof cmd === 'string' ? 'No description' : cmd.description;
-                return `**${index + 1}. \`/${cmdName}\`**\n${cmdDesc}`;
-              })
-              .join('\n\n');
-
-            const categoryEmbed = new EmbedBuilder()
-              .setTitle(`${categoryData.emoji} ${selectedCategory}`)
-              .setDescription(
-                `**${categoryData.commands.length}** lệnh trong module này\n\n` +
-                `━━━━━━━━━━━━━━━━━━━\n\n` +
-                `${commandList}`
-              )
-              .setColor(0x5865F2)
-              .setFooter({ text: `Banh Cuon Bot • Tổng: ${allCommands.length} lệnh • Hôm nay lúc ${hours}:${minutes}` })
-              .setTimestamp();
-
-            try {
-              await i.editReply({ embeds: [categoryEmbed], components: [row1, row2] });
-            } catch (error) {
-              console.error('Error editing reply:', error);
+            if (i.isStringSelectMenu()) {
+              await i.update({ components: [buildCategory(i.values[0])], flags: V2 });
+            } else if (i.customId === 'help_home') {
+              await i.update({ components: [buildMain()], flags: V2 });
             }
-          } else if (i.customId === 'help_prefix' || i.customId === 'help_slash') {
-            // Return to main menu
-            try {
-              await i.editReply({ embeds: [embed], components: [row1, row2] });
-            } catch (error) {
-              console.error('Error editing reply:', error);
-            }
-          }
+          } catch (error) { console.error('Error updating help:', error); }
         });
-      }
+
+        collector.on('end', async () => {
+          try { await interaction.editReply({ components: [buildMain(true)], flags: V2 }); } catch {}
+        });
+      },
     };
 
-    // Info command
+    // ───────── INFORMATION ─────────
     const infoCommand = {
-      data: new SlashCommandBuilder()
-        .setName('information')
-        .setDescription('ℹ️ Thông tin về bot'),
+      data: new SlashCommandBuilder().setName('information').setDescription('ℹ️ Thông tin về bot'),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        try {
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062 || error.code === 40060) return;
-          throw error;
-        }
-        
-        // Generate info banner
-        const { AttachmentBuilder } = require('discord.js');
-        let bannerAttachment = null;
-        
-        try {
-          const bannerBuffer = await self.generateInfoBanner();
-          bannerAttachment = new AttachmentBuilder(bannerBuffer, { name: 'info-banner.png' });
-          console.log(`✅ Info banner generated successfully`);
-        } catch (error) {
-          console.error('❌ Error generating info banner:', error);
-        }
-        
+        try { await interaction.deferReply(); }
+        catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
+
+        // Skip banner generation - too slow (4+ seconds blocking event loop)
+        let bannerAttachment: AttachmentBuilder | null = null;
+        // try {
+        //   bannerAttachment = new AttachmentBuilder(await self.generateInfoBanner(), { name: 'info-banner.png' });
+        // } catch (error) { console.error('❌ Error generating info banner:', error); }
+
         const client = interaction.client;
-        const uptime = process.uptime();
-        const hours = Math.floor(uptime / 3600);
-        
-        const totalMembers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-        const memUsage = (process.memoryUsage().heapUsed / 1024 / 1024 / 1024).toFixed(2);
-        const memTotal = (process.memoryUsage().heapTotal / 1024 / 1024 / 1024).toFixed(2);
-        const memPercent = ((parseFloat(memUsage) / parseFloat(memTotal)) * 100).toFixed(2);
+        const hours = Math.floor(process.uptime() / 3600);
+        const totalMembers = client.guilds.cache.reduce((acc, g) => acc + g.memberCount, 0);
+        const mem = process.memoryUsage();
+        const memUsage = (mem.heapUsed / 1024 / 1024).toFixed(0);
+        const memPercent = ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1);
 
-        // Convert English time to Vietnamese
-        const convertTimeToVietnamese = (time: string): string => {
-          return time
-            .replace(/(\d+) second(s?) ago/, '$1 giây trước')
-            .replace(/(\d+) minute(s?) ago/, '$1 phút trước')
-            .replace(/(\d+) hour(s?) ago/, '$1 giờ trước')
-            .replace(/(\d+) day(s?) ago/, '$1 ngày trước')
-            .replace(/(\d+) week(s?) ago/, '$1 tuần trước')
-            .replace(/(\d+) month(s?) ago/, '$1 tháng trước')
-            .replace(/(\d+) year(s?) ago/, '$1 năm trước');
-        };
+        const { repoUrl, branchInfo, commitsText } = self.getGitInfo();
 
-        // Get latest commits from git with real repo URL
-        let commitsText = '';
-        let repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
-        let branchInfo = '';
-        
-        try {
-          const { execSync } = require('child_process');
-          
-          // Get current branch
-          try {
-            const branch = execSync('git branch --show-current', { 
-              cwd: process.cwd(),
-              encoding: 'utf8',
-              timeout: 3000
-            }).trim();
-            
-            // Get total commits on this branch
-            const totalCommits = execSync('git rev-list --count HEAD', { 
-              cwd: process.cwd(),
-              encoding: 'utf8',
-              timeout: 3000
-            }).trim();
-            
-            branchInfo = `Branch: \`${branch}\` • ${totalCommits} commits`;
-          } catch (err) {
-            branchInfo = 'Git info unavailable';
-          }
-          
-          // Get remote URL
-          try {
-            const remote = execSync('git remote get-url origin', { 
-              cwd: process.cwd(),
-              encoding: 'utf8',
-              timeout: 3000
-            }).trim();
-            
-            // Convert git URL to https URL
-            if (remote.startsWith('git@github.com:')) {
-              repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace('.git', '');
-            } else if (remote.startsWith('https://')) {
-              repoUrl = remote.replace('.git', '');
-            }
-          } catch (err) {
-            // Use default if can't get remote
-          }
-          
-          const gitLog = execSync('git log -5 --pretty=format:"%ar|%h|%s"', { 
-            cwd: process.cwd(),
-            encoding: 'utf8',
-            timeout: 5000
-          });
-          
-          const commits = gitLog.split('\n').map((line: string) => {
-            const [time, hash, ...msgParts] = line.split('|');
-            const msg = msgParts.join('|');
-            return { time: convertTimeToVietnamese(time), hash, msg };
-          });
-
-          commitsText = commits.map((c: any) => 
-            `${c.time} [\`${c.hash}\`](${repoUrl}/commit/${c.hash}) ${c.msg}`
-          ).join('\n');
-        } catch (error) {
-          commitsText = '*Không thể lấy thông tin commit*';
-        }
-
-        // Try to get help command ID for clickable mention
         let helpMention = '/help';
         try {
-          if (interaction.guild) {
-            const guildCommands = await interaction.guild.commands.fetch();
-            const helpCmd = guildCommands.find(cmd => cmd.name === 'help');
-            if (helpCmd) {
-              helpMention = `</help:${helpCmd.id}>`;
-            }
-          }
-        } catch (error) {
-          // Fallback to plain text
-        }
+          const cmds = await client.application?.commands.fetch();
+          const helpCmd = cmds?.find(c => c.name === 'help');
+          if (helpCmd) helpMention = `</help:${helpCmd.id}>`;
+        } catch {}
 
-        const embed = createEnhancedEmbed({
-          title: `${emojis.info} Bot Information`,
-          description: 
-            `**${client.user?.username}** - Discord bot TypeScript-based với AI integration\n\n` +
-            `${emojis.tag} ${branchInfo}\n\n` +
-            `• Sử dụng ${helpMention} để xem danh sách lệnh\n\n` +
-            `${emojis.clock} *Uptime: **${hours} giờ***`,
-          color: 0x5865F2,
-          timestamp: false,
-          fields: [
-            {
-              name: `${emojis.chart} Stats`,
-              value: 
-                `${emojis.server} **${client.guilds.cache.size.toLocaleString()}** servers\n` +
-                `${emojis.users} **${totalMembers.toLocaleString()}** members`,
-              inline: true
-            },
-            {
-              name: `${emojis.database} Resources`,
-              value:
-                `${emojis.terminal} **${memUsage} GiB** (${memPercent}%)\n` +
-                `${emojis.clock} **${hours}h** uptime`,
-              inline: true
-            },
-            {
-              name: `${emojis.refresh} Latest Updates`,
-              value: commitsText || '*No git info available*',
-              inline: false
-            }
-          ],
-          footer: `discord.kingmc.vn | hotro.kingmc.vn`
-        });
-        
-        // Add banner image if generated
-        if (bannerAttachment) {
-          embed.setImage('attachment://info-banner.png');
-        }
+        const header = new SectionBuilder()
+          .addTextDisplayComponents(
+            txt(`## ${emojis.info} Bot Information`),
+            txt(`**${client.user?.username}** — Discord bot TypeScript-based với AI integration\n${emojis.tag} ${branchInfo}`),
+          )
+          .setThumbnailAccessory(new ThumbnailBuilder().setURL(client.user!.displayAvatarURL({ size: 256 })));
 
-        const replyOptions: any = { embeds: [embed] };
-        if (bannerAttachment) {
-          replyOptions.files = [bannerAttachment];
-        }
+        const container = new ContainerBuilder();
+        if (bannerAttachment) container.addMediaGalleryComponents(gallery('attachment://info-banner.png'));
 
-        await interaction.editReply(replyOptions);
-      }
-    };
-
-    // Rule command
-    const ruleCommand = {
-      data: new SlashCommandBuilder()
-        .setName('rule')
-        .setDescription('📜 Xem luật server'),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        try {
-          await interaction.deferReply({ flags: 64 }); // ephemeral
-        } catch (error: any) {
-          if (error.code === 10062 || error.code === 40060) return;
-          throw error;
-        }
-        
-        // Find rules channel
-        const rulesChannel = interaction.guild?.channels.cache.find(
-          ch => ch.name === 'rules' || ch.name === '📜rules' || ch.name === 'luật-server'
-        );
-
-        if (rulesChannel) {
-          return interaction.editReply({
-            content: `📜 Rules channel: <#${rulesChannel.id}>\n\nSử dụng \`/rule-setup\` để tạo rules channel mới.`
-          });
-        }
+        container
+          .addSectionComponents(header)
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(
+            txt(
+              `### ${emojis.chart} Stats\n` +
+              `${emojis.server} **${client.guilds.cache.size.toLocaleString()}** servers\n` +
+              `${emojis.users} **${totalMembers.toLocaleString()}** members`,
+            ),
+            txt(
+              `### ${emojis.database} Resources\n` +
+              `${emojis.terminal} **${memUsage} MiB** (${memPercent}%)\n` +
+              `${emojis.clock} **${hours}h** uptime`,
+            ),
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(`### ${emojis.refresh} Latest Updates\n${commitsText}`))
+          .addSeparatorComponents(sep())
+          .addActionRowComponents(
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('GitHub').setURL(repoUrl),
+            ),
+          )
+          .addTextDisplayComponents(txt(`-# Dùng ${helpMention} để xem danh sách lệnh`));
 
         await interaction.editReply({
-          content: `${emojis.error} Chưa có rules channel!\n\nSử dụng \`/rule-setup\` để tạo rules channel.`
+          components: [container],
+          files: bannerAttachment ? [bannerAttachment] : [],
+          flags: V2,
         });
-      }
+      },
     };
 
-    // Rule Setup command - Creates dedicated rules channel
+    // ───────── RULE ─────────
+    const ruleCommand = {
+      data: new SlashCommandBuilder().setName('rule').setDescription('Xem luật server'),
+
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); }
+        catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
+
+        const rulesChannel = interaction.guild?.channels.cache.find(
+          ch => ch.name === 'rules' || ch.name === '📜rules' || ch.name === 'luật-server',
+        );
+
+        const container = new ContainerBuilder().addTextDisplayComponents(txt(
+            rulesChannel
+              ? `## 📜 Luật Server\nRules channel: <#${rulesChannel.id}>`
+              : `## ${emojis.error} Chưa có rules channel!`,
+          ))
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt('-# Dùng `/rule-setup` để tạo rules channel mới.'));
+
+        await interaction.editReply({ components: [container], flags: V2 });
+      },
+    };
+
+    // ───────── RULE SETUP ─────────
     const ruleSetupCommand = {
       data: new SlashCommandBuilder()
-        .setName('rule-setup')
-        .setDescription('⚙️ Tạo danh mục và kênh rules riêng')
+        .setName('rule-setup').setDescription('Tạo danh mục và kênh rules riêng')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addBooleanOption(option =>
-          option
-            .setName('force')
-            .setDescription('🔄 Buộc tạo lại từ đầu (xóa rules cũ)')
-            .setRequired(false)
-        ),
+        .addBooleanOption(o => o.setName('force').setDescription('Buộc tạo lại từ đầu (xóa rules cũ)').setRequired(false)),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        try {
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062 || error.code === 40060) return;
-          throw error;
-        }
-        
+        try { await interaction.deferReply(); }
+        catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
+
+        const guild = interaction.guild!;
         const force = interaction.options.getBoolean('force') || false;
 
-        // Find ALL existing rules-related channels and categories
-        const existingRulesChannels = interaction.guild?.channels.cache.filter(
-          ch => ch.name === 'rules' || ch.name === '📜rules' || ch.name === 'luật-server' || ch.name.toLowerCase().includes('rule')
+        // Tìm tất cả channel / category liên quan đến rules
+        const existingRulesChannels = guild.channels.cache.filter(
+          ch => ch.type !== ChannelType.GuildCategory &&
+            (ch.name.toLowerCase().includes('rule') || ch.name === 'luật-server'),
         );
 
-        const existingRulesCategories = interaction.guild?.channels.cache.filter(
-          ch => ch.type === 4 && (ch.name === '📜 RULES' || ch.name.toLowerCase().includes('rule'))
+        const existingRulesCategories = guild.channels.cache.filter(
+          ch => ch.type === ChannelType.GuildCategory && ch.name.toLowerCase().includes('rule'),
         );
 
-        const totalExisting = (existingRulesChannels?.size || 0) + (existingRulesCategories?.size || 0);
+        const totalExisting = existingRulesChannels.size + existingRulesCategories.size;
 
         if (totalExisting > 0 && !force) {
-          const channelList = existingRulesChannels?.map(ch => `<#${ch.id}>`).join(', ') || 'Không có';
-          const categoryList = existingRulesCategories?.map(ch => `**${ch.name}**`).join(', ') || 'Không có';
-          
+          const channelList = existingRulesChannels.map(ch => `<#${ch.id}>`).join(', ') || 'Không có';
+          const categoryList = existingRulesCategories.map(ch => `**${ch.name}**`).join(', ') || 'Không có';
+
           return interaction.editReply({
-            content: 
-              `${emojis.warning} **Đã tìm thấy rules channel/category cũ:**\n\n` +
-              `**Channels:** ${channelList}\n` +
-              `**Categories:** ${categoryList}\n\n` +
-              `Dùng \`force=True\` để xóa tất cả và tạo lại.`
+            components: [
+              new ContainerBuilder()
+                .addTextDisplayComponents(txt(`## ${emojis.warning} Đã tìm thấy rules channel/category cũ`))
+                .addSeparatorComponents(sep())
+                .addTextDisplayComponents(txt(`**Channels:** ${channelList}\n**Categories:** ${categoryList}`))
+                .addTextDisplayComponents(txt('-# Dùng `force: True` để xóa tất cả và tạo lại.')),
+            ],
+            flags: V2,
           });
         }
 
-        const { ChannelType, PermissionFlagsBits: Perms } = require('discord.js');
-
-        // Progress embed with animated emojis from config
-        const progressEmbed = createEnhancedEmbed({
-          title: '⚙️ Thiết lập Rules Channel',
-          description: 
-            `\`[1/3]\` ${emojis.loading} Đang tạo danh mục...\n` +
-            `\`[2/3]\` ${emojis.loading} Đang chuẩn bị...\n` +
-            `\`[3/3]\` ${emojis.loading} Đang chuẩn bị...`,
-          color: 0x5865F2,
-          timestamp: false,
-        });
-        await interaction.editReply({ embeds: [progressEmbed] });
-
-        // STEP 1: Create Rules category
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const category = await interaction.guild?.channels.create({
-          name: '📜 RULES',
-          type: ChannelType.GuildCategory,
-          position: 0, // Top of the list
-          permissionOverwrites: [{
-            id: interaction.guild.id,
-            allow: [Perms.ViewChannel],
-            deny: [Perms.SendMessages] // Read-only for everyone
-          }]
+        const progress = (l1: string, l2: string, l3: string, color = 0x5865F2, extra = '') => ({
+          components: [
+            new ContainerBuilder()
+              .addTextDisplayComponents(txt('## ⚙️ Thiết lập Rules Channel'))
+              .addSeparatorComponents(sep())
+              .addTextDisplayComponents(txt(`\`[1/3]\` ${l1}\n\`[2/3]\` ${l2}\n\`[3/3]\` ${l3}${extra}`)),
+          ],
+          flags: V2 as any,
         });
 
-        progressEmbed.setDescription(
-          `\`[1/3]\` ${emojis.success} Đã tạo danh mục **📜 RULES**\n` +
-          `\`[2/3]\` ${emojis.loading} Đang tạo kênh rules...\n` +
-          `\`[3/3]\` ${emojis.loading} Đang chuẩn bị...`
-        );
-        await interaction.editReply({ embeds: [progressEmbed] });
+        const wait = () => new Promise(r => setTimeout(r, 500));
+        const L = emojis.loading, OK = emojis.success;
 
-        // STEP 2: Create rules channel
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await interaction.editReply(progress(`${L} Đang tạo danh mục...`, `${L} Đang chuẩn bị...`, `${L} Đang chuẩn bị...`) as any);
+        await wait();
 
-        const rulesChannel = await interaction.guild?.channels.create({
-          name: '📜rules',
-          type: ChannelType.GuildText,
-          parent: category,
-          position: 0,
+        // STEP 1: Rules category
+        const category = await guild.channels.create({
+          name: '📜 RULES', type: ChannelType.GuildCategory, position: 0,
+          permissionOverwrites: [{ id: guild.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }],
+        });
+
+        await interaction.editReply(progress(`${OK} Đã tạo danh mục **📜 RULES**`, `${L} Đang tạo kênh rules...`, `${L} Đang chuẩn bị...`) as any);
+        await wait();
+
+        // STEP 2: Rules channel
+        const rulesChannel = await guild.channels.create({
+          name: '📜rules', type: ChannelType.GuildText, parent: category.id, position: 0,
           topic: 'Server Rules - Please read and follow',
-          permissionOverwrites: [
-            {
-              id: interaction.guild!.id,
-              allow: [Perms.ViewChannel, Perms.ReadMessageHistory],
-              deny: [Perms.SendMessages, Perms.AddReactions]
-            }
-          ]
+          permissionOverwrites: [{
+            id: guild.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+            deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
+          }],
         });
 
-        progressEmbed.setDescription(
-          `\`[1/3]\` ${emojis.success} Đã tạo danh mục **📜 RULES**\n` +
-          `\`[2/3]\` ${emojis.success} Đã tạo kênh <#${rulesChannel!.id}>\n` +
-          `\`[3/3]\` ${emojis.loading} Đang gửi rules...`
-        );
-        await interaction.editReply({ embeds: [progressEmbed] });
+        await interaction.editReply(progress(`${OK} Đã tạo danh mục **📜 RULES**`, `${OK} Đã tạo kênh <#${rulesChannel.id}>`, `${L} Đang gửi rules...`) as any);
+        await wait();
 
-        // STEP 3: Send rules with custom GIF banner
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // STEP 3: Gửi rules với banner GIF (nếu có)
+        const gifPath = path.resolve(__dirname, '../../../assets/banners/rule-banner.gif');
+        const hasGif = fs.existsSync(gifPath);
+        if (!hasGif) console.log('⚠️ rule-banner.gif not found in assets/banners/');
 
-        // Load GIF banner from assets folder
-        const gifBannerPath = path.resolve(__dirname, '../../../assets/banners/rule-banner.gif');
-        let gifBannerUrl = 'https://i.imgur.com/placeholder.gif'; // Fallback URL
-        
-        // Check if GIF file exists
-        const fs = require('fs');
-        let bannerAttachment = null;
-        
-        if (fs.existsSync(gifBannerPath)) {
-          const { AttachmentBuilder } = require('discord.js');
-          bannerAttachment = new AttachmentBuilder(gifBannerPath, { name: 'rule-banner.gif' });
-          console.log(`✅ Loaded rule GIF banner from assets`);
-        } else {
-          console.log(`⚠️ rule-banner.gif not found in assets/banners/, using fallback`);
-        }
-
-        // Default rules
         const rules = [
-          {
-            number: '1',
-            title: 'Tôn trọng mọi người',
-            description: 'Không spam, flood, hoặc quấy rối thành viên khác. Hãy lịch sự và tôn trọng.'
-          },
-          {
-            number: '2',
-            title: 'Không nội dung không phù hợp',
-            description: 'Cấm chia sẻ nội dung NSFW, bạo lực, hoặc vi phạm pháp luật.'
-          },
-          {
-            number: '3',
-            title: 'Không quảng cáo',
-            description: 'Không quảng cáo server/sản phẩm khác trừ khi được cho phép.'
-          },
-          {
-            number: '4',
-            title: 'Sử dụng đúng kênh',
-            description: 'Đăng nội dung vào đúng kênh chuyên đề.'
-          },
-          {
-            number: '5',
-            title: 'Không gian lận',
-            description: 'Cấm sử dụng bot spam, tự động hóa không được phép.'
-          },
-          {
-            number: '6',
-            title: 'Tuân thủ Discord ToS',
-            description: 'Tuân thủ [Discord Terms of Service](https://discord.com/terms) và [Community Guidelines](https://discord.com/guidelines).'
-          }
+          ['Tôn trọng mọi người', 'Không spam, flood, hoặc quấy rối thành viên khác. Hãy lịch sự và tôn trọng.'],
+          ['Không nội dung không phù hợp', 'Cấm chia sẻ nội dung NSFW, bạo lực, hoặc vi phạm pháp luật.'],
+          ['Không quảng cáo', 'Không quảng cáo server/sản phẩm khác trừ khi được cho phép.'],
+          ['Sử dụng đúng kênh', 'Đăng nội dung vào đúng kênh chuyên đề.'],
+          ['Không gian lận', 'Cấm sử dụng bot spam, tự động hóa không được phép.'],
+          ['Tuân thủ Discord ToS', 'Tuân thủ [Discord Terms of Service](https://discord.com/terms) và [Community Guidelines](https://discord.com/guidelines).'],
         ];
 
-        const rulesText = rules.map(rule => 
-          `**${rule.number}.** **${rule.title}**\n${rule.description}`
-        ).join('\n\n');
+        const rulesContainer = new ContainerBuilder();
+        if (hasGif) rulesContainer.addMediaGalleryComponents(gallery('attachment://rule-banner.gif'));
 
-        const embed = createEnhancedEmbed({
-          title: '📜 Luật Server',
-          description: 
-            `Chào mừng đến **${interaction.guild?.name}**! 🎉\n\n` +
-            `Vui lòng đọc và tuân thủ các quy tắc sau:\n\n` +
-            `${rulesText}\n\n` +
-            `━━━━━━━━━━━━━━━━━━━\n\n` +
-            `${emojis.warning} **Vi phạm sẽ bị**: Cảnh cáo → Timeout → Kick → Ban\n\n` +
-            `Cảm ơn bạn đã giúp giữ cho server thân thiện và an toàn! 💚`,
-          color: 0xED4245,
-          footer: `${interaction.guild?.name} • Server Rules`,
-          timestamp: false,
+        rulesContainer
+          .addTextDisplayComponents(txt(`## 📜 Luật Server\nChào mừng đến **${guild.name}**! 🎉\nVui lòng đọc và tuân thủ các quy tắc sau:`))
+          .addSeparatorComponents(sep(true));
+
+        rules.forEach(([title, desc], i) => {
+          rulesContainer.addTextDisplayComponents(txt(`### ${i + 1}. ${title}\n${desc}`));
+          if (i < rules.length - 1) rulesContainer.addSeparatorComponents(sep(false, false));
         });
 
-        // Use GIF banner (either from file or fallback URL)
-        if (bannerAttachment) {
-          embed.setImage('attachment://rule-banner.gif');
-        } else {
-          embed.setImage(gifBannerUrl);
-        }
+        rulesContainer
+          .addSeparatorComponents(sep(true))
+          .addTextDisplayComponents(
+            txt(`${emojis.warning} **Vi phạm sẽ bị:** Cảnh cáo → Timeout → Kick → Ban`),
+            txt(`-# Cảm ơn bạn đã giúp giữ cho server thân thiện và an toàn! 💚 • ${guild.name}`),
+          );
 
-        const messageOptions: any = { embeds: [embed] };
-        if (bannerAttachment) {
-          messageOptions.files = [bannerAttachment];
-        }
-
-        await rulesChannel?.send(messageOptions);
-
-        // Final success with animated emoji
-        const successEmbed = createEnhancedEmbed({
-          title: `${emojis.success} Rules Channel Setup Complete!`,
-          description: 
-            `\`[1/3]\` ${emojis.success} Đã tạo danh mục **📜 RULES**\n` +
-            `\`[2/3]\` ${emojis.success} Đã tạo kênh <#${rulesChannel!.id}>\n` +
-            `\`[3/3]\` ${emojis.success} Đã gửi rules và khóa kênh (read-only)\n\n` +
-            `**Rules channel:** <#${rulesChannel!.id}>\n` +
-            `**Quyền:** Tất cả có thể đọc, không ai có thể gửi tin nhắn\n\n` +
-            `Bạn có thể chỉnh sửa rules bằng cách edit tin nhắn trong <#${rulesChannel!.id}>`,
-          color: 0x57F287,
-          timestamp: false,
+        await rulesChannel.send({
+          components: [rulesContainer],
+          files: hasGif ? [new AttachmentBuilder(gifPath, { name: 'rule-banner.gif' })] : [],
+          flags: V2,
         });
 
-        await interaction.editReply({ embeds: [successEmbed] });
+        await interaction.editReply(progress(
+          `${OK} Đã tạo danh mục **📜 RULES**`,
+          `${OK} Đã tạo kênh <#${rulesChannel.id}>`,
+          `${OK} Đã gửi rules và khóa kênh (read-only)`,
+          0x57F287,
+          `\n\n**Rules channel:** <#${rulesChannel.id}>\nBạn có thể chỉnh sửa rules bằng cách edit tin nhắn trong kênh đó.`,
+        ) as any);
 
-        // Cleanup old rules (if force) - Delete ALL old channels AND categories
+        // Cleanup old rules (nếu force) - xóa TẤT CẢ channel và category cũ
         if (force && totalExisting > 0) {
           setTimeout(async () => {
             try {
               console.log(`${emojis.delete} Cleaning up ${totalExisting} old rules channels/categories...`);
-              
-              // Strategy: Delete categories first (which auto-deletes their child channels)
-              // Then delete any remaining standalone channels
-              
-              // Step 1: Delete all old rules categories (this also deletes child channels)
-              if (existingRulesCategories && existingRulesCategories.size > 0) {
-                for (const [id, category] of existingRulesCategories) {
-                  try {
-                    // Fetch fresh to ensure it still exists
-                    const freshCategory = await interaction.guild?.channels.fetch(id).catch(() => null);
-                    if (freshCategory) {
-                      await freshCategory.delete('Rules setup: cleanup old category');
-                      console.log(`${emojis.success} Deleted old category: ${category.name} (and its child channels)`);
-                    }
-                  } catch (err: any) {
-                    // Ignore "Unknown Channel" errors (already deleted)
-                    if (err.code !== 10003) {
-                      console.error(`${emojis.error} Error deleting category ${category.name}:`, err);
-                    }
+
+              // Bước 1: Xóa category cũ (child channel sẽ tự bị xóa theo)
+              for (const [id, oldCategory] of existingRulesCategories) {
+                if (id === category.id) continue;
+                try {
+                  const fresh = await guild.channels.fetch(id).catch(() => null);
+                  if (fresh) {
+                    await fresh.delete('Rules setup: cleanup old category');
+                    console.log(`${emojis.success} Deleted old category: ${oldCategory.name}`);
                   }
+                } catch (err: any) {
+                  if (err.code !== 10003) console.error(`${emojis.error} Error deleting category ${oldCategory.name}:`, err);
                 }
               }
-              
-              // Step 2: Delete any remaining standalone rules channels (not in a category)
-              if (existingRulesChannels && existingRulesChannels.size > 0) {
-                for (const [id, channel] of existingRulesChannels) {
-                  try {
-                    // Fetch fresh to ensure it still exists (may have been deleted with parent category)
-                    const freshChannel = await interaction.guild?.channels.fetch(id).catch(() => null);
-                    if (freshChannel) {
-                      await freshChannel.delete('Rules setup: cleanup old channel');
-                      console.log(`${emojis.success} Deleted old standalone channel: ${channel.name}`);
-                    }
-                  } catch (err: any) {
-                    // Ignore "Unknown Channel" errors (already deleted with parent)
-                    if (err.code !== 10003) {
-                      console.error(`${emojis.error} Error deleting channel ${channel.name}:`, err);
-                    }
+
+              // Bước 2: Xóa các channel rules lẻ còn lại
+              for (const [id, oldChannel] of existingRulesChannels) {
+                if (id === rulesChannel.id) continue;
+                try {
+                  const fresh = await guild.channels.fetch(id).catch(() => null);
+                  if (fresh) {
+                    await fresh.delete('Rules setup: cleanup old channel');
+                    console.log(`${emojis.success} Deleted old standalone channel: ${oldChannel.name}`);
                   }
+                } catch (err: any) {
+                  if (err.code !== 10003) console.error(`${emojis.error} Error deleting channel ${oldChannel.name}:`, err);
                 }
               }
-              
+
               console.log(`${emojis.success} Cleanup complete!`);
             } catch (error) {
-              console.error('${emojis.error} Error during cleanup:', error);
+              console.error(`${emojis.error} Error during cleanup:`, error);
             }
           }, 3000);
         }
-      }
+      },
     };
 
-    // Add all commands
+    // ───────── EVENT TEST ─────────
+    const eventTestCommand = {
+      data: new SlashCommandBuilder()
+        .setName('event-test')
+        .setDescription('� Test event embeds (welcome, goodbye, giveaway-end, level-up)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addStringOption(o => o.setName('event')
+          .setDescription('Event type to test')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Welcome', value: 'welcome' },
+            { name: 'Goodbye', value: 'goodbye' },
+            { name: 'Giveaway End', value: 'giveaway-end' },
+            { name: 'Level Up', value: 'level-up' }
+          ))
+        .addUserOption(o => o.setName('user')
+          .setDescription('Target user (defaults to you)')
+          .setRequired(false)),
+
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        const eventType = interaction.options.getString('event', true);
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const guildId = interaction.guildId!;
+
+        // Check admin permission
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({
+            content: `${emojis.error} You need Administrator permission to use this command.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        const testHeader = '-# 🧪 TEST MODE - This is a test preview\n';
+
+        if (eventType === 'welcome') {
+          // Read welcome config
+          const configPath = path.resolve(process.cwd(), 'data', 'welcome-config.json');
+          let config: any = {};
+          
+          try {
+            if (fs.existsSync(configPath)) {
+              config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            }
+          } catch (error) {
+            console.error('Error reading welcome config:', error);
+          }
+
+          const guildConfig = config[guildId];
+          
+          if (guildConfig?.embedEnabled) {
+            // Try to read custom design
+            const designPath = path.resolve(process.cwd(), 'data', 'welcome-designs.json');
+            let designs: any = {};
+            
+            try {
+              if (fs.existsSync(designPath)) {
+                designs = JSON.parse(fs.readFileSync(designPath, 'utf-8'));
+              }
+            } catch (error) {
+              console.error('Error reading welcome designs:', error);
+            }
+
+            const customDesign = designs[guildId]?.welcome;
+            
+            if (customDesign) {
+              // Use custom design
+              const container = new ContainerBuilder()
+                .addTextDisplayComponents(txt(testHeader))
+                .addTextDisplayComponents(
+                  txt(`## ${customDesign.title || 'Welcome!'}`),
+                  txt((customDesign.description || `Welcome ${targetUser.username}!`)
+                    .replace('{user}', `<@${targetUser.id}>`)
+                    .replace('{username}', targetUser.username)
+                    .replace('{server}', interaction.guild?.name || 'Server'))
+                );
+              
+              return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+            }
+            
+            // Default welcome embed
+            const container = new ContainerBuilder().addTextDisplayComponents(txt(testHeader))
+              .addTextDisplayComponents(
+                txt(`## ${emojis.sparkles} Welcome!`),
+                txt(`${guildConfig.message || `Welcome <@${targetUser.id}> to **${interaction.guild?.name}**!`}`)
+              )
+              .addSeparatorComponents(sep())
+              .addTextDisplayComponents(txt(`-# ${emojis.users} Member #${interaction.guild?.memberCount || '???'}`));
+            
+            return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+          }
+          
+          // Simple default message
+          const container = new ContainerBuilder().addTextDisplayComponents(
+              txt(testHeader),
+              txt(`## ${emojis.sparkles} Welcome!`),
+              txt(`Welcome ${targetUser.username}!`)
+            );
+          
+          return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+        }
+
+        if (eventType === 'goodbye') {
+          // Read goodbye config
+          const configPath = path.resolve(process.cwd(), 'data', 'goodbye-config.json');
+          let config: any = {};
+          
+          try {
+            if (fs.existsSync(configPath)) {
+              config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            }
+          } catch (error) {
+            console.error('Error reading goodbye config:', error);
+          }
+
+          const guildConfig = config[guildId];
+          
+          if (guildConfig?.embedEnabled) {
+            // Try to read custom design
+            const designPath = path.resolve(process.cwd(), 'data', 'welcome-designs.json');
+            let designs: any = {};
+            
+            try {
+              if (fs.existsSync(designPath)) {
+                designs = JSON.parse(fs.readFileSync(designPath, 'utf-8'));
+              }
+            } catch (error) {
+              console.error('Error reading welcome designs:', error);
+            }
+
+            const customDesign = designs[guildId]?.goodbye;
+            
+            if (customDesign) {
+              // Use custom design
+              const container = new ContainerBuilder()
+                .addTextDisplayComponents(txt(testHeader))
+                .addTextDisplayComponents(
+                  txt(`## ${customDesign.title || 'Goodbye!'}`),
+                  txt((customDesign.description || `Goodbye ${targetUser.username}!`)
+                    .replace('{user}', `<@${targetUser.id}>`)
+                    .replace('{username}', targetUser.username)
+                    .replace('{server}', interaction.guild?.name || 'Server'))
+                );
+              
+              return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+            }
+            
+            // Default goodbye embed
+            const container = new ContainerBuilder().addTextDisplayComponents(txt(testHeader))
+              .addTextDisplayComponents(
+                txt(`## 👋 Goodbye!`),
+                txt(guildConfig.message || `Goodbye <@${targetUser.id}>! Thanks for being part of **${interaction.guild?.name}**.`)
+              )
+              .addSeparatorComponents(sep())
+              .addTextDisplayComponents(txt(`-# ${emojis.users} We'll miss you!`));
+            
+            return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+          }
+          
+          // Simple default message
+          const container = new ContainerBuilder().addTextDisplayComponents(
+              txt(testHeader),
+              txt(`## 👋 Goodbye!`),
+              txt(`Goodbye ${targetUser.username}!`)
+            );
+          
+          return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+        }
+
+        if (eventType === 'giveaway-end') {
+          // Fake giveaway end announcement
+          const container = new ContainerBuilder().addTextDisplayComponents(txt(testHeader))
+            .addTextDisplayComponents(
+              txt(`## 🎊 GIVEAWAY KẾT THÚC!`),
+              txt(`🎁 **Test Prize**`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(
+              txt(`### 🏆 Người thắng:\n<@${targetUser.id}>`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(`-# Chúc mừng! Hãy liên hệ host để nhận thưởng 🎉`));
+          
+          return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+        }
+
+        if (eventType === 'level-up') {
+          // Fake level-up celebration
+          const container = new ContainerBuilder().addTextDisplayComponents(txt(testHeader))
+            .addTextDisplayComponents(
+              txt(`## ${emojis.star} Level Up!`),
+              txt(`🎉 Congratulations <@${targetUser.id}>!`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(
+              txt(`### ${emojis.trophy} Level 4 → Level 5`),
+              txt(`Keep chatting to earn more XP!`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(`-# ${emojis.fire} You're on fire! Keep it up!`));
+          
+          return interaction.reply({ components: [container], flags: MessageFlags.Ephemeral | V2 });
+        }
+
+        // Should never reach here
+        await interaction.reply({
+          content: `${emojis.error} Unknown event type`,
+          flags: MessageFlags.Ephemeral,
+        });
+      },
+    };
+
+    // Đăng ký tất cả command
     this.commands.set('poll', pollCommand);
     this.commands.set('calc', calcCommand);
     this.commands.set('random', randomCommand);
@@ -1178,9 +1137,12 @@ export default class UtilityModule {
     this.commands.set('rule', ruleCommand);
     this.commands.set('rule-setup', ruleSetupCommand);
     this.commands.set('test-emoji', testEmojiCommand);
+    this.commands.set('event-test', eventTestCommand);
   }
 
   async cleanup() {
     console.log('🧹 Utility module cleanup');
   }
 }
+
+

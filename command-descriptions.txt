@@ -1,0 +1,69 @@
+/address - Địa chỉ server (vd: play.hypixel.net)
+/amount - Số tin nhắn để xóa (1-100)
+/amount - Số lượng xu
+/calc - 🧮 Tính toán biểu thức
+/channel - Notification channel
+/channel - Kênh
+/channel - Kênh
+/choose - 🤔 Chọn giữa các lựa chọn với hiệu ứng
+/color - Màu hex, vd #ff66aa
+/color - Màu hex mới
+/config - Xem cấu hình (admin)
+/daily - 📅 Điểm danh hàng ngày để nhận thưởng
+/daily-leaderboard - 🏆 Xem bảng xếp hạng điểm danh
+/daily-stats - 📊 Xem thống kê điểm danh của bạn
+/delete - Xóa role của bạn
+/duration - Thời gian (phút)
+/enabled - Bật / tắt
+/expression - 🔢 Biểu thức toán học (vd: 2+2, 5*10)
+/force - 🔄 Buộc setup lại từ đầu (xóa config cũ)
+/force - 🔄 Buộc tạo lại từ đầu (xóa rules cũ)
+/help - 📖 Menu Trợ Giúp - Xem tất cả lệnh
+/information - ℹ️ Thông tin về bot
+/inventory - 🎒 Xem inventory của bạn
+/issue - Mô tả vấn đề
+/max - 🔢 Giá trị tối đa
+/message - Use {user}, {username}, {amount}
+/min - 🔢 Giá trị tối thiểu
+/name - Tên role
+/name - Tên mới
+/nickname - Nickname mới (để trống để reset)
+/options - 📃 Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)
+/options - 📋 Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)
+/panel - Xem role của bạn
+/poll - 📊 Tạo bình chọn
+/quest - Mở sổ nhiệm vụ
+/question - ❓ Câu hỏi bình chọn
+/random - 🎲 Tạo số ngẫu nhiên
+/reason - Lý do kick
+/reason - Lý do ban
+/reason - Lý do timeout
+/reason - Lý do khóa
+/reason - Lý do đóng ticket
+/required - Role cần có để dùng
+/role - Receiver role
+/role - Receiver role
+/role - Reward role
+/role - Reward role
+/role - Role quản lý
+/role - Role quản lý
+/rule - 📜 Xem luật server
+/rule-setup - ⚙️ Tạo danh mục và kênh rules riêng
+/shop - 🛒 Xem shop và mua bot roles
+/threshold - Amount threshold
+/ticket-stats - 📊 Xem thống kê ticket
+/tickets - Số vé mua (10k/vé)
+/user - 👤 User nhận vé vàng
+/user - User cần check (để trống = bản thân)
+/user - Người dùng để kick
+/user - Người dùng để ban
+/user - Người dùng để timeout
+/user - 👤 User cần xem
+/user - 👤 User cần thu hồi role
+/user - Người dùng để thêm vào ticket
+/user - Người dùng để xóa khỏi ticket
+/user - Người nhận
+/view - View current configuration
+/view - Xem cấu hình hiện tại
+/vip-bonus - 🎁 Nhận bonus hàng tuần (VIP 7%+)
+/vipinfo - 👑 Xem quyền lợi và hạng VIP

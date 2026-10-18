@@ -1,789 +1,488 @@
-import { 
-  Client, 
-  Collection, 
-  SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
+import {
+  ChatInputCommandInteraction,
+  Client,
+  Collection,
+  Colors,
+  ContainerBuilder,
+  MessageFlags,
+  SectionBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  SlashCommandBuilder,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
 } from 'discord.js';
-import { emojis } from '../../config/emojis';
-import fs from 'fs';
+import Database from 'better-sqlite3';
 import path from 'path';
+import { emojis } from '../../config/emojis';
 
-// ==================== SECURITY CONSTANTS ====================
-const TRANSFER_COOLDOWN_MS = 60000; // 1 minute cooldown between transfers
-const MAX_TRANSFER_AMOUNT = 1000000; // Max 1M coins per transfer
-const LOTTERY_MAX_TICKETS_PER_DAY = 50; // Max 50 tickets per day
-const NICKNAME_COOLDOWN_MS = 300000; // 5 minutes cooldown for nickname changes
-
-// ==================== DATA PATHS ====================
-const COINS_PATH = path.join(process.cwd(), 'data', 'coins.json');
-const INVENTORY_PATH = path.join(process.cwd(), 'data', 'inventory.json');
-const VIP_BONUS_COOLDOWN_PATH = path.join(process.cwd(), 'data', 'vip_bonus_cooldown.json');
-const TRANSFER_COOLDOWN_PATH = path.join(process.cwd(), 'data', 'vip_transfer_cooldown.json');
-const LOTTERY_USAGE_PATH = path.join(process.cwd(), 'data', 'vip_lottery_usage.json');
-const NICKNAME_COOLDOWN_PATH = path.join(process.cwd(), 'data', 'vip_nickname_cooldown.json');
-
-// ==================== HELPER FUNCTIONS ====================
-
-// NOTE: VIP module intentionally uses synchronous file I/O for transactional consistency.
-// Async operations could create race conditions where multiple concurrent commands 
-// (transfer, lottery, bonus) might read stale data before writes complete, leading to
-// balance corruption. Synchronous I/O ensures atomic read-modify-write operations.
-
-// Read JSON file safely
-function readJSON(filePath: string): any {
-  try {
-    if (!fs.existsSync(filePath)) return {};
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (error) {
-    console.error(`[VIP] Error reading ${filePath}:`, error);
-    return {};
-  }
+// ==================== VIP TIERS ====================
+interface VIPTier {
+  tier: number;
+  name: string;
+  minTickets: number;
+  maxTickets: number | null;
+  icon: string;
+  color: number;
+  benefits: string[];
+  weeklyBonus: number;
 }
 
-// Write JSON file safely
-function writeJSON(filePath: string, data: any): boolean {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error(`[VIP] Error writing ${filePath}:`, error);
-    return false;
-  }
-}
-
-// Check cooldown
-function checkCooldown(userId: string, cooldownPath: string, cooldownMs: number): { onCooldown: boolean; timeLeft?: number } {
-  const cooldownData = readJSON(cooldownPath);
-  const lastUsed = cooldownData[userId];
-  
-  if (!lastUsed) return { onCooldown: false };
-  
-  const now = Date.now();
-  const timePassed = now - lastUsed;
-  
-  if (timePassed < cooldownMs) {
-    return { onCooldown: true, timeLeft: Math.ceil((cooldownMs - timePassed) / 1000) };
-  }
-  
-  return { onCooldown: false };
-}
-
-// Set cooldown
-function setCooldown(userId: string, cooldownPath: string): boolean {
-  const cooldownData = readJSON(cooldownPath);
-  cooldownData[userId] = Date.now();
-  return writeJSON(cooldownPath, cooldownData);
-}
-
-// Get user balance
-function getUserBalance(userId: string): number {
-  const coinsData = readJSON(COINS_PATH);
-  return coinsData[userId] || 0;
-}
-
-// Update user balance
-function updateUserBalance(userId: string, amount: number): boolean {
-  const coinsData = readJSON(COINS_PATH);
-  coinsData[userId] = (coinsData[userId] || 0) + amount;
-  return writeJSON(COINS_PATH, coinsData);
-}
-
-// Role bonus config - tự động tìm role theo tên
-const ROLE_BONUS_CONFIG = [
-  { roleName: 'Chủ Tiệm', percent: 10, price: 500000, stock: 1, id: 'chutiem', color: 0xFF0000 },
-  { roleName: 'Bánh Cuốn Chúa', percent: 10, price: 200000, stock: 3, id: 'banhcuonchua', color: 0xFFD700 },
-  { roleName: 'Hành Phi Elite', percent: 8, price: 150000, stock: 5, id: 'hanhphi', color: 0xFF6B6B },
-  { roleName: 'Thịt Quay Lover', percent: 7, price: 120000, stock: 8, id: 'thitquay', color: 0x8B4513 },
-  { roleName: 'Giò Cuốn Gang', percent: 6, price: 90000, id: 'giocuon', color: 0x90EE90 },
-  { roleName: 'Bún Chả Hà Nội', percent: 6, price: 95000, id: 'buncha', color: 0xD2691E },
-  { roleName: 'Bánh Mì Fan', percent: 5, price: 100000, id: 'banhmi', color: 0xF4A460 },
-  { roleName: 'Bánh Bao Squad', percent: 5, price: 80000, id: 'banhbao', color: 0xFFE4B5 },
-  { roleName: 'Cơm Tấm Master', percent: 5, price: 85000, id: 'comtam', color: 0xD2691E },
-  { roleName: 'Phở Addict', percent: 4, price: 70000, id: 'pho', color: 0xFFA500 },
-  { roleName: 'Nem Chua Collector', percent: 4, price: 75000, id: 'nemchua', color: 0xFF69B4 },
-  { roleName: 'Fan Nước Chấm', percent: 3, price: 100000, stock: 10, id: 'nuoccham', color: 0x87CEEB },
-  { roleName: 'Cà Phê Sáng', percent: 3, price: 60000, id: 'cafe', color: 0x6F4E37 },
+const VIP_TIERS: VIPTier[] = [
+  {
+    tier: 0,
+    name: 'Thành Viên',
+    minTickets: 0,
+    maxTickets: 9,
+    icon: '👤',
+    color: Colors.Grey,
+    weeklyBonus: 0,
+    benefits: [
+      'Truy cập các lệnh cơ bản',
+      'Điểm danh hàng ngày (/daily)',
+      'Tham gia quest',
+      'Mua items trong shop',
+    ],
+  },
+  {
+    tier: 1,
+    name: 'VIP Bronze',
+    minTickets: 10,
+    maxTickets: 24,
+    icon: '🥉',
+    color: 0xcd7f32,
+    weeklyBonus: 0,
+    benefits: [
+      '+3% bonus xu khi điểm danh',
+      'Role màu Bronze trong server',
+      'Ưu tiên support',
+      'Badge VIP 1 trong profile',
+    ],
+  },
+  {
+    tier: 2,
+    name: 'VIP Silver',
+    minTickets: 25,
+    maxTickets: 49,
+    icon: '🥈',
+    color: 0xc0c0c0,
+    weeklyBonus: 0,
+    benefits: [
+      '+5% bonus xu khi điểm danh',
+      'Role màu Silver trong server',
+      'Custom role (1 role)',
+      'Ưu tiên support cao',
+    ],
+  },
+  {
+    tier: 3,
+    name: 'VIP Gold',
+    minTickets: 50,
+    maxTickets: 99,
+    icon: '🥇',
+    color: 0xffd700,
+    weeklyBonus: 5000,
+    benefits: [
+      '+7% bonus xu khi điểm danh',
+      '**Weekly Bonus: 5,000 xu** (/vip-bonus)',
+      'Role màu Gold trong server',
+      'Custom role (2 roles)',
+      'Chuyển xu cho người khác (/vip-transfer)',
+    ],
+  },
+  {
+    tier: 4,
+    name: 'VIP Platinum',
+    minTickets: 100,
+    maxTickets: 199,
+    icon: '💎',
+    color: 0xe5e4e2,
+    weeklyBonus: 7500,
+    benefits: [
+      '+10% bonus xu khi điểm danh',
+      '**Weekly Bonus: 7,500 xu**',
+      'Role màu Platinum với icon',
+      'Custom role (3 roles)',
+      'VIP Lottery access (vé số VIP)',
+      'Priority queue trong games',
+    ],
+  },
+  {
+    tier: 5,
+    name: 'VIP Diamond',
+    minTickets: 200,
+    maxTickets: 399,
+    icon: '💠',
+    color: 0xb9f2ff,
+    weeklyBonus: 10000,
+    benefits: [
+      '+15% bonus xu khi điểm danh',
+      '**Weekly Bonus: 10,000 xu**',
+      'Role màu Diamond animated',
+      'Custom role (5 roles)',
+      'Nickname đặc biệt (màu/icon)',
+      'Exclusive VIP quests',
+    ],
+  },
+  {
+    tier: 6,
+    name: 'VIP Master',
+    minTickets: 400,
+    maxTickets: 699,
+    icon: '🌟',
+    color: 0xff1493,
+    weeklyBonus: 15000,
+    benefits: [
+      '+20% bonus xu khi điểm danh',
+      '**Weekly Bonus: 15,000 xu**',
+      'Role Master với badge đặc biệt',
+      'Custom role unlimited',
+      'Custom bot status (1 lần/ngày)',
+      'VIP-only channels access',
+    ],
+  },
+  {
+    tier: 7,
+    name: 'VIP Grandmaster',
+    minTickets: 700,
+    maxTickets: 999,
+    icon: '👑',
+    color: 0x9d00ff,
+    weeklyBonus: 20000,
+    benefits: [
+      '+25% bonus xu khi điểm danh',
+      '**Weekly Bonus: 20,000 xu**',
+      'Role Grandmaster với animation',
+      'Tạo quest cho người khác',
+      'Server booster perks',
+      'Early access features',
+    ],
+  },
+  {
+    tier: 8,
+    name: 'VIP Legendary',
+    minTickets: 1000,
+    maxTickets: 1999,
+    icon: '🔥',
+    color: 0xff4500,
+    weeklyBonus: 30000,
+    benefits: [
+      '+30% bonus xu khi điểm danh',
+      '**Weekly Bonus: 30,000 xu**',
+      'Role Legendary với glow effect',
+      'Tất cả benefits VIP trước',
+      'Tên hiện trong splash screen bot',
+      'Vote quyết định features mới',
+    ],
+  },
+  {
+    tier: 9,
+    name: 'VIP Mythic',
+    minTickets: 2000,
+    maxTickets: 4999,
+    icon: '⚡',
+    color: 0x00ffff,
+    weeklyBonus: 50000,
+    benefits: [
+      '+40% bonus xu khi điểm danh',
+      '**Weekly Bonus: 50,000 xu**',
+      'Role Mythic với rainbow effect',
+      'Custom bot commands (3 commands)',
+      'Exclusive Mythic avatar frame',
+      'Moderator permissions trong VIP zone',
+    ],
+  },
+  {
+    tier: 10,
+    name: 'VIP Ultimate 🌈',
+    minTickets: 5000,
+    maxTickets: null,
+    icon: '🌈',
+    color: 0xffffff,
+    weeklyBonus: 100000,
+    benefits: [
+      '+50% bonus xu khi điểm danh',
+      '**Weekly Bonus: 100,000 xu**',
+      'Role Ultimate với rainbow animated',
+      '**TẤT CẢ benefits VIP**',
+      'Tên vĩnh viễn trong Hall of Fame',
+      'Co-owner permissions trong VIP zone',
+      'Đặt tên cho shop items',
+      'Profile banner custom',
+    ],
+  },
 ];
 
-const fmt = (n: number) => n.toLocaleString('en-US');
+// ==================== DATABASE ====================
+const db = new Database(path.join(process.cwd(), 'data', 'economy.db'));
 
-// Inventory data path
-const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
-
-// Helper: đọc inventory để đếm số lượng đã bán
-function getSoldCount(itemId: string): number {
-  if (!fs.existsSync(inventoryPath)) return 0;
-  
-  try {
-    const data = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
-    let count = 0;
-    
-    // Đếm số người đã mua role này
-    for (const userId in data) {
-      const userItems = data[userId];
-      if (userItems[itemId]) {
-        count += userItems[itemId];
-      }
-    }
-    
-    return count;
-  } catch {
-    return 0;
-  }
+interface UserData {
+  user_id: string;
+  gold_balance: number;
+  balance: number;
 }
 
-// Các hạng VIP, sắp xếp theo % cao nhất trước (chỉ lấy role tồn tại trong server)
-const getTiers = (interaction: ChatInputCommandInteraction) => {
-  if (!interaction.guild) return [];
-  
-  return ROLE_BONUS_CONFIG
-    .map(config => {
-      // Tìm role theo tên trong guild
-      const role = interaction.guild!.roles.cache.find(r => r.name === config.roleName);
-      return role ? { ...config, roleId: role.id } : null;
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null)
-    .sort((a, b) => b.percent - a.percent);
-};
+const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
 
-// Format 1 dòng role VIP
-function tierLine(tier: ReturnType<typeof getTiers>[0]): string {
-  const parts = [`<@&${tier.roleId}> ~ **+${tier.percent}%** ${emojis.coin}`];
-  
-  if (tier.price) {
-    parts.push(`${fmt(tier.price)} ${emojis.coin}`);
-    
-    if (tier.stock) {
-      const sold = getSoldCount(tier.id);
-      const remaining = Math.max(0, tier.stock - sold);
-      parts.push(`còn ${remaining}/${tier.stock} suất`);
-    }
-  }
-  
-  return `> - ${parts.join(' · ')}`;
+function getWealth(userId: string): { gold: number; coins: number } {
+  const row = stmtGetUser.get(userId) as UserData | undefined;
+  return { gold: row?.gold_balance ?? 0, coins: row?.balance ?? 0 };
 }
 
+// ==================== TIER HELPERS ====================
+function getVIPTier(goldTickets: number): VIPTier {
+  for (let i = VIP_TIERS.length - 1; i >= 0; i--) {
+    if (goldTickets >= VIP_TIERS[i].minTickets) return VIP_TIERS[i];
+  }
+  return VIP_TIERS[0];
+}
+
+function getNextVIPTier(currentTier: number): VIPTier | null {
+  return VIP_TIERS[currentTier + 1] ?? null;
+}
+
+const formatNumber = (num: number) => num.toLocaleString('en-US');
+
+const formatRange = (t: VIPTier) =>
+  t.maxTickets === null
+    ? `${formatNumber(t.minTickets)}+ vé`
+    : `${formatNumber(t.minTickets)}-${formatNumber(t.maxTickets)} vé`;
+
+const formatBenefits = (list: string[]) => list.map((b) => `✅ ${b}`).join('\n');
+
+function createProgressBar(ratio: number, length = 15): string {
+  const filled = Math.round(Math.min(Math.max(ratio, 0), 1) * length);
+  return '▰'.repeat(filled) + '▱'.repeat(length - filled);
+}
+
+// ==================== COMPONENTS V2 HELPERS ====================
+type Block = TextDisplayBuilder | SectionBuilder | SeparatorBuilder;
+
+const text = (content: string) => new TextDisplayBuilder().setContent(content);
+
+const divider = () =>
+  new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true);
+
+/** Header có ảnh nhỏ bên phải, không cần Container. */
+function header(content: string, thumbnailURL?: string): Block {
+  if (!thumbnailURL) return text(content);
+
+  return new SectionBuilder()
+    .addTextDisplayComponents(text(content))
+    .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailURL));
+}
+
+/** Gói các block vào Container có thanh màu bên trái (giống embed). */
+function box(color: number, blocks: Block[]): ContainerBuilder {
+  const container = new ContainerBuilder().setAccentColor(color);
+  for (const block of blocks) {
+    if (block instanceof SectionBuilder) container.addSectionComponents(block);
+    else if (block instanceof SeparatorBuilder) container.addSeparatorComponents(block);
+    else container.addTextDisplayComponents(block);
+  }
+  return container;
+}
+
+async function sendV2(interaction: ChatInputCommandInteraction, container: ContainerBuilder) {
+  const payload = {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+  };
+
+  return interaction.replied || interaction.deferred
+    ? interaction.followUp(payload)
+    : interaction.reply(payload);
+}
+
+function fail(interaction: ChatInputCommandInteraction, label: string, error: unknown) {
+  console.error(`[VIPModule] Error in ${label}:`, error);
+  return sendV2(
+    interaction,
+    box(Colors.Red, [text(`${emojis.error || '❌'} Có lỗi khi ${label}. Vui lòng thử lại sau!`)]),
+  ).catch(() => {});
+}
+
+// ==================== VIEWS ====================
+function buildVipInfo(interaction: ChatInputCommandInteraction): ContainerBuilder {
+  const { gold, coins } = getWealth(interaction.user.id);
+  const current = getVIPTier(gold);
+  const next = getNextVIPTier(current.tier);
+
+  const blocks: Block[] = [
+    header(
+      [
+        `## ${current.icon} ${current.name}`,
+        `-# VIP Info • ${interaction.user.username}`,
+        `Hạng VIP tính theo số **Vé Vàng** bạn sở hữu. Mua vé tại \`/shop\`!`,
+      ].join('\n'),
+      interaction.user.displayAvatarURL({ size: 256 }),
+    ),
+    divider(),
+    text(
+      [
+        '### 💰 Tài sản hiện tại',
+        `${emojis.coin || '🪙'} **Xu:** ${formatNumber(coins)}`,
+        `${emojis.ticket || '🎫'} **Vé Vàng:** ${formatNumber(gold)}`,
+      ].join('\n'),
+    ),
+    divider(),
+  ];
+
+  const perks = [`### ${current.icon} Quyền lợi ${current.name}`, formatBenefits(current.benefits)];
+
+  if (current.weeklyBonus > 0) {
+    perks.push(
+      '',
+      `🎁 Nhận **${formatNumber(current.weeklyBonus)} xu** mỗi tuần với \`/vip-bonus\``,
+    );
+  }
+
+  blocks.push(text(perks.join('\n')), divider());
+
+  if (next) {
+    const span = next.minTickets - current.minTickets;
+    const ratio = (gold - current.minTickets) / span;
+    const preview = next.benefits.slice(0, 3).map((b) => `• ${b}`);
+    const more = next.benefits.length - preview.length;
+
+    blocks.push(
+      text(
+        [
+          `### 📈 Tiến độ đến ${next.icon} ${next.name}`,
+          `${createProgressBar(ratio)} **${(Math.min(Math.max(ratio, 0), 1) * 100).toFixed(1)}%**`,
+          `Cần thêm **${formatNumber(next.minTickets - gold)} vé vàng** để lên hạng!`,
+          '',
+          `**${next.name}** (${formatNumber(next.minTickets)}+ vé):`,
+          ...preview,
+          more > 0 ? `• ...và ${more} quyền lợi khác` : '',
+        ]
+          .filter((line, i, arr) => line !== '' || arr[i - 1] !== '')
+          .join('\n'),
+      ),
+    );
+  } else {
+    blocks.push(text('### 🌟 Chúc mừng!\nBạn đã đạt **hạng VIP cao nhất**! 🎉'));
+  }
+
+  blocks.push(divider(), text('-# Dùng /vip-tiers để xem tất cả hạng VIP • /shop để mua vé vàng'));
+
+  return box(current.color, blocks);
+}
+
+function buildVipTiers(client: Client, userId: string): ContainerBuilder {
+  const mine = getVIPTier(getWealth(userId).gold).tier;
+
+  const lines = VIP_TIERS.map((t) => {
+    const bonus = t.weeklyBonus > 0 ? ` • 🎁 ${formatNumber(t.weeklyBonus)} xu/tuần` : '';
+    const you = t.tier === mine ? '  ◀ **Bạn**' : '';
+    return `${t.icon} **${t.name}** — ${formatRange(t)}${bonus}${you}`;
+  });
+
+  return box(Colors.Gold, [
+    header(
+      [
+        '## 👑 Hệ Thống VIP Tiers',
+        `-# Hạng VIP dựa trên số Vé Vàng ${emojis.ticket || '🎫'} bạn sở hữu`,
+      ].join('\n'),
+      client.user?.displayAvatarURL({ size: 256 }),
+    ),
+    divider(),
+    text(lines.join('\n')),
+    divider(),
+    text('-# Dùng /vipinfo để xem chi tiết quyền lợi hạng của bạn • /shop để mua vé vàng'),
+  ]);
+}
+
+function buildVipBonus(interaction: ChatInputCommandInteraction): ContainerBuilder {
+  const current = getVIPTier(getWealth(interaction.user.id).gold);
+
+  if (current.weeklyBonus === 0) {
+    const required = VIP_TIERS.find((t) => t.weeklyBonus > 0);
+    return box(Colors.Red, [
+      text(
+        [
+          `${emojis.error || '❌'} Bạn cần **${required?.icon} ${required?.name}** (${formatNumber(required?.minTickets ?? 50)}+ vé vàng) để nhận weekly bonus!`,
+          '',
+          '-# Dùng /shop để mua vé vàng • /vip-tiers để xem các hạng VIP',
+        ].join('\n'),
+      ),
+    ]);
+  }
+
+  // TODO: kiểm tra cooldown tuần và cộng xu thật sự
+  return box(current.color, [
+    text(
+      [
+        `## ${current.icon} ${current.name}`,
+        `🎁 Weekly bonus của bạn: **${formatNumber(current.weeklyBonus)} xu**`,
+      ].join('\n'),
+    ),
+    divider(),
+    text(
+      `${emojis.success || '✅'} Chức năng claim đang phát triển, sẽ có trong bản cập nhật tiếp theo.`,
+    ),
+  ]);
+}
+
+// ==================== MODULE ====================
 export default class VIPModule {
   name = 'vip-module';
-  description = 'Hệ thống hiển thị quyền lợi VIP';
-  version = '1.0.0';
-  enabled = true;
-  client: Client;
+  description = 'Hệ thống VIP tiers và quyền lợi';
   commands: Collection<string, any>;
+
+  private client: Client;
 
   constructor(client: Client) {
     this.client = client;
     this.commands = new Collection();
-  }
-
-  async initialize() {
-    console.log(`👑 VIP module initialized`);
-    
-    // Tự động tạo role trong server khi bot khởi động
-    await this.createMissingRoles();
-    
     this.registerCommands();
-    console.log(`✅ VIP module registered ${this.commands.size} commands`);
-  }
-
-  // Tự động tạo các role chưa có trong server
-  private async createMissingRoles() {
-    try {
-      const guildId = process.env.GUILD_ID;
-      if (!guildId) {
-        console.log('[VIP] No GUILD_ID set, skipping auto role creation');
-        return;
-      }
-
-      const guild = await this.client.guilds.fetch(guildId);
-      if (!guild) {
-        console.log('[VIP] Guild not found');
-        return;
-      }
-
-      let created = 0;
-      for (const config of ROLE_BONUS_CONFIG) {
-        // Check if role exists
-        const existingRole = guild.roles.cache.find(r => r.name === config.roleName);
-        
-        if (!existingRole) {
-          try {
-            await guild.roles.create({
-              name: config.roleName,
-              color: config.color, // Changed from 'color' to 'color' (Discord.js accepts both but prefers 'color')
-              reason: 'Auto-created VIP role from shop',
-              permissions: []
-            });
-            created++;
-            console.log(`✅ Created role: ${config.roleName}`);
-          } catch (error) {
-            console.error(`❌ Failed to create role ${config.roleName}:`, error);
-          }
-        }
-      }
-
-      if (created > 0) {
-        console.log(`✅ Created ${created} VIP role(s) in guild ${guild.name}`);
-      } else {
-        console.log(`✅ All VIP roles already exist in guild ${guild.name}`);
-      }
-    } catch (error) {
-      console.error('[VIP] Error creating roles:', error);
-    }
   }
 
   private registerCommands() {
-    // /vipinfo command
-    const vipCommand = {
+    const vipInfoCommand = {
       data: new SlashCommandBuilder()
         .setName('vipinfo')
-        .setDescription('👑 Xem quyền lợi và hạng VIP'),
+        .setDescription('Xem hạng VIP và quyền lợi của bạn'),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await interaction.deferReply();
-        } catch (error: any) {
-          if (error.code === 10062) return;
-          throw error;
+          await sendV2(interaction, buildVipInfo(interaction));
+        } catch (error) {
+          await fail(interaction, 'xem VIP info', error);
         }
-
-        if (!interaction.guild) {
-          await interaction.editReply({ 
-            content: 'Lệnh này chỉ có thể sử dụng trong server!' 
-          });
-          return;
-        }
-
-        const list = getTiers(interaction);
-        const icon = interaction.client?.user?.displayAvatarURL();
-
-        if (!list.length) {
-          await interaction.editReply({ 
-            content: 'Chưa có role VIP nào trong server! Hãy tạo các role với tên giống trong shop.' 
-          });
-          return;
-        }
-
-        // Tìm role VIP cao nhất mà user đang có
-        const member = interaction.member;
-        let myRole: typeof list[0] | undefined;
-        
-        if (member && 'roles' in member && typeof member.roles === 'object' && member.roles && 'cache' in member.roles) {
-          myRole = list.find(t => (member.roles as any).cache.has(t.roleId));
-        }
-
-        const status = myRole
-          ? `> - <@&${myRole.roleId}> ~ **+${myRole.percent}%** ${emojis.coin}\n> - Mỗi lần điểm danh bạn nhận thêm **+${myRole.percent}%**`
-          : `> - Bạn chưa có role VIP\n> - Mua role ở \`/shop\` để nhận thêm xu mỗi lần điểm danh`;
-
-        const embed = new EmbedBuilder()
-          .setColor(0xe2b93b)
-          .setTitle(`👑 Quyền lợi VIP`)
-          .setDescription(`Sở hữu role VIP trong shop để nhận thêm xu mỗi lần điểm danh.\n- **Thưởng thêm** được tính trên tổng tiền điểm danh. Chỉ role có % cao nhất được tính, không cộng dồn.`)
-          .setFooter({ 
-            text: `Banhcuon-bot • ${interaction.user.username}`,
-            iconURL: icon 
-          })
-          .setTimestamp();
-
-        // Thêm field quyền lợi chung
-        embed.addFields({
-          name: '🎁 Quyền lợi VIP',
-          value: [
-            `> • **Bonus xu khi daily** - Nhận thêm % xu mỗi lần điểm danh`,
-            `> • **Role màu sắc** - Tên bạn sẽ có màu đẹp trong server`,
-            `> • **Đẳng cấp** - Thể hiện đẳng cấp của bạn trong cộng đồng`,
-            `> • **Ưu tiên hỗ trợ** - Được hỗ trợ ưu tiên khi cần`,
-            `> • **Role giới hạn** - Một số role chỉ có số lượng giới hạn`
-          ].join('\n'),
-          inline: false
-        });
-
-        // Thêm field các lệnh VIP-only
-        embed.addFields({
-          name: '⭐ Các lệnh VIP độc quyền',
-          value: [
-            '> • \`/vip-transfer\` - Chuyển xu cho người khác (VIP 5%+)',
-            '> • \`/vip-bonus\` - Nhận bonus hàng tuần (VIP 7%+)',
-            '> • \`/vip-lottery\` - Tham gia xổ số VIP (VIP 8%+)',
-            '> • \`/vip-nickname\` - Đặt nickname tùy chỉnh (VIP 10%)',
-            '> • \`/priority-support\` - Hỗ trợ ưu tiên từ admin (Tất cả VIP)'
-          ].join('\n'),
-          inline: false
-        });
-
-        // Chia danh sách role thành 2 field để tránh quá giới hạn 1024 ký tự
-        const halfIndex = Math.ceil(list.length / 2);
-        const firstHalf = list.slice(0, halfIndex);
-        const secondHalf = list.slice(halfIndex);
-
-        embed.addFields(
-          { 
-            name: '• Các hạng VIP (Phần 1)', 
-            value: firstHalf.map(tierLine).join('\n'), 
-            inline: false 
-          },
-          { 
-            name: '• Các hạng VIP (Phần 2)', 
-            value: secondHalf.map(tierLine).join('\n'), 
-            inline: false 
-          },
-          { 
-            name: '• Hạng của bạn', 
-            value: status, 
-            inline: false 
-          }
-        );
-
-        // Buttons để mở shop và xem daily
-        const row = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('open_shop')
-              .setLabel('🛒 Mở Shop')
-              .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-              .setCustomId('view_daily')
-              .setLabel('📅 Xem Daily')
-              .setStyle(ButtonStyle.Success)
-          );
-
-        await interaction.editReply({ embeds: [embed], components: [row] });
-
-        // Collector để xử lý button clicks
-        const message = await interaction.fetchReply();
-        const collector = message.createMessageComponentCollector({ 
-          time: 300000 // 5 phút
-        });
-
-        collector.on('collect', async (i) => {
-          if (i.user.id !== interaction.user.id) {
-            await i.reply({ content: 'Bạn không thể sử dụng button này!', ephemeral: true });
-            return;
-          }
-
-          if (i.customId === 'open_shop') {
-            // Use deferUpdate to acknowledge button click, then delegate to shop command
-            try {
-              await i.deferUpdate();
-              const shopCommand = this.client.commands?.get('shop');
-              if (shopCommand) {
-                // Pass the original interaction, not button interaction
-                await shopCommand.execute(interaction);
-              } else {
-                await interaction.followUp({ content: 'Không tìm thấy lệnh shop!', ephemeral: true });
-              }
-            } catch (error) {
-              console.error('[VIP] Error opening shop:', error);
-              await interaction.followUp({ content: 'Có lỗi khi mở shop! Hãy thử lệnh `/shop` thủ công.', ephemeral: true }).catch(() => {});
-            }
-          } else if (i.customId === 'view_daily') {
-            // Use deferUpdate to acknowledge button click, then delegate to daily command
-            try {
-              await i.deferUpdate();
-              const dailyCommand = this.client.commands?.get('daily');
-              if (dailyCommand) {
-                // Pass the original interaction, not button interaction
-                await dailyCommand.execute(interaction);
-              } else {
-                await interaction.followUp({ content: 'Không tìm thấy lệnh daily!', ephemeral: true });
-              }
-            } catch (error) {
-              console.error('[VIP] Error opening daily:', error);
-              await interaction.followUp({ content: 'Có lỗi khi mở daily! Hãy thử lệnh `/daily` thủ công.', ephemeral: true }).catch(() => {});
-            }
-          }
-        });
-
-        collector.on('end', () => {
-          // Disable buttons sau khi hết thời gian
-          row.components.forEach(button => button.setDisabled(true));
-          interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
-        });
-      }
+      },
     };
 
-    this.commands.set('vipinfo', vipCommand);
-
-    // Helper function: Check if user has VIP role with minimum percent
-    const hasVIPLevel = (interaction: ChatInputCommandInteraction, minPercent: number): boolean => {
-      if (!interaction.guild) return false;
-      const member = interaction.member;
-      if (!member || typeof member.roles === 'string' || !('cache' in member.roles)) return false;
-
-      const list = getTiers(interaction);
-      const userRole = list.find(t => (member.roles as any).cache.has(t.roleId));
-      return userRole ? userRole.percent >= minPercent : false;
-    };
-
-    // /vip-transfer command - Chuyển xu cho người khác (VIP 5%+)
-    const vipTransferCommand = {
+    const vipTiersCommand = {
       data: new SlashCommandBuilder()
-        .setName('vip-transfer')
-        .setDescription('💸 Chuyển xu cho người khác (VIP 5%+)')
-        .addUserOption(option =>
-          option.setName('user')
-            .setDescription('Người nhận')
-            .setRequired(true))
-        .addIntegerOption(option =>
-          option.setName('amount')
-            .setDescription('Số lượng xu')
-            .setRequired(true)
-            .setMinValue(1)),
+        .setName('vip-tiers')
+        .setDescription('Xem tất cả hạng VIP và quyền lợi từng tier'),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
-
-        if (!hasVIPLevel(interaction, 5)) {
-          await interaction.editReply('❌ Bạn cần role VIP 5%+ để sử dụng lệnh này!');
-          return;
+        try {
+          await sendV2(interaction, buildVipTiers(this.client, interaction.user.id));
+        } catch (error) {
+          await fail(interaction, 'xem VIP tiers', error);
         }
-
-        // Check transfer cooldown
-        const cooldownCheck = checkCooldown(interaction.user.id, TRANSFER_COOLDOWN_PATH, TRANSFER_COOLDOWN_MS);
-        if (cooldownCheck.onCooldown) {
-          await interaction.editReply(`❌ Bạn phải đợi ${cooldownCheck.timeLeft}s để chuyển xu tiếp!`);
-          return;
-        }
-
-        const targetUser = interaction.options.getUser('user', true);
-        const amount = interaction.options.getInteger('amount', true);
-
-        if (targetUser.id === interaction.user.id) {
-          await interaction.editReply('❌ Bạn không thể chuyển xu cho chính mình!');
-          return;
-        }
-
-        if (targetUser.bot) {
-          await interaction.editReply('❌ Không thể chuyển xu cho bot!');
-          return;
-        }
-
-        // Check max transfer amount
-        if (amount > MAX_TRANSFER_AMOUNT) {
-          await interaction.editReply(`❌ Số lượng chuyển tối đa là ${MAX_TRANSFER_AMOUNT.toLocaleString()} ${emojis.coin}!`);
-          return;
-        }
-
-        // Read coins data
-        const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-        let coinsData: any = {};
-        if (fs.existsSync(coinsPath)) {
-          coinsData = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-        }
-
-        const senderBalance = coinsData[interaction.user.id] || 0;
-        if (senderBalance < amount) {
-          await interaction.editReply(`❌ Bạn không đủ xu! Số dư hiện tại: ${senderBalance.toLocaleString()} ${emojis.coin}`);
-          return;
-        }
-
-        // Transfer
-        coinsData[interaction.user.id] = senderBalance - amount;
-        coinsData[targetUser.id] = (coinsData[targetUser.id] || 0) + amount;
-        fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
-
-        // Set cooldown after successful transfer
-        setCooldown(interaction.user.id, TRANSFER_COOLDOWN_PATH);
-
-        const embed = new EmbedBuilder()
-          .setColor(0x00ff00)
-          .setTitle(`${emojis.coin} Chuyển xu thành công`)
-          .setDescription(`**${interaction.user.username}** đã chuyển **${amount.toLocaleString()}** ${emojis.coin} cho **${targetUser.username}**`)
-          .addFields(
-            { name: 'Người gửi', value: `<@${interaction.user.id}>\nSố dư còn: ${coinsData[interaction.user.id].toLocaleString()} ${emojis.coin}`, inline: true },
-            { name: 'Người nhận', value: `<@${targetUser.id}>\nSố dư mới: ${coinsData[targetUser.id].toLocaleString()} ${emojis.coin}`, inline: true }
-          )
-          .setTimestamp();
-
-        await interaction.editReply({ embeds: [embed] });
-      }
+      },
     };
 
-    this.commands.set('vip-transfer', vipTransferCommand);
-
-    // /vip-bonus command - Nhận bonus hàng tuần (VIP 7%+)
     const vipBonusCommand = {
       data: new SlashCommandBuilder()
         .setName('vip-bonus')
-        .setDescription('🎁 Nhận bonus hàng tuần (VIP 7%+)'),
+        .setDescription('Nhận weekly bonus xu (VIP Gold trở lên)'),
+
       execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
-
-        if (!hasVIPLevel(interaction, 7)) {
-          await interaction.editReply('❌ Bạn cần role VIP 7%+ để sử dụng lệnh này!');
-          return;
-        }
-
-        // Check cooldown (7 days)
-        const cooldownPath = path.join(process.cwd(), 'data', 'vip_bonus_cooldown.json');
-        let cooldownData: any = {};
-        if (fs.existsSync(cooldownPath)) {
-          cooldownData = JSON.parse(fs.readFileSync(cooldownPath, 'utf8'));
-        }
-
-        const lastClaim = cooldownData[interaction.user.id];
-        const now = Date.now();
-        const weekInMs = 7 * 24 * 60 * 60 * 1000;
-
-        if (lastClaim && now - lastClaim < weekInMs) {
-          const timeLeft = weekInMs - (now - lastClaim);
-          const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
-          await interaction.editReply(`❌ Bạn đã nhận bonus tuần này rồi! Hãy quay lại sau **${daysLeft}** ngày.`);
-          return;
-        }
-
-        // Give bonus
-        const bonusAmount = 50000; // 50k coins
-        const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-        let coinsData: any = {};
-        if (fs.existsSync(coinsPath)) {
-          coinsData = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-        }
-
-        coinsData[interaction.user.id] = (coinsData[interaction.user.id] || 0) + bonusAmount;
-        fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
-
-        // Update cooldown
-        cooldownData[interaction.user.id] = now;
-        fs.writeFileSync(cooldownPath, JSON.stringify(cooldownData, null, 2));
-
-        const embed = new EmbedBuilder()
-          .setColor(0xffd700)
-          .setTitle(`${emojis.gift} Bonus VIP hàng tuần`)
-          .setDescription(`Bạn đã nhận **${bonusAmount.toLocaleString()}** ${emojis.coin}!`)
-          .addFields({ name: 'Số dư mới', value: `${coinsData[interaction.user.id].toLocaleString()} ${emojis.coin}`, inline: true })
-          .setFooter({ text: 'Hãy quay lại sau 7 ngày để nhận tiếp!' })
-          .setTimestamp();
-
-        await interaction.editReply({ embeds: [embed] });
-      }
-    };
-
-    // /vip-lottery command - Xổ số VIP (VIP 8%+)
-    const vipLotteryCommand = {
-      data: new SlashCommandBuilder()
-        .setName('vip-lottery')
-        .setDescription('🎰 Tham gia xổ số VIP (VIP 8%+)')
-        .addIntegerOption(option =>
-          option.setName('tickets')
-            .setDescription('Số vé mua (10k/vé)')
-            .setRequired(true)
-            .setMinValue(1)
-            .setMaxValue(10)),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
-
-        if (!hasVIPLevel(interaction, 8)) {
-          await interaction.editReply('❌ Bạn cần role VIP 8%+ để sử dụng lệnh này!');
-          return;
-        }
-
-        const tickets = interaction.options.getInteger('tickets', true);
-        
-        // Check daily ticket limit
-        const lotteryUsagePath = LOTTERY_USAGE_PATH;
-        let lotteryUsage: any = {};
-        if (fs.existsSync(lotteryUsagePath)) {
-          lotteryUsage = JSON.parse(fs.readFileSync(lotteryUsagePath, 'utf8'));
-        }
-        
-        const userId = interaction.user.id;
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        
-        if (!lotteryUsage[userId]) {
-          lotteryUsage[userId] = { date: today, count: 0 };
-        }
-        
-        // Reset count if it's a new day
-        if (lotteryUsage[userId].date !== today) {
-          lotteryUsage[userId] = { date: today, count: 0 };
-        }
-        
-        // Check if user would exceed daily limit
-        if (lotteryUsage[userId].count + tickets > LOTTERY_MAX_TICKETS_PER_DAY) {
-          const remaining = LOTTERY_MAX_TICKETS_PER_DAY - lotteryUsage[userId].count;
-          await interaction.editReply(`❌ Bạn chỉ có thể mua thêm ${remaining} vé hôm nay! (Giới hạn: ${LOTTERY_MAX_TICKETS_PER_DAY} vé/ngày)`);
-          return;
-        }
-
-        const ticketPrice = 10000;
-        const totalCost = tickets * ticketPrice;
-
-        // Check balance
-        const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-        let coinsData: any = {};
-        if (fs.existsSync(coinsPath)) {
-          coinsData = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-        }
-
-        const balance = coinsData[interaction.user.id] || 0;
-        if (balance < totalCost) {
-          await interaction.editReply(`❌ Không đủ xu! Bạn cần ${totalCost.toLocaleString()} ${emojis.coin} (Còn ${balance.toLocaleString()} ${emojis.coin})`);
-          return;
-        }
-
-        // Play lottery
-        const prizes = [
-          { name: 'Jackpot', amount: 500000, chance: 0.01 },
-          { name: 'Giải Nhất', amount: 200000, chance: 0.05 },
-          { name: 'Giải Nhì', amount: 100000, chance: 0.10 },
-          { name: 'Giải Ba', amount: 50000, chance: 0.15 },
-          { name: 'Giải Khuyến Khích', amount: 20000, chance: 0.20 },
-        ];
-
-        let totalWin = 0;
-        const results: string[] = [];
-
-        for (let i = 0; i < tickets; i++) {
-          const rand = Math.random();
-          let won = false;
-
-          for (const prize of prizes) {
-            if (rand < prize.chance) {
-              totalWin += prize.amount;
-              results.push(`🎟️ Vé ${i + 1}: **${prize.name}** - ${prize.amount.toLocaleString()} ${emojis.coin}`);
-              won = true;
-              break;
-            }
-          }
-
-          if (!won) {
-            results.push(`🎟️ Vé ${i + 1}: Chúc bạn may mắn lần sau`);
-          }
-        }
-
-        // Update balance
-        const netProfit = totalWin - totalCost;
-        coinsData[interaction.user.id] = balance + netProfit;
-        fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
-
-        // Update daily ticket count
-        lotteryUsage[userId].count += tickets;
-        fs.writeFileSync(lotteryUsagePath, JSON.stringify(lotteryUsage, null, 2));
-
-        const embed = new EmbedBuilder()
-          .setColor(netProfit >= 0 ? 0x00ff00 : 0xff0000)
-          .setTitle(`${emojis.sparkles} Kết quả xổ số VIP`)
-          .setDescription(results.join('\n'))
-          .addFields(
-            { name: 'Chi phí', value: `-${totalCost.toLocaleString()} ${emojis.coin}`, inline: true },
-            { name: 'Trúng thưởng', value: `+${totalWin.toLocaleString()} ${emojis.coin}`, inline: true },
-            { name: 'Lãi/Lỗ', value: `${netProfit >= 0 ? '+' : ''}${netProfit.toLocaleString()} ${emojis.coin}`, inline: true },
-            { name: 'Số dư mới', value: `${coinsData[interaction.user.id].toLocaleString()} ${emojis.coin}`, inline: false }
-          )
-          .setTimestamp();
-
-        await interaction.editReply({ embeds: [embed] });
-      }
-    };
-
-    // /vip-nickname command - Đặt nickname (VIP 10%)
-    const vipNicknameCommand = {
-      data: new SlashCommandBuilder()
-        .setName('vip-nickname')
-        .setDescription('✨ Đặt nickname tùy chỉnh (VIP 10%)')
-        .addStringOption(option =>
-          option.setName('nickname')
-            .setDescription('Nickname mới (để trống để reset)')
-            .setRequired(false)
-            .setMaxLength(32)),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
-
-        if (!hasVIPLevel(interaction, 10)) {
-          await interaction.editReply('❌ Bạn cần role VIP 10% để sử dụng lệnh này!');
-          return;
-        }
-
-        // Check nickname cooldown
-        const cooldownCheck = checkCooldown(interaction.user.id, NICKNAME_COOLDOWN_PATH, NICKNAME_COOLDOWN_MS);
-        if (cooldownCheck.onCooldown) {
-          await interaction.editReply(`❌ Bạn phải đợi ${cooldownCheck.timeLeft}s để đổi nickname tiếp!`);
-          return;
-        }
-
-        const nickname = interaction.options.getString('nickname');
-        const member = interaction.member;
-
-        if (!member || typeof member === 'string' || !('setNickname' in member)) {
-          await interaction.editReply('❌ Không thể thay đổi nickname!');
-          return;
-        }
-
         try {
-          await (member as any).setNickname(nickname);
-          
-          // Set cooldown after successful nickname change
-          setCooldown(interaction.user.id, NICKNAME_COOLDOWN_PATH);
-          
-          const embed = new EmbedBuilder()
-            .setColor(0xe2b93b)
-            .setTitle(`${emojis.sparkles} Đổi nickname thành công`)
-            .setDescription(nickname 
-              ? `Nickname mới: **${nickname}**` 
-              : 'Đã reset nickname về mặc định')
-            .setTimestamp();
-
-          await interaction.editReply({ embeds: [embed] });
+          await sendV2(interaction, buildVipBonus(interaction));
         } catch (error) {
-          await interaction.editReply('❌ Không thể đổi nickname! (Kiểm tra quyền của bot)');
+          await fail(interaction, 'nhận VIP bonus', error);
         }
-      }
+      },
     };
 
-    // /priority-support command - Tất cả VIP
-    const prioritySupportCommand = {
-      data: new SlashCommandBuilder()
-        .setName('priority-support')
-        .setDescription('🆘 Yêu cầu hỗ trợ ưu tiên từ admin (Tất cả VIP)')
-        .addStringOption(option =>
-          option.setName('issue')
-            .setDescription('Mô tả vấn đề')
-            .setRequired(true)
-            .setMaxLength(500)),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
-
-        if (!hasVIPLevel(interaction, 3)) { // Minimum VIP
-          await interaction.editReply('❌ Bạn cần role VIP để sử dụng lệnh này!');
-          return;
-        }
-
-        const issue = interaction.options.getString('issue', true);
-        const ownerId = process.env.OWNER_ID;
-
-        if (!ownerId) {
-          await interaction.editReply('❌ Chưa cấu hình OWNER_ID trong .env!');
-          return;
-        }
-
-        try {
-          const owner = await this.client.users.fetch(ownerId);
-          
-          const embed = new EmbedBuilder()
-            .setColor(0xff0000)
-            .setTitle(`${emojis.bell} Yêu cầu hỗ trợ VIP`)
-            .setDescription(`**Từ:** ${interaction.user.tag} (${interaction.user.id})\n**Server:** ${interaction.guild?.name}\n\n**Vấn đề:**\n${issue}`)
-            .setTimestamp();
-
-          await owner.send({ embeds: [embed] });
-          await interaction.editReply(`${emojis.success} Đã gửi yêu cầu hỗ trợ đến admin! Bạn sẽ nhận được phản hồi sớm.`);
-        } catch (error) {
-          await interaction.editReply('❌ Không thể gửi tin nhắn cho admin!');
-        }
-      }
-    };
-
+    this.commands.set('vipinfo', vipInfoCommand);
+    this.commands.set('vip-tiers', vipTiersCommand);
     this.commands.set('vip-bonus', vipBonusCommand);
-    this.commands.set('vip-lottery', vipLotteryCommand);
-    this.commands.set('vip-nickname', vipNicknameCommand);
-    this.commands.set('priority-support', prioritySupportCommand);
-  }
-
-  async cleanup() {
-    console.log('🧹 VIP module cleanup');
   }
 }

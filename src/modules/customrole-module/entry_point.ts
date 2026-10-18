@@ -36,7 +36,7 @@ export default class CustomRoleModule {
     const enableCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-enable')
-        .setDescription('🔧 Bật hệ thống role tùy chỉnh')
+        .setDescription('Bật hệ thống role tùy chỉnh')
         .addIntegerOption(option =>
           option
             .setName('max-roles')
@@ -65,7 +65,7 @@ export default class CustomRoleModule {
     const disableCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-disable')
-        .setDescription('🔧 Tắt hệ thống role tùy chỉnh')
+        .setDescription('Tắt hệ thống role tùy chỉnh')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
       execute: async (interaction: ChatInputCommandInteraction) => {
         customRoleManager.updateConfig(interaction.guildId!, { enabled: false });
@@ -117,11 +117,11 @@ export default class CustomRoleModule {
     const adminCreateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-create')
-        .setDescription('🔧 Tạo role tùy chỉnh cho người dùng (admin)')
+        .setDescription('Tạo role tùy chỉnh cho user ([[Admin]])')
         .addUserOption(option =>
           option
             .setName('user')
-            .setDescription('Người dùng để tạo role')
+            .setDescription('User để tạo role')
             .setRequired(true)
         )
         .addStringOption(option =>
@@ -179,7 +179,7 @@ export default class CustomRoleModule {
     const manageCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-manage')
-        .setDescription('🔧 Quản lý role tùy chỉnh')
+        .setDescription('Quản lý role tùy chỉnh')
         .addSubcommand(sub =>
           sub
             .setName('list')
@@ -188,11 +188,11 @@ export default class CustomRoleModule {
         .addSubcommand(sub =>
           sub
             .setName('delete')
-            .setDescription('Xóa role tùy chỉnh của người dùng')
+            .setDescription('Xóa role tùy chỉnh của user')
             .addUserOption(option =>
               option
                 .setName('user')
-                .setDescription('Người dùng')
+                .setDescription('User')
                 .setRequired(true)
             )
         )

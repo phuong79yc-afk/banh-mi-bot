@@ -1,20 +1,35 @@
-// Games Module - Entry Point
-import { 
-  Client, 
-  Collection, 
-  SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  EmbedBuilder,
-  Message
+// Games Module - Entry Point (Components V2)
+import {
+  Client,
+  Collection,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  Message,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  MessageFlags,
+  escapeMarkdown,
 } from 'discord.js';
 import { gtnManager } from './GuessTheNumberManager';
 import { emojis } from '../../config/emojis';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
+
+// ==================== COMPONENTS V2 HELPERS ====================
+const V2 = MessageFlags.IsComponentsV2;
+const V2_EPH = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
+const NO_PING = { parse: [] as never[] };
+
+const txt = (content: string) => new TextDisplayBuilder().setContent(content);
+const sep = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+
+const PALETTE = [0x5865f2, 0x57f287, 0xfee75c, 0xeb459e, 0x3498db];
+const randomColor = () => PALETTE[Math.floor(Math.random() * PALETTE.length)];
 
 export default class GamesModule {
   name = 'games-module';
   description = 'Games - Fun games like Guess The Number';
-  version = '1.0.0';
+  version = '1.1.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -36,25 +51,25 @@ export default class GamesModule {
     const gtnCommand = {
       data: new SlashCommandBuilder()
         .setName('gtn-start')
-        .setDescription('🎮 Bắt đầu trò chơi Đoán Số')
-        .addIntegerOption(option =>
+        .setDescription('Bắt đầu trò chơi Đoán Số')
+        .addIntegerOption((option) =>
           option
             .setName('rounds')
-            .setDescription('🔢 Số vòng chơi (1-10)')
+            .setDescription('� Số vòng chơi (1-10)')
             .setMinValue(1)
             .setMaxValue(10)
         )
-        .addIntegerOption(option =>
+        .addIntegerOption((option) =>
           option
             .setName('duration')
-            .setDescription('⏱️ Thời gian mỗi vòng (30-300 giây)')
+            .setDescription('Thời gian mỗi vòng (30-300 giây)')
             .setMinValue(30)
             .setMaxValue(300)
         )
-        .addIntegerOption(option =>
+        .addIntegerOption((option) =>
           option
             .setName('range')
-            .setDescription('🎯 Phạm vi số tối đa (10-1000)')
+            .setDescription('Phạm vi số tối đa (10-1000)')
             .setMinValue(10)
             .setMaxValue(1000)
         ),
@@ -64,8 +79,13 @@ export default class GamesModule {
         // Check if game already running
         if (gtnManager.hasGame(channelId)) {
           return interaction.reply({
-            content: '${emojis.error} A game is already running in this channel! Wait for it to finish.',
-            flags: 64
+            components: [
+              new ContainerBuilder()
+                .addTextDisplayComponents(
+                  txt(`${emojis.error} Kênh này đang có một ván chơi rồi! Chờ ván đó kết thúc nhé.`)
+                ),
+            ],
+            flags: V2_EPH,
           });
         }
 
@@ -84,21 +104,29 @@ export default class GamesModule {
           range
         );
 
-        const embed = createEnhancedEmbed({
-          title: '🎮 Guess The Number - Game Started!',
-          description: `I'm thinking of a number between **${game.minRange}** and **${game.maxRange}**!\n\n` +
-            `Type your guess in the chat to play.\n` +
-            `First person to guess correctly wins!`,
-          color: 'random',
-          fields: [
-            { name: '⏱️ Duration', value: `${game.duration} seconds`, inline: true },
-            { name: '🎯 Range', value: `${game.minRange}-${game.maxRange}`, inline: true },
-            { name: '${emojis.refresh} Rounds', value: `${game.currentRound}/${game.rounds}`, inline: true }
-          ],
-          footer: `Started by ${interaction.user.username}`,
-        });
+        const endsAt = Math.floor(Date.now() / 1000) + game.duration;
 
-        await interaction.reply({ embeds: [embed] });
+        const startCard = new ContainerBuilder()
+          .addTextDisplayComponents(
+            txt('## 🎮 Đoán Số'),
+            txt(
+              `Mình đang nghĩ một số từ **${game.minRange}** đến **${game.maxRange}**!\n` +
+                `Gõ số bạn đoán vào kênh này, ai đoán đúng đầu tiên sẽ thắng!`
+            )
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(
+            txt(
+              `⏱️ **${game.duration}** giây  •  🎯 **${game.minRange}–${game.maxRange}**  •  ` +
+                `${emojis.refresh} Vòng **${game.currentRound}/${game.rounds}**`
+            ),
+            txt(
+              `-# ⬆️ = số cần tìm lớn hơn · ⬇️ = nhỏ hơn\n` +
+                `-# Bắt đầu bởi ${escapeMarkdown(interaction.user.username)} • hết giờ <t:${endsAt}:R>`
+            )
+          );
+
+        await interaction.reply({ components: [startCard], flags: V2, allowedMentions: NO_PING });
 
         // Set auto-end timeout
         gtnManager.setAutoEnd(channelId, async () => {
@@ -107,28 +135,30 @@ export default class GamesModule {
 
           const stats = gtnManager.getStats(endedGame);
 
-          const endEmbed = createEnhancedEmbed({
-            title: '${emojis.clock} Time\'s Up!',
-            description: `The game has ended! Nobody guessed the number.\n\n` +
-              `The correct number was: **${endedGame.targetNumber}**`,
-            color: 'error',
-            fields: [
-              { name: '${emojis.chart} Total Guesses', value: stats.totalGuesses.toString(), inline: true },
-              { name: '${emojis.users} Participants', value: stats.totalParticipants.toString(), inline: true },
-              { name: '⏱️ Duration', value: `${stats.elapsedTime}s`, inline: true }
-            ],
-          });
+          const endCard = new ContainerBuilder()
+            .addTextDisplayComponents(
+              txt(`## ${emojis.clock} Hết giờ!`),
+              txt(`Không ai đoán đúng số.\nSố cần tìm là: **${endedGame.targetNumber}**`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(
+              txt(
+                `${emojis.chart} **${stats.totalGuesses}** lượt đoán  •  ` +
+                  `${emojis.users} **${stats.totalParticipants}** người chơi  •  ` +
+                  `⏱️ **${stats.elapsedTime}s**`
+              )
+            );
 
           try {
             const channel = await this.client.channels.fetch(channelId);
             if (channel && 'send' in channel && typeof channel.send === 'function') {
-              await channel.send({ embeds: [endEmbed] });
+              await channel.send({ components: [endCard], flags: V2, allowedMentions: NO_PING });
             }
           } catch (error) {
             console.error('Error sending game end message:', error);
           }
         });
-      }
+      },
     };
 
     this.commands.set('gtn-start', gtnCommand);
@@ -163,26 +193,26 @@ export default class GamesModule {
         if (result.result === 'correct') {
           // Winner!
           const stats = gtnManager.getStats(result.game!);
-          
-          const winEmbed = createEnhancedEmbed({
-            title: '🎉 We Have a Winner!',
-            description: `**${message.author.username}** guessed the correct number: **${guess}**!`,
-            color: 'success',
-            fields: [
-              { name: '${emojis.trophy} Winner', value: `<@${message.author.id}>`, inline: true },
-              { name: '🎯 Attempts', value: result.game!.winnerAttempts!.toString(), inline: true },
-              { name: '⏱️ Time', value: `${stats.elapsedTime}s`, inline: true },
-              { name: '${emojis.chart} Total Guesses', value: stats.totalGuesses.toString(), inline: true },
-              { name: '${emojis.users} Participants', value: stats.totalParticipants.toString(), inline: true },
-              { name: '📈 Avg Attempts', value: stats.avgAttempts.toString(), inline: true }
-            ],
-          });
 
-          await message.reply({ embeds: [winEmbed] });
+          const winCard = new ContainerBuilder()
+            .addTextDisplayComponents(
+              txt('## 🎉 Có người thắng rồi!'),
+              txt(`${emojis.trophy} <@${message.author.id}> đã đoán đúng số **${guess}**!`)
+            )
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(
+              txt(
+                `🎯 **${result.game!.winnerAttempts}** lần đoán  •  ⏱️ **${stats.elapsedTime}s**\n` +
+                  `${emojis.chart} **${stats.totalGuesses}** lượt đoán  •  ` +
+                  `${emojis.users} **${stats.totalParticipants}** người chơi  •  ` +
+                  `📈 TB **${stats.avgAttempts}** lượt/người`
+              )
+            );
+
+          await message.reply({ components: [winCard], flags: V2, allowedMentions: NO_PING });
 
           // End game
           gtnManager.endGame(message.channelId);
-
         } else if (result.result === 'too_low') {
           await message.react('⬆️');
         } else if (result.result === 'too_high') {
@@ -198,3 +228,5 @@ export default class GamesModule {
     console.log('🧹 Games module cleanup');
   }
 }
+
+

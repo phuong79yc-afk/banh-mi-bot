@@ -9,6 +9,7 @@ export interface AFKUser {
   guildId: string;
   reason: string;
   timestamp: number;
+  originalNickname?: string; // Lưu nickname gốc để restore
   mentions: Array<{
     userId: string;
     username: string;
@@ -53,7 +54,7 @@ export class AFKManager {
   }
 
   // Set user AFK
-  setAFK(guildId: string, userId: string, reason: string = 'AFK'): AFKUser {
+  setAFK(guildId: string, userId: string, reason: string = 'AFK', originalNickname?: string): AFKUser {
     const key = this.getKey(guildId, userId);
     
     const afkUser: AFKUser = {
@@ -61,6 +62,7 @@ export class AFKManager {
       guildId,
       reason,
       timestamp: Date.now(),
+      originalNickname,
       mentions: []
     };
 

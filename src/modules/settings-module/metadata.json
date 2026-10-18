@@ -1,0 +1,10 @@
+{
+  "name": "settings-module",
+  "version": "1.0.0",
+  "description": "Server settings management",
+  "enabled": true,
+  "priority": 13,
+  "type": 1,
+  "author": "Bánh Cuốn Bot",
+  "slashCommands": ["/setting"]
+}

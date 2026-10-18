@@ -1,10 +1,24 @@
 {
   "1482354951689605150": {
     "guildId": "1482354951689605150",
-    "channelId": "1540977183294492755",
+    "channelId": "1560650840631549976",
     "message": "xin chào",
     "embedEnabled": true,
-    "autoRole": "1485114747056685116",
+    "enabled": true,
+    "autoRole": "1545769240831721552"
+  },
+  "1133747672482857021": {
+    "guildId": "1133747672482857021",
+    "channelId": "1135284548264022088",
+    "message": "Rất vui được chào đón bạn tới cộng đồng của chúng mình. Hãy đọc quy tắc ở #rules và bắt đầu khám phá nhé!",
+    "embedEnabled": true,
+    "enabled": true
+  },
+  "1499671249373368410": {
+    "guildId": "1499671249373368410",
+    "channelId": "1523255923005460631",
+    "message": "Hey {user}, welcome to our cute corner of Discord! Feel free to explore and make new friends. 🌸",
+    "embedEnabled": true,
     "enabled": true
   }
 }

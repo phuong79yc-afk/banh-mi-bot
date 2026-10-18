@@ -1,22 +1,45 @@
 /**
- * AI Module - Enhanced AI chat with context memory
- * Supports: Groq (llama), Gemini (Google), OpenAI (gpt)
+ * AI Module - Enhanced AI chat with context memory (Components V2)
+ * Supports: Groq (GPT-OSS, Llama), Gemini (Google)
  */
 
-import { Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import {
+  Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, ButtonInteraction,
+  AttachmentBuilder, ContainerBuilder, FileBuilder,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
+} from 'discord.js';
 import { emojis } from '../../config/emojis';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { V2, V2_EPHEMERAL, txt, sep } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { keyRotator } from '../../utils/aiKeyRotator';
 import { aiUsageTracker } from '../../utils/aiUsageTracker';
 import { getCustomEmoji } from '../../utils/customEmoji';
 
-// Conversation memory (channel-based)
-const conversationHistory = new Map<string, Array<{ role: string; content: string }>>();
-const MAX_HISTORY = 10; // Keep last 10 messages per channel
+type Provider = 'groq' | 'gemini';
+type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
-// Available AI models (Updated for Groq 2026)
+// Conversation memory (channel-based)
+const conversationHistory = new Map<string, ChatMessage[]>();
+const MAX_HISTORY = 10; // Keep last 10 exchanges per channel
+
+// Giới hạn hiển thị (message V2 tối đa 4000 ký tự text)
+const MAX_DISPLAY = 3200;
+
+// Cache câu trả lời gần đây để nút "Tạo lại" hoạt động
+interface CachedAnswer {
+  question: string;
+  provider: Provider;
+  modelId: string;
+  style: string;
+  snapshot: ChatMessage[];
+}
+
+const answerCache = new Map<string, CachedAnswer>();
+const MAX_CACHE = 200;
+let answerSeq = 0;
+
+// Available AI models
 const AI_MODELS = {
   groq: {
     'openai/gpt-oss-20b': 'GPT-OSS 20B (Fastest, 1000 T/s)',
@@ -27,58 +50,231 @@ const AI_MODELS = {
     'gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Latest)',
     'gemini-1.5-pro': 'Gemini 1.5 Pro (Advanced)',
     'gemini-1.5-flash': 'Gemini 1.5 Flash (Fast)',
-  }
+  },
+} as const;
+
+const PROVIDER_COLOR: Record<Provider, number> = { groq: 0xf55036, gemini: 0x4285f4 };
+const PROVIDER_EMOJI: Record<Provider, string> = { groq: '⚡', gemini: '💎' };
+
+const STYLE_LABELS: Record<string, string> = {
+  default: '📝 Default',
+  creative: `${emojis.art} Creative`,
+  professional: '💼 Professional',
+  casual: '😄 Casual',
+  technical: `${emojis.terminal} Technical`,
 };
 
 // System prompts (with auto language detection)
+const BOT_COMMANDS_KNOWLEDGE = `
+Bot Commands Knowledge (use when user asks about bot commands):
+
+**🤖 AI Chat:**
+- /ai message:[câu hỏi] model:[optional] style:[optional] - Chat với AI có memory. Models: GPT-OSS 20B/120B (Groq), Llama 3.1 8B, Gemini 2.0 Flash/1.5 Pro/Flash. Styles: default, creative, professional, casual, technical
+- /ai-memory view/clear - Xem hoặc xóa lịch sử hội thoại trong kênh
+- /ai-models - Xem danh sách AI models có sẵn và key status
+- !ai [câu hỏi] - Prefix command, dùng model mặc định GPT-OSS 20B
+
+**💰 Economy & Shop:**
+- /balance - Xem số xu, vé vàng, streak điểm danh
+- /shop - Xem shop items (roles, decorative items) và mua
+- /buy - Mua items từ shop bằng xu
+- /convert - Đổi vé vàng thành xu (1 vé = 1000 xu)
+- /inventory - Xem items đã mua
+- /vipinfo - Xem quyền lợi và hạng VIP (dựa trên số vé vàng)
+
+**📅 Daily & VIP:**
+- /daily - Điểm danh hàng ngày, nhận xu và vé vàng. Streak bonus mỗi 7 ngày
+- /daily-stats - Xem thống kê điểm danh của bạn
+- /daily-leaderboard - Bảng xếp hạng điểm danh
+- /vip-bonus - Nhận bonus VIP hàng tuần (5000 xu cho VIP 7%+)
+- /vip-lottery tickets:[số vé] - Mua vé xổ số (10k xu/vé), quay số hàng ngày
+
+**🎯 Quest System:**
+- /quest - Mở sổ nhiệm vụ, xem tiến độ và nhận thưởng
+- Nhiệm vụ tự động cập nhật khi hoàn thành (chat, reaction, voice, invite)
+
+**😴 AFK System:**
+- /afk [lý do] - Bật chế độ AFK, nickname đổi thành [AFK] TÊN. Tự động tắt khi chat. Lưu mentions.
+- /afk-remove - Tắt AFK thủ công
+- /afk-list - Xem danh sách người đang AFK
+
+**🤝 Custom Role:**
+- /customrole panel - Xem role riêng của bạn
+- /customrole create name:[tên] color:[#hex] - Tạo role riêng (yêu cầu có role được phép)
+- /customrole edit name:[tên mới] color:[#hex mới] - Chỉnh sửa role
+- /customrole delete - Xóa role của bạn
+- /customrole setup/config - Cấu hình tính năng (admin)
+
+**🤖 Autoresponder:**
+- /autoresponder-add trigger:[từ khóa] response:[trả lời] mode:[exact/contains/starts/ends] - Tự động trả lời. Hỗ trợ {user.mention}, {user.name}, {server}, {channel}, {random:a,b,c}
+- /autoresponder-list - Danh sách autoresponders
+- /autoresponder-view trigger:[từ khóa] - Xem chi tiết
+- /autoresponder-remove trigger:[từ khóa] - Xóa autoresponder
+
+**🎮 Games:**
+- /rps [rock/paper/scissors] - Kéo búa bao với bot
+- /coinflip [heads/tails] - Tung đồng xu
+- /8ball [câu hỏi] - Hỏi quả cầu thần kỳ
+- /trivia - Trắc nghiệm kiến thức (có thưởng xu)
+- /guess - Đoán số (1-100)
+
+**🎁 Giveaway:**
+- /giveaway-create prize:[phần thưởng] duration:[phút] winners:[số người] - Tạo giveaway
+- /giveaway-end giveaway-id:[ID] - Kết thúc sớm
+- /giveaway-reroll giveaway-id:[ID] - Chọn lại người thắng
+- /giveaway-delete giveaway-id:[ID] - Xóa giveaway
+
+**🎨 Minecraft:**
+- /minecraft-server address:[địa chỉ] template:[optional] - Banner Minecraft server với MOTD, players, status. Templates: classic, modern, gradient, neon
+- /minecraft-templates - Xem tất cả templates
+- /minecraft-gallery - Xem gallery các banner đã tạo
+
+**🛠️ Server Generator:**
+- /generator - Menu tạo server tự động (channels, categories, roles, welcome/goodbye). Có preview trước khi apply
+- !gen [mô tả] - Prefix command tạo server structure
+
+**🎫 Ticket System:**
+- /ticket-setup - Tạo panel ticket trong kênh
+- /ticket-panel - Tạo panel tùy chỉnh với button
+- /ticket-stats - Xem thống kê ticket
+- !ticket [mô tả] - Tạo ticket nhanh
+
+**🔨 Moderation:**
+- /kick user:[user] reason:[lý do] - Đuổi thành viên
+- /ban user:[user] reason:[lý do] delete-days:[0-7] - Cấm vĩnh viễn
+- /timeout user:[user] duration:[phút] reason:[lý do] - Cấm chat tạm thời (max 28 ngày)
+- /clear amount:[1-100] user:[optional] - Xóa hàng loạt tin nhắn
+- /lock channel:[kênh] reason:[lý do] - Khóa kênh
+- /unlock channel:[kênh] - Mở khóa kênh
+- /snipe - Xem tin nhắn vừa bị xóa
+- /slowmode seconds:[0-21600] - Bật slowmode
+
+**📊 Sticky Messages:**
+- /sticky-set message:[nội dung] - Đặt tin nhắn sticky trong kênh (tự động ghim dưới cùng)
+- /sticky-remove - Xóa sticky message
+
+**⚙️ Settings & Logs:**
+- /log-setup - Cấu hình logging (message delete/edit, member join/leave, mod actions)
+- /welcome-setup - Cấu hình welcome/goodbye messages
+- /serverstats-setup - Tạo kênh thống kê tự động (members, bots, channels, roles)
+- /rule-setup - Tạo danh mục và kênh rules
+- /rule [số thứ tự] - Xem luật cụ thể
+
+**📝 Quick Report:**
+- /quickreport-setup category:[danh mục] role:[role quản lý] - Cấu hình report nhanh
+- !report user:[user] reason:[lý do] - Report thành viên nhanh
+
+**🎵 Music (Prefix Commands):**
+- !bc play [tên bài/URL] - Phát nhạc (YouTube, Spotify, SoundCloud)
+- !bc skip - Bỏ qua bài hiện tại
+- !bc stop - Dừng và xóa queue
+- !bc pause - Tạm dừng
+- !bc resume - Tiếp tục
+- !bc queue - Xem hàng đợi
+- !bc nowplaying - Xem bài đang phát
+- !bc volume [0-100] - Điều chỉnh âm lượng
+- !bc loop - Bật/tắt loop bài hiện tại
+- !bc shuffle - Trộn queue
+- !bc lyrics - Xem lời bài hát
+
+**🔧 Utility:**
+- /help - Menu trợ giúp đầy đủ
+- /user-info user:[optional] - Thông tin user
+- /server-info - Thông tin server
+- /avatar user:[optional] - Xem avatar
+- /banner user:[optional] - Xem banner
+- /poll question:[câu hỏi] options:[lựa chọn] - Tạo bình chọn
+- /choose options:[lựa chọn] - Bot chọn ngẫu nhiên
+- /random min:[số] max:[số] - Số ngẫu nhiên
+- /calc expression:[biểu thức] - Máy tính
+- /remind time:[phút] message:[nội dung] - Nhắc nhở sau X phút
+- /ping - Kiểm tra độ trễ bot
+
+**🔒 Security:**
+- /security-scan - Quét bảo mật server (permissions, roles, channels)
+- /security-report - Xem báo cáo bảo mật chi tiết
+
+When user asks about a command, explain it clearly in their language (Vietnamese or English). For commands with many options, mention the required ones first.
+`;
+
 const SYSTEM_PROMPTS = {
-  default: 'You are a helpful AI assistant in a Discord server. Automatically detect the language of the user\'s message and respond in the SAME language (Vietnamese or English). Be concise, friendly, and informative.',
-  creative: 'You are a creative AI that thinks outside the box. Automatically detect the user\'s language and respond in the same language. Be imaginative and original.',
-  professional: 'You are a professional AI assistant. Automatically detect the user\'s language and respond in the same language. Be formal, accurate, and detailed.',
-  casual: 'You are a casual friend chatting in Discord. Automatically detect the user\'s language and respond in the same language. Be relaxed, use emojis, and keep it fun!',
-  technical: 'You are a technical expert. Automatically detect the user\'s language and respond in the same language. Provide detailed, accurate technical information with examples.',
+  default: `You are a helpful AI assistant in a Discord server. Automatically detect the language of the user's message and respond in the SAME language (Vietnamese or English). Be concise, friendly, and informative.
+
+${BOT_COMMANDS_KNOWLEDGE}`,
+  creative: `You are a creative AI that thinks outside the box. Automatically detect the user's language and respond in the same language. Be imaginative and original.
+
+${BOT_COMMANDS_KNOWLEDGE}`,
+  professional: `You are a professional AI assistant. Automatically detect the user's language and respond in the same language. Be formal, accurate, and detailed.
+
+${BOT_COMMANDS_KNOWLEDGE}`,
+  casual: `You are a casual friend chatting in Discord. Automatically detect the user's language and respond in the same language. Be relaxed, use emojis, and keep it fun!
+
+${BOT_COMMANDS_KNOWLEDGE}`,
+  technical: `You are a technical expert. Automatically detect the user's language and respond in the same language. Provide detailed, accurate technical information with examples.
+
+${BOT_COMMANDS_KNOWLEDGE}`,
 };
+
+// ───────── UI helpers ─────────
+
+const modelName = (provider: Provider, modelId: string) =>
+  (AI_MODELS[provider] as Record<string, string>)[modelId] || modelId;
+
+const simple = (color: number, title: string, subtitle?: string) => {
+  const c = new ContainerBuilder().addTextDisplayComponents(txt(title));
+  if (subtitle) c.addTextDisplayComponents(txt(subtitle));
+  return c;
+};
+
+const loadingCard = (provider: Provider, modelId: string, style: string) =>
+  new ContainerBuilder().addTextDisplayComponents(
+      txt(`## ${emojis.loading} Đang suy nghĩ...`),
+      txt(`-# ${PROVIDER_EMOJI[provider]} ${modelName(provider, modelId)} • ${STYLE_LABELS[style] || style}`),
+    );
+
+const rateLimitCard = (userId: string) => {
+  const usage = aiUsageTracker.getUsage(userId);
+  return new ContainerBuilder().addTextDisplayComponents(txt(`## ${getCustomEmoji('ERROR')} Rate Limit`))
+    .addSeparatorComponents(sep())
+    .addTextDisplayComponents(
+      txt(`${emojis.clock} Bạn đã đạt giới hạn **${usage.limit}** requests/ngày`),
+      txt('-# 💎 Upgrade Premium để unlimited!'),
+    );
+};
+
+const errorCard = (message: string) =>
+  new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.error} AI Error`))
+    .addSeparatorComponents(sep())
+    .addTextDisplayComponents(txt(message.slice(0, 1500)))
+    .addTextDisplayComponents(txt('-# Thử đổi model bằng option `model:`'));
+
+const clearedCard = () =>
+  simple(0x57f287, '## 🧹 Đã xóa bộ nhớ', '-# Lịch sử hội thoại của kênh này đã được reset.');
 
 export default class AIModule {
   name = 'ai-module';
   description = 'Enhanced AI chat with memory and multiple models';
-  version = '1.0.0';
+  version = '1.2.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
-  groqClient: Groq | null = null;
-  geminiAI: GoogleGenerativeAI | null = null;
 
   constructor(client: Client) {
     this.client = client;
     this.commands = new Collection();
-    this.initializeAI();
   }
 
   async initialize() {
     console.log('  🤖 AI Module initializing...');
+    this.checkKeys();
     this.registerCommands();
-    console.log(`  ✅ AI Module ready`);
+    this.registerEvents();
+    console.log('  ✅ AI Module ready');
   }
 
-  private initializeAI() {
-    // Initialize Groq
-    const groqKey = keyRotator.getGroqKey();
-    if (groqKey) {
-      this.groqClient = new Groq({ apiKey: groqKey });
-      console.log(`  ✅ Groq initialized`);
-    } else {
-      console.log(`  ⚠️ No Groq keys available`);
-    }
-
-    // Initialize Gemini
-    const geminiKey = keyRotator.getGeminiKey();
-    if (geminiKey) {
-      this.geminiAI = new GoogleGenerativeAI(geminiKey);
-      console.log(`  ✅ Gemini initialized`);
-    } else {
-      console.log(`  ⚠️ No Gemini keys available`);
-    }
+  private checkKeys() {
+    console.log(keyRotator.getGroqKey() ? '  ✅ Groq initialized' : '  ⚠ No Groq keys available');
+    console.log(keyRotator.getGeminiKey() ? '  ✅ Gemini initialized' : '  ⚠ No Gemini keys available');
   }
 
   private registerCommands() {
@@ -87,49 +283,34 @@ export default class AIModule {
       data: new SlashCommandBuilder()
         .setName('ai')
         .setDescription('Chat with AI (with memory) / Trò chuyện với AI (có nhớ context)')
-        .addStringOption(option =>
-          option
-            .setName('message')
-            .setDescription('Your message / Tin nhắn của bạn')
-            .setRequired(true)
-        )
-        .addStringOption(option =>
-          option
-            .setName('model')
-            .setDescription('AI Model / Mô hình AI')
-            .setRequired(false)
+        .addStringOption(o => o.setName('message').setDescription('Your message / Tin nhắn của bạn').setRequired(true))
+        .addStringOption(o =>
+          o.setName('model').setDescription('AI Model / Mô hình AI').setRequired(false)
             .addChoices(
               { name: '⚡ GPT-OSS 20B (Fastest)', value: 'groq:openai/gpt-oss-20b' },
               { name: '🧠 GPT-OSS 120B (Smart)', value: 'groq:openai/gpt-oss-120b' },
-              { name: '${emojis.rocket} Llama 3.1 8B (Quick)', value: 'groq:llama-3.1-8b-instant' },
-              { name: '${emojis.rocket} Llama 3.1 8B (Fast)', value: 'groq:llama-3.1-8b-instant' },
-              { name: '${emojis.sparkles} Gemini 2.0 Flash (New)', value: 'gemini:gemini-2.0-flash-exp' },
+              { name: `${emojis.rocket} Llama 3.1 8B (Fast)`, value: 'groq:llama-3.1-8b-instant' },
+              { name: `${emojis.sparkles} Gemini 2.0 Flash (New)`, value: 'gemini:gemini-2.0-flash-exp' },
               { name: '💎 Gemini 1.5 Pro', value: 'gemini:gemini-1.5-pro' },
-              { name: '⚡ Gemini 1.5 Flash', value: 'gemini:gemini-1.5-flash' }
-            )
+              { name: '⚡ Gemini 1.5 Flash', value: 'gemini:gemini-1.5-flash' },
+            ),
         )
-        .addStringOption(option =>
-          option
-            .setName('style')
-            .setDescription('Response style / Phong cách trả lời')
-            .setRequired(false)
+        .addStringOption(o =>
+          o.setName('style').setDescription('Response style / Phong cách trả lời').setRequired(false)
             .addChoices(
               { name: '📝 Default (Helpful)', value: 'default' },
-              { name: '${emojis.art} Creative', value: 'creative' },
+              { name: `${emojis.art} Creative`, value: 'creative' },
               { name: '💼 Professional', value: 'professional' },
               { name: '😄 Casual', value: 'casual' },
-              { name: '${emojis.terminal} Technical', value: 'technical' }
-            )
+              { name: `${emojis.terminal} Technical`, value: 'technical' },
+            ),
         )
-        .addBooleanOption(option =>
-          option
-            .setName('clear_memory')
-            .setDescription('Clear conversation history / Xóa lịch sử hội thoại')
-            .setRequired(false)
+        .addBooleanOption(o =>
+          o.setName('clear_memory').setDescription('Clear conversation history / Xóa lịch sử hội thoại').setRequired(false),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await this.handleAIChat(interaction);
-      }
+      },
     };
 
     // /ai-memory - View/manage conversation memory
@@ -137,19 +318,11 @@ export default class AIModule {
       data: new SlashCommandBuilder()
         .setName('ai-memory')
         .setDescription('View or clear AI conversation memory / Xem/xóa bộ nhớ hội thoại AI')
-        .addSubcommand(subcommand =>
-          subcommand
-            .setName('view')
-            .setDescription('View conversation history / Xem lịch sử')
-        )
-        .addSubcommand(subcommand =>
-          subcommand
-            .setName('clear')
-            .setDescription('Clear conversation history / Xóa lịch sử')
-        ),
+        .addSubcommand(s => s.setName('view').setDescription('View conversation history / Xem lịch sử'))
+        .addSubcommand(s => s.setName('clear').setDescription('Clear conversation history / Xóa lịch sử')),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await this.handleMemoryCommand(interaction);
-      }
+      },
     };
 
     // /ai-models - List available models
@@ -159,7 +332,7 @@ export default class AIModule {
         .setDescription('List available AI models / Danh sách mô hình AI'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await this.handleModelsCommand(interaction);
-      }
+      },
     };
 
     this.commands.set('ai', aiCommand);
@@ -167,121 +340,253 @@ export default class AIModule {
     this.commands.set('ai-models', modelsCommand);
   }
 
-  private async handleAIChat(interaction: ChatInputCommandInteraction) {
-    // DEFER IMMEDIATELY to prevent timeout
-    await interaction.deferReply();
-    
-    const message = interaction.options.getString('message', true);
-    const modelOption = interaction.options.getString('model') || 'groq:openai/gpt-oss-20b';
-    const style = interaction.options.getString('style') || 'default';
-    const clearMemory = interaction.options.getBoolean('clear_memory') || false;
+  // ───────── Nút bấm (Tạo lại / Xóa bộ nhớ) ─────────
+  private registerEvents() {
+    // Button interactions
+    this.client.on('interactionCreate', async interaction => {
+      if (!interaction.isButton() || !interaction.customId.startsWith('ai_')) return;
+      try {
+        await this.handleButton(interaction);
+      } catch (error) {
+        console.error('AI button error:', error);
+      }
+    });
 
-    try {
-      const channelId = interaction.channelId;
+    // Bot mention listener disabled - using main index.ts listener instead
+  }
 
-      // Clear memory if requested
-      if (clearMemory) {
-        conversationHistory.delete(channelId);
-        await interaction.editReply('🧹 Conversation memory cleared!');
+  private async handleButton(interaction: ButtonInteraction) {
+    const [action, ownerId, id] = interaction.customId.split(':');
+
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply({
+        components: [simple(0xed4245, `${emojis.error} Nút này không phải của bạn!`)],
+        flags: V2_EPHEMERAL,
+      } as any);
+      return;
+    }
+
+    if (action === 'ai_clear') {
+      conversationHistory.delete(interaction.channelId);
+      await interaction.reply({ components: [clearedCard()], flags: V2_EPHEMERAL } as any);
+      return;
+    }
+
+    if (action === 'ai_regen') {
+      const entry = answerCache.get(id);
+      if (!entry) {
+        await interaction.reply({
+          components: [simple(0xfee75c, '## ⌛ Đã hết hạn', '-# Câu trả lời này không còn trong bộ nhớ, hãy dùng `/ai` để hỏi lại.')],
+          flags: V2_EPHEMERAL,
+        } as any);
         return;
       }
 
-      // Check usage limits
-      const canUse = await aiUsageTracker.canUse(interaction.user.id);
-      if (!canUse) {
-        const usage = aiUsageTracker.getUsage(interaction.user.id);
-        const embed = new EmbedBuilder()
-          .setColor(0xef4444)
-          .setTitle(`${getCustomEmoji('ERROR')} Rate Limit`)
-          .setDescription(`${emojis.clock} Bạn đã đạt giới hạn ${usage.limit} requests/ngày\n\n💎 Upgrade Premium để unlimited!`)
-          .setTimestamp();
-        
-        await interaction.editReply({ embeds: [embed] });
+      if (!(await aiUsageTracker.canUse(ownerId))) {
+        await interaction.reply({ components: [rateLimitCard(ownerId)], flags: V2_EPHEMERAL } as any);
         return;
       }
 
-      // Parse model
-      const [provider, modelId] = modelOption.split(':');
-      
-      // Get or create conversation history
-      if (!conversationHistory.has(channelId)) {
-        conversationHistory.set(channelId, []);
-      }
-      const history = conversationHistory.get(channelId)!;
+      await interaction.update({
+        components: [loadingCard(entry.provider, entry.modelId, entry.style)],
+        flags: V2,
+      } as any);
 
-      // Add user message to history
-      history.push({ role: 'user', content: message });
+      try {
+        const started = Date.now();
+        const response = await this.generate(entry.provider, entry.modelId, entry.style, entry.snapshot);
+        await aiUsageTracker.trackUsage(ownerId);
 
-      // Keep only last MAX_HISTORY messages
-      if (history.length > MAX_HISTORY * 2) {
-        history.splice(0, history.length - MAX_HISTORY * 2);
-      }
-
-      // Generate response
-      let response: string;
-      if (provider === 'groq') {
-        response = await this.chatWithGroq(modelId, style, history);
-      } else if (provider === 'gemini') {
-        response = await this.chatWithGemini(modelId, style, history);
-      } else {
-        throw new Error('Invalid model provider');
-      }
-
-      // Add AI response to history
-      history.push({ role: 'assistant', content: response });
-
-      // Track usage
-      await aiUsageTracker.trackUsage(interaction.user.id);
-
-      // Get model display name
-      let modelDisplayName = modelId;
-      if (provider === 'groq' && AI_MODELS.groq[modelId as keyof typeof AI_MODELS.groq]) {
-        modelDisplayName = AI_MODELS.groq[modelId as keyof typeof AI_MODELS.groq];
-      } else if (provider === 'gemini' && AI_MODELS.gemini[modelId as keyof typeof AI_MODELS.gemini]) {
-        modelDisplayName = AI_MODELS.gemini[modelId as keyof typeof AI_MODELS.gemini];
-      }
-      
-      // Simple text response (no embed)
-      const header = `**${interaction.user.username}** asked:\n> ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}\n\n`;
-      const footer = `\n\n*Model: ${modelDisplayName} • History: ${Math.floor(history.length / 2)} messages*`;
-      
-      const fullResponse = header + response + footer;
-      
-      // If response is too long, send as file
-      if (fullResponse.length > 2000) {
-        const attachment = new AttachmentBuilder(Buffer.from(response), { name: 'ai-response.txt' });
-        await interaction.editReply({ 
-          content: `${header}*Response too long, sent as file.*${footer}`,
-          files: [attachment] 
+        const history = conversationHistory.get(interaction.channelId);
+        const payload = this.buildAnswer({
+          id, user: interaction.user, question: entry.question, response,
+          provider: entry.provider, modelId: entry.modelId, style: entry.style,
+          elapsedMs: Date.now() - started,
+          historyCount: Math.floor((history?.length ?? entry.snapshot.length + 1) / 2),
         });
-      } else {
-        await interaction.editReply({ content: fullResponse });
-      }
 
-    } catch (error: any) {
-      console.error('AI chat error:', error);
-      
-      await interaction.editReply({ 
-        content: `${emojis.error} **AI Error:**\n${error.message || 'Unknown error'}\n\n*Try using a different model with \`model:\` option*` 
-      });
+        await interaction.editReply({ ...payload, attachments: [], flags: V2 } as any);
+      } catch (error: any) {
+        console.error('AI regen error:', error);
+        await interaction
+          .editReply({
+            components: [errorCard(String(error.message || 'Unknown error'))],
+            attachments: [],
+            flags: V2,
+          } as any)
+          .catch(() => {});
+      }
     }
   }
 
-  private async chatWithGroq(model: string, style: string, history: Array<{ role: string; content: string }>): Promise<string> {
-    if (!this.groqClient) {
-      throw new Error('Groq is not initialized');
+  // ───────── Dựng thẻ trả lời (Components V2 cho interaction) ─────────
+  private buildAnswer(o: {
+    id: string; user: User; question: string; response: string;
+    provider: Provider; modelId: string; style: string; elapsedMs: number; historyCount: number;
+  }) {
+    const tooLong = o.response.length > MAX_DISPLAY;
+    const shown = tooLong ? o.response.slice(0, MAX_DISPLAY).replace(/\s+\S*$/, '') + '…' : o.response;
+
+    const container = new ContainerBuilder().addTextDisplayComponents(txt(shown));
+
+    const files: AttachmentBuilder[] = [];
+
+    if (tooLong) {
+      files.push(new AttachmentBuilder(Buffer.from(o.response), { name: 'ai-response.txt' }));
+      container
+        .addSeparatorComponents(sep(false, false))
+        .addTextDisplayComponents(txt('-# 📎 Câu trả lời đầy đủ trong file đính kèm'))
+        .addFileComponents(new FileBuilder().setURL('attachment://ai-response.txt'));
     }
 
-    const systemPrompt = SYSTEM_PROMPTS[style as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.default;
+    return { components: [container], files };
+  }
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...history.map(h => ({ role: h.role as any, content: h.content }))
-    ];
+  // ───────── Dựng text reply cho message mention (không phải interaction) ─────────
+  private buildTextAnswer(o: {
+    id: string; user: User; question: string; response: string;
+    provider: Provider; modelId: string; style: string; elapsedMs: number; historyCount: number;
+  }) {
+    const tooLong = o.response.length > 1800;
+    const shown = tooLong ? o.response.slice(0, 1800).replace(/\s+\S*$/, '') + '…' : o.response;
+
+    let content = shown;
+
+    const files: AttachmentBuilder[] = [];
+    if (tooLong) {
+      files.push(new AttachmentBuilder(Buffer.from(o.response), { name: 'ai-response.txt' }));
+      content += '\n\n📎 *Câu trả lời đầy đủ trong file đính kèm*';
+    }
+
+    return { content, files };
+  }
+
+  private cacheAnswer(entry: CachedAnswer): string {
+    const id = (++answerSeq).toString(36);
+    answerCache.set(id, entry);
+    if (answerCache.size > MAX_CACHE) {
+      const oldest = answerCache.keys().next().value;
+      if (oldest !== undefined) answerCache.delete(oldest);
+    }
+    return id;
+  }
+
+  // ───────── /ai ─────────
+  private async handleAIChat(interaction: ChatInputCommandInteraction) {
+    console.log(`[AI] handleAIChat called by ${interaction.user.tag} (${interaction.user.id})`);
+    
+    // DEFER IMMEDIATELY to prevent timeout
+    try { await interaction.deferReply(); }
+    catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
+
+    // Start typing indicator
+    const typingInterval = setInterval(() => {
+      if (interaction.channel && 'sendTyping' in interaction.channel) {
+        interaction.channel.sendTyping().catch(() => {});
+      }
+    }, 5000);
 
     try {
-      const completion = await this.groqClient.chat.completions.create({
-        model: model.replace('llama-', 'llama3-').replace('-70b', '-70b-versatile').replace('-8b', '-8b-instant'),
+      const message = interaction.options.getString('message', true);
+      const modelOption = interaction.options.getString('model') || 'groq:openai/gpt-oss-20b';
+      const style = interaction.options.getString('style') || 'default';
+      const clearMemory = interaction.options.getBoolean('clear_memory') || false;
+      const channelId = interaction.channelId;
+
+      let history: ChatMessage[] | undefined;
+
+      try {
+        // Clear memory if requested
+        if (clearMemory) {
+          conversationHistory.delete(channelId);
+          await interaction.editReply({ components: [clearedCard()], flags: V2 } as any);
+          return;
+        }
+
+        // Check usage limits
+        if (!(await aiUsageTracker.canUse(interaction.user.id))) {
+          await interaction.editReply({ components: [rateLimitCard(interaction.user.id)], flags: V2 } as any);
+          return;
+        }
+
+        // Parse model
+        const idx = modelOption.indexOf(':');
+        const provider = modelOption.slice(0, idx) as Provider;
+        const modelId = modelOption.slice(idx + 1);
+
+        // Hiện thẻ "đang suy nghĩ" kèm tên model
+        await interaction.editReply({ components: [loadingCard(provider, modelId, style)], flags: V2 } as any);
+
+        // Get or create conversation history
+        history = conversationHistory.get(channelId);
+        if (!history) {
+          history = [];
+          conversationHistory.set(channelId, history);
+        }
+
+        // Add user message, keep only last MAX_HISTORY exchanges
+        history.push({ role: 'user', content: message });
+        while (history.length > MAX_HISTORY * 2) history.shift();
+        while (history[0]?.role === 'assistant') history.shift();
+
+        const snapshot = history.slice();
+
+        // Generate response
+        const started = Date.now();
+        const response = await this.generate(provider, modelId, style, history);
+        history.push({ role: 'assistant', content: response });
+        await aiUsageTracker.trackUsage(interaction.user.id);
+
+        const id = this.cacheAnswer({ question: message, provider, modelId, style, snapshot });
+
+        const payload = this.buildAnswer({
+          id, user: interaction.user, question: message, response, provider, modelId, style,
+          elapsedMs: Date.now() - started,
+          historyCount: Math.floor(history.length / 2),
+        });
+
+        await interaction.editReply({ ...payload, flags: V2 } as any);
+
+      } catch (error: any) {
+        console.error('AI chat error:', error);
+
+        // Bỏ tin nhắn user vừa thêm nếu AI lỗi, tránh 2 tin 'user' liên tiếp
+        if (history && history[history.length - 1]?.role === 'user') history.pop();
+
+        await interaction
+          .editReply({
+            components: [errorCard(String(error.message || 'Unknown error'))],
+            files: [],
+            flags: V2,
+          } as any)
+          .catch(() => {});
+      } finally {
+        clearInterval(typingInterval);
+      }
+    } catch (error: any) { 
+      if (error.code === 10062 || error.code === 40060) return; 
+      throw error; 
+    }
+  }
+
+  private generate(provider: Provider, modelId: string, style: string, history: ChatMessage[]): Promise<string> {
+    if (provider === 'groq') return this.chatWithGroq(modelId, style, history);
+    if (provider === 'gemini') return this.chatWithGemini(modelId, style, history);
+    return Promise.reject(new Error('Invalid model provider'));
+  }
+
+  private async chatWithGroq(model: string, style: string, history: ChatMessage[]): Promise<string> {
+    const key = keyRotator.getGroqKey();
+    if (!key) throw new Error('Groq is not initialized (no keys available)');
+
+    const systemPrompt = SYSTEM_PROMPTS[style as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.default;
+    const messages = [{ role: 'system', content: systemPrompt }, ...history];
+
+    try {
+      // Tạo client theo key hiện tại để key rotation thực sự có hiệu lực
+      const groq = new Groq({ apiKey: key });
+      const completion = await groq.chat.completions.create({
+        model, // dùng nguyên model id, không sửa tên
         messages: messages as any,
         temperature: style === 'creative' ? 1.2 : 0.7,
         max_tokens: 2000,
@@ -289,55 +594,50 @@ export default class AIModule {
 
       return completion.choices[0]?.message?.content || 'No response generated';
     } catch (error: any) {
-      const groqKey = keyRotator.getGroqKey();
-      if (groqKey) {
-        keyRotator.markFailed('groq', groqKey, error);
-      }
+      keyRotator.markFailed('groq', key, error);
       throw error;
     }
   }
 
-  private async chatWithGemini(model: string, style: string, history: Array<{ role: string; content: string }>): Promise<string> {
-    if (!this.geminiAI) {
-      throw new Error('Gemini is not initialized');
-    }
+  private async chatWithGemini(model: string, style: string, history: ChatMessage[]): Promise<string> {
+    const key = keyRotator.getGeminiKey();
+    if (!key) throw new Error('Gemini is not initialized (no keys available)');
 
     const systemPrompt = SYSTEM_PROMPTS[style as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.default;
 
     try {
-      const geminiModel = this.geminiAI.getGenerativeModel({ model });
-      
-      // Convert history to Gemini format
-      const chatHistory = history.map(h => ({
+      const genAI = new GoogleGenerativeAI(key);
+      const geminiModel = genAI.getGenerativeModel({ model, systemInstruction: systemPrompt });
+
+      // Lịch sử (không gồm tin cuối) -> format Gemini, phải bắt đầu bằng 'user'
+      const chatHistory = history.slice(0, -1).map(h => ({
         role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.content }]
+        parts: [{ text: h.content }],
       }));
 
+      while (chatHistory[0]?.role === 'model') chatHistory.shift();
+
       const chat = geminiModel.startChat({
-        history: chatHistory.slice(0, -1), // Exclude last message (will be sent separately)
+        history: chatHistory,
         generationConfig: {
           temperature: style === 'creative' ? 1.2 : 0.7,
           maxOutputTokens: 2000,
         },
       });
 
-      const lastMessage = history[history.length - 1];
-      const fullPrompt = `${systemPrompt}\n\nUser: ${lastMessage.content}`;
-      
-      const result = await chat.sendMessage(fullPrompt);
-      const response = result.response.text();
-      
-      return response;
+      const result = await chat.sendMessage(history[history.length - 1].content);
+      return result.response.text();
     } catch (error: any) {
-      const geminiKey = keyRotator.getGeminiKey();
-      if (geminiKey) {
-        keyRotator.markFailed('gemini', geminiKey, error);
-      }
+      keyRotator.markFailed('gemini', key, error);
       throw error;
     }
   }
 
+  // ───────── /ai-memory ─────────
   private async handleMemoryCommand(interaction: ChatInputCommandInteraction) {
+    try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); }
+    catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
+
     const subcommand = interaction.options.getSubcommand();
     const channelId = interaction.channelId;
 
@@ -345,75 +645,82 @@ export default class AIModule {
       const history = conversationHistory.get(channelId);
 
       if (!history || history.length === 0) {
-        const response = { content: '📭 No conversation history in this channel.', flags: 64 };
-        if (interaction.deferred) {
-          await interaction.editReply(response);
-        } else {
-          await interaction.reply(response);
-        }
+        await interaction.editReply({
+          components: [simple(0xfee75c, '## 📭 Chưa có lịch sử', '-# Chưa có hội thoại nào trong kênh này.')],
+          flags: V2,
+        } as any);
         return;
       }
 
-      // Plain text format instead of embed
-      const historyText = history
+      let list = history
         .map((msg, i) => {
-          const preview = msg.content.substring(0, 150);
-          const truncated = msg.content.length > 150 ? '...' : '';
-          return `**${i + 1}. ${msg.role === 'user' ? '${emojis.user} User' : '🤖 AI'}:**\n${preview}${truncated}`;
+          const preview = msg.content.replace(/\s+/g, ' ').slice(0, 150);
+          const dots = msg.content.length > 150 ? '...' : '';
+          const who = msg.role === 'user' ? `${emojis.user} User` : '🤖 AI';
+          return `**${i + 1}. ${who}**\n-# ${preview}${dots}`;
         })
-        .join('\n\n');
+        .join('\n');
 
-      const fullText = `💭 **Conversation Memory**\n\n${historyText}\n\n*${history.length} messages stored • Use \`/ai-memory clear\` to reset*`;
-      
-      const response = { content: fullText.substring(0, 2000), flags: 64 };
-      if (interaction.deferred) {
-        await interaction.editReply(response);
-      } else {
-        await interaction.reply(response);
-      }
-    } 
-    else if (subcommand === 'clear') {
+      if (list.length > 3200) list = list.slice(0, 3200).replace(/\n[^\n]*$/, '') + '\n…';
+
+      await interaction.editReply({
+        components: [
+          new ContainerBuilder()
+            .addTextDisplayComponents(txt('## 💭 Conversation Memory'), txt(`-# ${history.length} messages stored • tối đa ${MAX_HISTORY * 2}`))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(list))
+            .addSeparatorComponents(sep())
+            .addTextDisplayComponents(txt(`-# Dùng \`/ai\` với \`clear_memory: True\` để xóa`)),
+        ],
+        flags: V2,
+      } as any);
+    } else if (subcommand === 'clear') {
       conversationHistory.delete(channelId);
-      const response = { content: '🧹 Conversation memory cleared!', flags: 64 };
-      if (interaction.deferred) {
-        await interaction.editReply(response);
-      } else {
-        await interaction.reply(response);
-      }
+      await interaction.editReply({ components: [clearedCard()], flags: V2 } as any);
     }
   }
 
+  // ───────── /ai-models ─────────
   private async handleModelsCommand(interaction: ChatInputCommandInteraction) {
     const keyStatus = keyRotator.getStatus();
 
-    // Plain text format instead of embed
-    const groqModels = Object.entries(AI_MODELS.groq)
-      .map(([key, name]) => `• \`${key}\`\n  ${name}`)
-      .join('\n');
-      
-    const geminiModels = Object.entries(AI_MODELS.gemini)
-      .map(([key, name]) => `• \`${key}\`\n  ${name}`)
-      .join('\n');
+    const dot = (active: number, total: number) => (active > 0 ? '🟢' : total > 0 ? '🔴' : '⚫');
 
-    const text = `🤖 **Available AI Models**\n\n` +
-      `**⚡ Groq Models** (${keyStatus.groq.active}/${keyStatus.groq.total} keys active)\n${groqModels}\n\n` +
-      `**${emojis.sparkles} Gemini Models** (${keyStatus.gemini.active}/${keyStatus.gemini.total} keys active)\n${geminiModels}\n\n` +
-      `*Use: \`/ai message:... model:<name>\`*\n` +
-      `*Keys rotate automatically on failure*`;
+    const list = (models: Record<string, string>, defaultId?: string) =>
+      Object.entries(models)
+        .map(([key, name]) => `• \`${key}\`${key === defaultId ? ' ⭐' : ''}\n-# ${name}`)
+        .join('\n');
 
-    const response = { content: text };
-    if (interaction.deferred) {
-      await interaction.editReply(response);
-    } else {
-      await interaction.reply(response);
-    }
+    const g = keyStatus.groq;
+    const m = keyStatus.gemini;
+
+    const container = new ContainerBuilder().addTextDisplayComponents(txt('## 🤖 Available AI Models'), txt('-# ⭐ = model mặc định'))
+      .addSeparatorComponents(sep(true))
+      .addTextDisplayComponents(
+        txt(`### ⚡ Groq ${dot(g.active, g.total)}\n-# ${g.active}/${g.total} keys active`),
+        txt(list(AI_MODELS.groq, 'openai/gpt-oss-20b')),
+      )
+      .addSeparatorComponents(sep())
+      .addTextDisplayComponents(
+        txt(`### ${emojis.sparkles} Gemini ${dot(m.active, m.total)}\n-# ${m.active}/${m.total} keys active`),
+        txt(list(AI_MODELS.gemini)),
+      )
+      .addSeparatorComponents(sep())
+      .addTextDisplayComponents(
+        txt(`### 🎨 Phong cách\n${Object.values(STYLE_LABELS).join(' • ')}`),
+        txt('-# Dùng: `/ai message:... model:<name> style:<style>` • Key tự động xoay vòng khi lỗi'),
+      );
+
+    await interaction.reply({ components: [container], flags: V2 } as any);
   }
 
   async shutdown() {
     console.log('  🛑 AI Module shutting down...');
     conversationHistory.clear();
+    answerCache.clear();
   }
 }
 
 // Named export for module loader
 export { AIModule };
+

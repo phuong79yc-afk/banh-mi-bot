@@ -1,31 +1,37 @@
-import { 
-  Client, 
-  Collection, 
-  SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  EmbedBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  StringSelectMenuBuilder, 
-  StringSelectMenuOptionBuilder, 
-  Message, 
-  User as DiscordUser, 
-  MessageComponentInteraction, 
-  AttachmentBuilder 
+import {
+  Client,
+  Collection,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  Message,
+  User as DiscordUser,
+  MessageComponentInteraction,
+  StringSelectMenuInteraction,
+  MessageFlags,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  SectionBuilder,
+  ThumbnailBuilder,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
-import { emojis } from '../../config/emojis';
+import { emojis, EMOJI_IDS } from '../../config/emojis';
 import fs from 'fs';
 import path from 'path';
 
 // For prefix command access
 export let questModuleInstance: any = null;
 
-// ==================== INTERFACES ====================
+// ==================== TYPES ====================
+type Period = 'daily' | 'weekly';
 
 interface Quest {
   id: string;
-  period: 'daily' | 'weekly';
+  period: Period;
   kind: 'message' | 'command';
   text: string;
   target: number;
@@ -34,28 +40,31 @@ interface Quest {
   channelId?: string;
 }
 
-interface UserQuestData {
-  quests?: {
-    daily?: { key: string; prog: { [questId: string]: number }; claimed: { [questId: string]: boolean }; earned: number; };
-    weekly?: { key: string; prog: { [questId: string]: number }; claimed: { [questId: string]: boolean }; earned: number; };
-  };
+interface Slot {
+  key: string;
+  prog: Record<string, number>;
+  claimed: Record<string, boolean>;
+  earned: number;
+}
+
+interface UserData {
+  quests?: { daily?: Slot; weekly?: Slot };
   done?: number;
-  book?: boolean;
-  bookExpiry?: number; // Timestamp when book expires (7 days after purchase)
+  book?: number;
+  coins: number;
 }
 
-interface QuestDB { 
-  [userId: string]: UserQuestData; 
-}
+type UserDB = Record<string, UserData>;
 
-// ==================== CONSTANTS ====================
-
+// ==================== CONFIG ====================
+const COIN = emojis.coin || '🪙';
+const SHOP_COLOR = 0x8068ec;
+const SERVER_LINK = ''; // Link invite server (để trống nếu không dùng)
 const QUEST_CAP = 1000;
-const QUEST_CAP_BOOK = 5000; // [EXCLUSIVE] Giới hạn Sổ Xịn tăng lên
-const BOOK_PRICE = 2000; // Giá Sổ Xịn (giảm từ 5000)
-const BOOK_DURATION_DAYS = 7; // Sổ Xịn hết hạn sau 7 ngày
-const BOOK_MULTIPLIER = 2; // x2 coin rewards
+const QUEST_CAP_BOOK = 5000;
+const BOOK_PRICE = 2000;
 const TZ_OFFSET_H = 7;
+const QUEST_THUMBNAIL = ''; // URL ảnh thumbnail (để trống nếu không dùng)
 
 const QUESTS: Quest[] = [
   { id: 'msg_10', period: 'daily', kind: 'message', text: 'Gửi 10 tin nhắn trong {ch}', target: 10, reward: 100 },
@@ -66,386 +75,394 @@ const QUESTS: Quest[] = [
   { id: 'shop_week', period: 'weekly', kind: 'command', cmd: 'shop', text: 'Dùng /shop 10 lần trong tuần', target: 10, reward: 1500 },
 ];
 
-const dataPath = path.join(process.cwd(), 'data', 'quests.json');
+// Components V2
+const V2 = MessageFlags.IsComponentsV2;
+const V2_EPH = V2 | MessageFlags.Ephemeral;
+const OK = 0x57f287;
+const WARN = 0xfee75c;
+const ERR = 0xed4245;
 
-// Ensure data directory and file exist
-if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
-  fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
-}
-if (!fs.existsSync(dataPath)) {
-  fs.writeFileSync(dataPath, JSON.stringify({}));
-}
+const PERIODS: Record<Period, string> = {
+  daily: 'Nhiệm Vụ Hằng Ngày',
+  weekly: 'Nhiệm Vụ Hằng Tuần',
+};
 
-// ==================== CURRENCY FUNCTIONS ====================
+const DAY = 24 * 60 * 60 * 1000;
+const OFFSET = TZ_OFFSET_H * 60 * 60 * 1000;
 
-function addCurrencyToUser(userId: string, amount: number): void {
-  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
-  let data: any = {};
-  try { 
-    if (fs.existsSync(currPath)) {
-      data = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
-    }
-  } catch {}
-  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-  bal.cowoncy += amount;
-  data[userId] = bal;
-  fs.writeFileSync(currPath, JSON.stringify(data, null, 2));
-}
+// ==================== HELPERS ====================
+const txt = (c: string) => new TextDisplayBuilder().setContent(c);
+const sep = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+const fmt = (n: number) => n.toLocaleString('en-US');
 
-function getUserBalanceLocal(userId: string): { cowoncy: number; blueTicket: number; goldTicket: number } {
-  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
-  try { 
-    if (fs.existsSync(currPath)) {
-      const d = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
-      return d[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 }; 
-    }
-  } catch {}
-  return { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-}
+const bar = (cur: number, max: number, len = 10) => {
+  const filled = Math.round((Math.min(cur, max) / max) * len);
+  return '▰'.repeat(filled) + '▱'.repeat(len - filled);
+};
 
-function subtractCurrencyFromUser(userId: string, amount: number): boolean {
-  const currPath = path.join(process.cwd(), 'data', 'currencies.json');
-  let data: any = {};
-  try { 
-    if (fs.existsSync(currPath)) {
-      data = JSON.parse(fs.readFileSync(currPath, 'utf8')); 
-    }
-  } catch {}
-  const bal = data[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-  if (bal.cowoncy < amount) return false;
-  bal.cowoncy -= amount;
-  data[userId] = bal;
-  fs.writeFileSync(currPath, JSON.stringify(data, null, 2));
-  return true;
-}
+const notice = (color: number, ...lines: string[]) => ({
+  components: [new ContainerBuilder().addTextDisplayComponents(txt(lines.join('\n')))],
+  flags: V2_EPH,
+});
 
-// ==================== PERIOD MANAGEMENT ====================
+// ==================== DATABASE ====================
+const dataDir = path.join(process.cwd(), 'data');
+const questPath = path.join(dataDir, 'quest-users.json');
+const currPath = path.join(dataDir, 'currencies.json');
 
-function periodInfo(period: 'daily' | 'weekly') {
-  const DAY = 24 * 60 * 60 * 1000;
-  const OFFSET = TZ_OFFSET_H * 60 * 60 * 1000;
-  const vnNow = Date.now() + OFFSET;
-  const vnDate = new Date(vnNow);
-  let start = Date.UTC(vnDate.getUTCFullYear(), vnDate.getUTCMonth(), vnDate.getUTCDate()) - OFFSET;
-  if (period === 'weekly') {
-    const dayOfWeek = new Date(vnNow).getUTCDay();
-    start -= ((dayOfWeek + 6) % 7) * DAY;
-  }
-  const len = period === 'weekly' ? 7 * DAY : DAY;
-  return {
-    key: new Date(start).toISOString().slice(0, 10),
-    resetAt: start + len
-  };
-}
+fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(questPath)) fs.writeFileSync(questPath, '{}');
 
-// ==================== DATA ACCESS ====================
-
-function checkBookExpiry(userId: string): void {
-  const user = loadUser(userId);
-  if (user.book && user.bookExpiry) {
-    const now = Date.now();
-    if (now >= user.bookExpiry) {
-      console.log(`[Quest] Book expired for user ${userId}, revoking...`);
-      user.book = false;
-      delete user.bookExpiry;
-      saveUser(userId, user);
-    }
-  }
-}
-
-function loadUser(userId: string): UserQuestData {
+function loadDB(): UserDB {
   try {
-    const data: QuestDB = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-    return data[userId] ?? {};
+    return JSON.parse(fs.readFileSync(questPath, 'utf8'));
   } catch {
     return {};
   }
 }
 
-function saveUser(userId: string, userData: UserQuestData): void {
-  let data: QuestDB = {};
-  try {
-    data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-  } catch {}
-  data[userId] = userData;
-  fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+function saveDB(db: UserDB): void {
+  fs.writeFileSync(questPath, JSON.stringify(db, null, 2));
 }
 
-function getSlot(userId: string, period: 'daily' | 'weekly') {
-  const user = loadUser(userId);
-  const { key } = periodInfo(period);
-  user.quests ??= {};
-  if (user.quests[period]?.key !== key) {
-    user.quests[period] = { key, prog: {}, claimed: {}, earned: 0 };
-    saveUser(userId, user);
-  }
-  return user.quests[period]!;
+function getUser(userId: string): UserData {
+  const db = loadDB();
+  return db[userId] ?? { coins: 0, done: 0 };
 }
+
+function saveUser(userId: string, data: UserData): void {
+  const db = loadDB();
+  db[userId] = data;
+  saveDB(db);
+}
+
+// Currency integration với file currencies.json
+function addCoinsToUser(userId: string, amount: number): void {
+  try {
+    if (!fs.existsSync(currPath)) {
+      fs.writeFileSync(currPath, '{}');
+    }
+    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
+    const bal = curr[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+    bal.cowoncy += amount;
+    curr[userId] = bal;
+    fs.writeFileSync(currPath, JSON.stringify(curr, null, 2));
+  } catch (err) {
+    console.error('[Quest] Failed to add coins:', err);
+  }
+}
+
+function subtractCoinsFromUser(userId: string, amount: number): boolean {
+  try {
+    if (!fs.existsSync(currPath)) return false;
+    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
+    const bal = curr[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
+    if (bal.cowoncy < amount) return false;
+    bal.cowoncy -= amount;
+    curr[userId] = bal;
+    fs.writeFileSync(currPath, JSON.stringify(curr, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getUserBalance(userId: string): number {
+  try {
+    if (!fs.existsSync(currPath)) return 0;
+    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
+    return curr[userId]?.cowoncy ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ==================== PERIOD LOGIC ====================
+function periodInfo(period: Period) {
+  const l = new Date(Date.now() + OFFSET);
+  let start = Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), l.getUTCDate());
+  if (period === 'weekly') start -= ((l.getUTCDay() + 6) % 7) * DAY;
+  const len = period === 'weekly' ? 7 * DAY : DAY;
+  return { key: new Date(start).toISOString().slice(0, 10), resetAt: start + len - OFFSET };
+}
+
+function slot(u: UserData, period: Period): Slot {
+  const { key } = periodInfo(period);
+  u.quests ??= {};
+  if (u.quests[period]?.key !== key) {
+    u.quests[period] = { key, prog: {}, claimed: {}, earned: 0 };
+  }
+  return u.quests[period]!;
+}
+
+const capOf = (u: UserData) => (u.book ? QUEST_CAP_BOOK : QUEST_CAP);
+
+const questText = (q: Quest) => q.text.replace('{ch}', q.channelId ? `<#${q.channelId}>` : 'bất kỳ kênh nào');
 
 // ==================== TRACKING ====================
-
-const lastMessageTime = new Map<string, number>();
-
-/**
- * Track command usage for quests. Call this from any command that should count towards quest progress.
- * Example: trackCommand(interaction.user.id, 'shop') after /shop executes.
- * @param userId - Discord user ID
- * @param commandName - Name of command executed (e.g., 'shop', 'daily')
- */
-export function trackCommand(userId: string, commandName: string): void {
-  trackProgress(userId, 'command', commandName);
-}
-
-function trackProgress(userId: string, kind: 'message' | 'command', key: string): void {
-  const user = loadUser(userId);
+function track(userId: string, kind: 'message' | 'command', key: string, amount = 1): void {
+  const u = getUser(userId);
   let changed = false;
-  console.log(`[Quest] trackProgress: userId=${userId}, kind=${kind}, key=${key}`);
-  
-  // Pre-load all slots to avoid multiple getSlot calls
-  const dailySlot = getSlot(userId, 'daily');
-  const weeklySlot = getSlot(userId, 'weekly');
-  
-  for (const quest of QUESTS) {
-    if (quest.kind !== kind) continue;
-    if (kind === 'command' && quest.cmd !== key) continue;
-    if (kind === 'message' && quest.channelId && quest.channelId !== key) continue;
-    
-    const sl = quest.period === 'daily' ? dailySlot : weeklySlot;
-    const current = sl.prog[quest.id] ?? 0;
-    if (sl.claimed[quest.id] || current >= quest.target) continue;
-    console.log(`[Quest] Updating ${quest.id}: ${current} → ${current + 1}`);
-    sl.prog[quest.id] = Math.min(quest.target, current + 1);
+
+  for (const q of QUESTS) {
+    if (q.kind !== kind) continue;
+    if (kind === 'command' && q.cmd !== key) continue;
+    if (kind === 'message' && q.channelId && q.channelId !== key) continue;
+
+    const s = slot(u, q.period);
+    const cur = s.prog[q.id] ?? 0;
+    if (s.claimed[q.id] || cur >= q.target) continue;
+
+    s.prog[q.id] = Math.min(q.target, cur + amount);
     changed = true;
   }
-  
-  if (changed) {
-    console.log(`[Quest] Saving progress for user ${userId}`);
-    user.quests ??= {};
-    user.quests.daily = dailySlot;
-    user.quests.weekly = weeklySlot;
-    saveUser(userId, user);
-  }
+
+  if (changed) saveUser(userId, u);
 }
 
-// ==================== UI BUILDING ====================
-
-// Helper: Parse emoji string to Discord emoji object for buttons
-function parseEmojiForButton(emojiString: string): { id: string; name: string; animated: boolean } | string {
-  // If it's animated format: <a:name:id>
-  const animatedMatch = emojiString.match(/<a:([^:]+):(\d+)>/);
-  if (animatedMatch) {
-    return { name: animatedMatch[1], id: animatedMatch[2], animated: true };
-  }
-  
-  // If it's static format: <:name:id>
-  const staticMatch = emojiString.match(/<:([^:]+):(\d+)>/);
-  if (staticMatch) {
-    return { name: staticMatch[1], id: staticMatch[2], animated: false };
-  }
-  
-  // Otherwise return as-is (unicode emoji)
-  return emojiString;
+export function trackCommand(userId: string, commandName: string): void {
+  track(userId, 'command', commandName);
 }
 
-function buildQuestEmbed(client: Client, user: DiscordUser, period: 'daily' | 'weekly'): EmbedBuilder {
-  // Check book expiry first
-  checkBookExpiry(user.id);
-  
-  const userData = loadUser(user.id);
-  const sl = getSlot(user.id, period);
+const lastMsg = new Map<string, number>();
+
+function onMessage(m: Message): void {
+  if (m.author.bot || !m.guild) return;
+  const now = Date.now();
+  if (now - (lastMsg.get(m.author.id) ?? 0) < 5000) return;
+  lastMsg.set(m.author.id, now);
+  track(m.author.id, 'message', m.channelId);
+}
+
+// ==================== UI ====================
+function buildQuest(client: Client, user: DiscordUser, period: Period) {
+  const u = getUser(user.id);
+  const s = slot(u, period);
+  const daily = period === 'daily';
   const { resetAt } = periodInfo(period);
-  const cap = userData.book ? QUEST_CAP_BOOK : QUEST_CAP;
-  const isDaily = period === 'daily';
 
-  const fields: any[] = [
-    { name: `${emojis.trophy} Đã hoàn thành`, value: `> \`${userData.done ?? 0}\` nhiệm vụ`, inline: true },
-    { name: isDaily ? `${emojis.coin} Xu hôm nay` : `${emojis.coin} Xu tuần này`, value: `> \`${isDaily ? `${sl.earned}/${cap}` : sl.earned}\` ${emojis.coin}`, inline: true },
-    { name: `${emojis.clock} Làm mới sau`, value: `> <t:${Math.floor(resetAt / 1000)}:R>`, inline: true },
-  ];
-  
-  // Add book expiry info if active
-  if (userData.book && userData.bookExpiry) {
-    fields.push({
-      name: '📗 Sổ Xịn VIP',
-      value: `> Hết hạn: <t:${Math.floor(userData.bookExpiry / 1000)}:R>\n> Thưởng: **x${BOOK_MULTIPLIER}** coins`,
-      inline: false
-    });
-  }
-
-  const periodQuests = QUESTS.filter(q => q.period === period);
-  for (const quest of periodQuests) {
-    const progress = sl.prog[quest.id] ?? 0;
-    const completed = progress >= quest.target;
-    const bar = completed ? '[ ✓ ]' : `[ ${progress}/${quest.target} ]`;
-    const note = sl.claimed[quest.id] ? ` ${emojis.success} đã nhận` : completed ? ` ${emojis.sparkles} chờ nhận` : '';
-    const questIcon = quest.kind === 'message' ? emojis.message : emojis.terminal;
-    fields.push({
-      name: '\u200B',
-      value: [
-        `${questIcon} ${quest.text.replace('{ch}', quest.channelId ? `<#${quest.channelId}>` : 'bất kỳ kênh nào')}`,
-        `${emojis.gift} Phần thưởng: **${quest.reward}** ${emojis.coin}`,
-        `${emojis.chart} Tiến độ: \`${bar}\`${note}`,
-      ].join('\n'),
-      inline: false,
-    });
-  }
-
-  return new EmbedBuilder()
-    .setColor('#5865F2')
-    .setAuthor({ name: period === 'daily' ? '📅 Nhiệm Vụ Hằng Ngày' : '📆 Nhiệm Vụ Hằng Tuần', iconURL: user.displayAvatarURL() })
-    .setTitle(userData.book ? '📗 Sổ Nhiệm Vụ Xịn' : '📒 Sổ Nhiệm Vụ')
-    .addFields(fields)
-    .setFooter({ text: '✨ Banhcuon-bot' });
-}
-
-function buildComponents(user: DiscordUser, period: 'daily' | 'weekly', userData: UserQuestData): ActionRowBuilder<any>[] {
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`quest:view:${user.id}:${period}`)
-    .setPlaceholder('Chọn loại nhiệm vụ')
-    .addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Nhiệm Vụ Hằng Ngày')
-        .setDescription('Làm mới mỗi ngày lúc 00:00')
-        .setValue('daily')
-        .setEmoji('📅')
-        .setDefault(period === 'daily'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Nhiệm Vụ Hằng Tuần')
-        .setDescription('Làm mới mỗi tuần vào thứ Hai')
-        .setValue('weekly')
-        .setEmoji('📆')
-        .setDefault(period === 'weekly')
-    );
-
-  const row1 = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`quest:upgrade:${user.id}:${period}`)
-      .setLabel('Nâng cấp Sổ Xịn')
-      .setEmoji(parseEmojiForButton(emojis.ledger))
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(userData.book ?? false),
-    new ButtonBuilder()
-      .setCustomId(`quest:claim:${user.id}:${period}`)
-      .setLabel('Nhận Thưởng')
-      .setEmoji(parseEmojiForButton(emojis.gift))
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`quest:guide:${user.id}:${period}`)
-      .setLabel('Hướng Dẫn')
-      .setEmoji(parseEmojiForButton(emojis.info))
-      .setStyle(ButtonStyle.Secondary)
+  const head = txt(
+    [
+      `# ${u.book ? '📗 Sổ Nhiệm Vụ Xịn' : '📒 Sổ Nhiệm Vụ'}`,
+      `**${PERIODS[period]}** • làm mới <t:${Math.floor(resetAt / 1000)}:R>`,
+      '',
+      `🏆 Đã hoàn thành: **${fmt(u.done ?? 0)}** nhiệm vụ`,
+      `${COIN} ${daily ? 'Xu hôm nay' : 'Xu tuần này'}: **${daily ? `${fmt(s.earned)}/${fmt(capOf(u))}` : fmt(s.earned)}**`,
+    ].join('\n'),
   );
 
-  return [row1, row2];
+  const box = new ContainerBuilder();
+
+  if (QUEST_THUMBNAIL) {
+    box.addSectionComponents(
+      new SectionBuilder().addTextDisplayComponents(head).setThumbnailAccessory(new ThumbnailBuilder().setURL(QUEST_THUMBNAIL)),
+    );
+  } else {
+    box.addTextDisplayComponents(head);
+  }
+
+  box.addSeparatorComponents(sep());
+
+  for (const q of QUESTS.filter(x => x.period === period)) {
+    const p = Math.min(s.prog[q.id] ?? 0, q.target);
+    const ok = p >= q.target;
+    const status = s.claimed[q.id] ? `✅ Đã nhận` : ok ? `🎁 Chờ nhận` : `${p}/${q.target}`;
+
+    box.addTextDisplayComponents(
+      txt(`📜 **${questText(q)}**\n-# ${bar(p, q.target)} \`${status}\` • 🎁 ${fmt(q.reward)} ${COIN}`),
+    );
+  }
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`quest:view:${user.id}:${period}`)
+    .setPlaceholder(PERIODS[period])
+    .addOptions(
+      Object.entries(PERIODS).map(([value, label]) => ({
+        label,
+        value,
+        emoji: { name: '📒' },
+        default: value === period,
+      })),
+    );
+
+  const buttons = [
+    new ButtonBuilder()
+      .setCustomId(`quest:upgrade:${user.id}:${period}`)
+      .setStyle(ButtonStyle.Success)
+      .setLabel(u.book ? 'Sổ Xịn Đã Mở' : 'Nâng Cấp Sổ Xịn')
+      .setEmoji({ name: '📗' })
+      .setDisabled(!!u.book),
+    new ButtonBuilder()
+      .setCustomId(`quest:claim:${user.id}:${period}`)
+      .setStyle(ButtonStyle.Danger)
+      .setLabel('Hoàn Thành')
+      .setEmoji({ name: 'success', id: EMOJI_IDS.success }),
+    new ButtonBuilder()
+      .setCustomId(`quest:guide:${user.id}:${period}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel('Hướng Dẫn')
+      .setEmoji({ name: '💡' }),
+  ];
+
+  box
+    .addSeparatorComponents(sep())
+    .addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu) as any)
+    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons) as any);
+
+  if (SERVER_LINK) {
+    box.addTextDisplayComponents(txt(`-# Banhcuon-bot • ${SERVER_LINK}`));
+  }
+
+  return { components: [box], flags: V2 as any };
 }
 
-// ==================== INTERACTION HANDLERS ====================
+// ==================== HANDLERS ====================
+async function onComponent(i: MessageComponentInteraction | StringSelectMenuInteraction): Promise<any> {
+  const [, action, uid, period] = i.customId.split(':');
 
-async function handleClaim(interaction: MessageComponentInteraction, uid: string, period: 'daily' | 'weekly', client: Client) {
-  // Check book expiry
-  checkBookExpiry(uid);
-  
-  const userData = loadUser(uid);
-  const sl = getSlot(uid, period);
-  const cap = userData.book ? QUEST_CAP_BOOK : QUEST_CAP;
-  const multiplier = userData.book ? BOOK_MULTIPLIER : 1;
-  const ready = QUESTS.filter(q => q.period === period && (sl.prog[q.id] ?? 0) >= q.target && !sl.claimed[q.id]);
-  if (!ready.length) {
-    return interaction.reply({ content: `${emojis.warning} Chưa có nhiệm vụ nào hoàn thành!`, flags: 64 });
+  if (i.user.id !== uid) {
+    // Defer trước khi reply để tránh timeout
+    try {
+      await i.deferReply({ flags: V2_EPH as any });
+    } catch (error: any) {
+      if (error.code === 10062) return; // interaction đã hết hạn
+      throw error;
+    }
+    return i.editReply(notice(ERR, 'Đây không phải sổ nhiệm vụ của bạn.', '-# Dùng `/quest` để mở sổ của riêng mình nhé.'));
   }
-  // Sort by descending reward to maximize payout when cap limited
-  ready.sort((a, b) => b.reward - a.reward);
-  let room = period === 'daily' ? Math.max(0, cap - sl.earned) : Infinity;
-  let gained = 0;
-  let clipped = false;
-  for (const quest of ready) {
-    const baseReward = quest.reward * multiplier; // Apply multiplier
-    const reward = Math.min(baseReward, room);
-    if (reward < baseReward) clipped = true;
-    gained += reward;
-    room = isFinite(room) ? Math.max(0, room - reward) : Infinity;
-    sl.claimed[quest.id] = true;
-    userData.done = (userData.done ?? 0) + 1;
+
+  const u = getUser(uid);
+
+  if (action === 'view') {
+    const p = (i as StringSelectMenuInteraction).values?.[0] as Period;
+    if (!PERIODS[p]) return i.deferUpdate();
+    return i.update(buildQuest(i.client, i.user, p));
   }
-  sl.earned += gained;
-  userData.quests ??= {};
-  userData.quests[period] = sl;
-  addCurrencyToUser(uid, gained);
-  saveUser(uid, userData);
-  await interaction.update({ embeds: [buildQuestEmbed(client, interaction.user, period)], components: buildComponents(interaction.user, period, userData) });
-  
-  const bonusText = multiplier > 1 ? ` (x${multiplier} từ Sổ Xịn 📗)` : '';
-  return interaction.followUp({
-    content: `${emojis.success} Hoàn thành **${ready.length}** nhiệm vụ, nhận **${gained}** ${emojis.coin}${bonusText}!` +
-      (clipped ? `\n${emojis.warning} Đã chạm giới hạn xu hôm nay. Nâng cấp Sổ Xịn để tăng!` : ''),
-    flags: 64
-  });
+
+  if (!PERIODS[period as Period]) return i.deferUpdate();
+
+  if (action === 'guide') {
+    // Defer để tránh timeout
+    try {
+      await i.deferReply({ flags: V2_EPH as any });
+    } catch (error: any) {
+      if (error.code === 10062) return;
+      throw error;
+    }
+
+    const box = new ContainerBuilder().addTextDisplayComponents(txt('# 💡 Hướng dẫn nhiệm vụ'))
+      .addSeparatorComponents(sep())
+      .addTextDisplayComponents(
+        txt(
+          [
+            '1. Làm nhiệm vụ bằng cách dùng lệnh hoặc nhắn tin như mô tả, tiến độ tự cộng.',
+            '2. Khi tiến độ đầy, bấm **Hoàn Thành** để nhận xu.',
+            '3. Hằng ngày làm mới lúc 0h mỗi ngày, hằng tuần làm mới 0h thứ Hai.',
+            `4. Xu từ nhiệm vụ hằng ngày tối đa **${fmt(QUEST_CAP)}** ${COIN}/ngày. **Nâng Cấp Sổ Xịn** (${fmt(BOOK_PRICE)} ${COIN}, mua một lần) nâng lên **${fmt(QUEST_CAP_BOOK)}** ${COIN}/ngày.`,
+            '5. Mỗi người chỉ được tính 1 tin nhắn mỗi 5 giây.',
+          ].join('\n'),
+        ),
+      );
+
+    return i.editReply({ components: [box], flags: V2_EPH as any });
+  }
+
+  if (action === 'claim') {
+    // Defer update sớm để tránh timeout
+    try {
+      await i.deferUpdate();
+    } catch (error: any) {
+      if (error.code === 10062) return;
+      throw error;
+    }
+
+    const s = slot(u, period as Period);
+    const ready = QUESTS.filter(q => q.period === period && (s.prog[q.id] ?? 0) >= q.target && !s.claimed[q.id]);
+
+    if (!ready.length) {
+      return i.followUp(notice(WARN, `⚠️ **Chưa có nhiệm vụ nào hoàn thành**`, '-# Làm thêm nhiệm vụ rồi quay lại nhận thưởng nhé.'));
+    }
+
+    let room = period === 'daily' ? Math.max(0, capOf(u) - s.earned) : Infinity;
+    let gained = 0;
+    let count = 0;
+    let clipped = false;
+
+    for (const q of ready.sort((a, b) => b.reward - a.reward)) {
+      if (room <= 0) {
+        clipped = true;
+        break;
+      }
+      const g = Math.min(q.reward, room);
+      if (g < q.reward) clipped = true;
+      gained += g;
+      room -= g;
+      count++;
+      s.claimed[q.id] = true;
+      u.done = (u.done ?? 0) + 1;
+    }
+
+    if (!count) {
+      return i.followUp(
+        notice(WARN, `⚠️ **Đã chạm giới hạn xu hôm nay** (${fmt(capOf(u))} ${COIN})`, '-# Nâng cấp Sổ Xịn để tăng giới hạn.'),
+      );
+    }
+
+    s.earned += gained;
+    addCoinsToUser(uid, gained);
+    saveUser(uid, u);
+
+    await i.editReply(buildQuest(i.client, i.user, period as Period));
+
+    const lines = [
+      `✅ **Nhận thưởng thành công!**`,
+      `🏆 Hoàn thành **${count}** nhiệm vụ`,
+      `${COIN} Nhận **+${fmt(gained)}** • Số dư: **${fmt(getUserBalance(uid))}**`,
+    ];
+
+    if (clipped) {
+      lines.push(`-# ⚠️ Đã chạm giới hạn xu hôm nay, nhiệm vụ còn lại nhận vào ngày mai.`);
+    }
+
+    return i.followUp(notice(OK, ...lines));
+  }
+
+  if (action === 'upgrade') {
+    // Defer update sớm
+    try {
+      await i.deferUpdate();
+    } catch (error: any) {
+      if (error.code === 10062) return;
+      throw error;
+    }
+
+    if (u.book) return i.followUp(notice(OK, `✅ Bạn đã có Sổ Xịn rồi.`));
+
+    const balance = getUserBalance(uid);
+    if (balance < BOOK_PRICE) {
+      return i.followUp(notice(ERR, `❌ **Không đủ xu**`, `Cần **${fmt(BOOK_PRICE)}** ${COIN}, bạn đang có **${fmt(balance)}** ${COIN}.`));
+    }
+
+    if (!subtractCoinsFromUser(uid, BOOK_PRICE)) {
+      return i.followUp(notice(ERR, `❌ **Không đủ xu**`));
+    }
+
+    u.book = 1;
+    saveUser(uid, u);
+
+    await i.editReply(buildQuest(i.client, i.user, period as Period));
+
+    return i.followUp(
+      notice(OK, '📗 **Đã nâng cấp Sổ Xịn!**', `📊 Giới hạn xu hằng ngày: **${fmt(QUEST_CAP_BOOK)}** ${COIN}`, `${COIN} Số dư: **${fmt(getUserBalance(uid))}**`),
+    );
+  }
 }
 
-async function handleUpgrade(interaction: MessageComponentInteraction, uid: string, period: 'daily' | 'weekly', client: Client) {
-  const userData = loadUser(uid);
-  if (userData.book) return interaction.reply({ content: `${emojis.success} Bạn đã có Sổ Xịn rồi!`, flags: 64 });
-  const bal = getUserBalanceLocal(uid);
-  if (bal.cowoncy < BOOK_PRICE) {
-    return interaction.reply({ content: `${emojis.error} Cần **${BOOK_PRICE}** ${emojis.coin} để nâng cấp!`, flags: 64 });
-  }
-  const success = subtractCurrencyFromUser(uid, BOOK_PRICE);
-  if (!success) {
-    return interaction.reply({ content: `${emojis.error} Không đủ xu để nâng cấp!`, flags: 64 });
-  }
-  
-  // Activate book with 7-day expiry
-  const now = Date.now();
-  const expiryTime = now + (BOOK_DURATION_DAYS * 24 * 60 * 60 * 1000);
-  userData.book = true;
-  userData.bookExpiry = expiryTime;
-  saveUser(uid, userData);
-  
-  await interaction.update({ embeds: [buildQuestEmbed(client, interaction.user, period)], components: buildComponents(interaction.user, period, userData) });
-  return interaction.followUp({ 
-    content: `${emojis.sparkles} Đã nâng cấp Sổ Xịn!\n` +
-      `📗 Thưởng **x${BOOK_MULTIPLIER}** coins từ quest\n` +
-      `⏰ Hết hạn: <t:${Math.floor(expiryTime / 1000)}:R>\n` +
-      `📊 Giới hạn tăng lên **${QUEST_CAP_BOOK}** ${emojis.coin}/ngày!`, 
-    flags: 64 
-  });
-}
-
-async function handleGuide(interaction: MessageComponentInteraction) {
-  const guideEmbed = new EmbedBuilder()
-    .setColor('#00ff00')
-    .setTitle(`${emojis.sparkles} Hướng Dẫn Nhiệm Vụ`)
-    .setDescription([
-      '**Cách hoàn thành nhiệm vụ:**',
-      '',
-      `📨 **Gửi tin nhắn** - Chat trong server để tích điểm`,
-      `⌨️ **Dùng lệnh** - Sử dụng /shop, /daily để hoàn thành nhiệm vụ`,
-      '',
-      `${emojis.info} **Lưu ý:**`,
-      `• Nhiệm vụ hàng ngày reset mỗi ngày lúc 00:00 (UTC+7)`,
-      `• Nhiệm vụ hàng tuần reset vào thứ Hai hàng tuần`,
-      `• Phần thưởng được cộng vào tài khoản khi nhận`,
-      `• Giới hạn xu hàng ngày: **${QUEST_CAP}** ${emojis.coin} (nâng cấp lên **${QUEST_CAP_BOOK}** ${emojis.coin} với Sổ Xịn)`,
-      '',
-      `${emojis.sparkles} **Mẹo:**`,
-      `• Hoàn thành nhiệm vụ dễ trước`,
-      `• Nâng cấp Sổ Xịn (${BOOK_PRICE} ${emojis.coin}) để tăng giới hạn hàng ngày`,
-      `• Nhiệm vụ tuần không có giới hạn xu`,
-    ].join('\n'))
-    .setFooter({ text: 'Chúc bạn hoàn thành nhiệm vụ thành công!' })
-    .setTimestamp();
-
-  return interaction.reply({ embeds: [guideEmbed], flags: 64 });
-}
-
-// ==================== MODULE CLASS ====================
-
+// ==================== MODULE ====================
 export default class QuestModule {
   name = 'quest-module';
   description = 'Hệ thống nhiệm vụ hàng ngày và hàng tuần';
-  version = '2.0.0';
+  version = '3.0.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -454,6 +471,7 @@ export default class QuestModule {
   constructor(client: Client) {
     this.client = client;
     this.commands = new Collection();
+    questModuleInstance = this;
   }
 
   async initialize() {
@@ -463,91 +481,52 @@ export default class QuestModule {
   }
 
   private registerCommands() {
-    const questCommand = {
-      data: new SlashCommandBuilder()
-        .setName('quest')
-        .setDescription('Xem nhiệm vụ hàng ngày và hàng tuần'),
+    this.commands.set('quest', {
+      data: new SlashCommandBuilder().setName('quest').setDescription('Mở sổ nhiệm vụ'),
       execute: async (interaction: ChatInputCommandInteraction) => {
+        const startTime = Date.now();
+        
+        // ⚡ Defer immediately to prevent timeout
         try {
-          await interaction.deferReply();
+          await interaction.deferReply({ flags: V2 as any });
+          const deferTime = Date.now() - startTime;
+          if (deferTime > 1000) {
+            console.warn(`⚠️ [Quest] Slow defer: ${deferTime}ms`);
+          }
         } catch (error: any) {
-          if (error.code === 10062) return;
+          if (error.code === 10062) {
+            console.warn(`⚠️ [Quest] Interaction expired before defer (${Date.now() - startTime}ms)`);
+            return;
+          }
           throw error;
         }
-
-        let currentPeriod: 'daily' | 'weekly' = 'daily';
-        checkBookExpiry(interaction.user.id);
-        const userData = loadUser(interaction.user.id);
         
-        // Check if all quests are claimed for current period
-        const allQuestsClaimed = this.checkAllQuestsClaimed(interaction.user.id, currentPeriod);
-        
-        if (allQuestsClaimed) {
-          // Show summary embed (like daily's "already claimed")
-          const summaryEmbed = this.buildSummaryEmbed(interaction.user, currentPeriod);
-          await interaction.editReply({ embeds: [summaryEmbed] });
-          return;
+        const payload = buildQuest(interaction.client, interaction.user, 'daily');
+        const buildTime = Date.now() - startTime;
+        if (buildTime > 2000) {
+          console.warn(`⚠️ [Quest] Slow build: ${buildTime}ms total`);
         }
-
-        const embed = buildQuestEmbed(this.client, interaction.user, currentPeriod);
-        const components = buildComponents(interaction.user, currentPeriod, userData);
-
-        const response = await interaction.editReply({
-          embeds: [embed],
-          components: components
-        });
-
-        const collector = response.createMessageComponentCollector({
-          time: 900000 // 15 minutes
-        });
-
-        collector.on('collect', async (i) => {
-          const parts = i.customId.split(':');
-          const [, action, uid, periodFromId] = parts;
-
-          // Owner check
-          if (i.user.id !== uid) {
-            return i.reply({ content: '❌ Bạn không thể sử dụng button này!', flags: 64 });
-          }
-
-          if (action === 'view' && i.isStringSelectMenu()) {
-            const newPeriod = i.values[0] as 'daily' | 'weekly';
-            currentPeriod = newPeriod;
-            const newUserData = loadUser(uid);
-            const newEmbed = buildQuestEmbed(this.client, i.user, newPeriod);
-            const newComponents = buildComponents(i.user, newPeriod, newUserData);
-            await i.update({ embeds: [newEmbed], components: newComponents });
-          } else if (action === 'claim') {
-            await handleClaim(i, uid, periodFromId as 'daily' | 'weekly', this.client);
-          } else if (action === 'upgrade') {
-            await handleUpgrade(i, uid, periodFromId as 'daily' | 'weekly', this.client);
-          } else if (action === 'guide') {
-            await handleGuide(i);
-          }
-        });
-
-        collector.on('end', () => {
-          // Disable components after timeout
-          interaction.editReply({ components: [] }).catch(() => {});
-        });
-      }
-    };
-
-    this.commands.set('quest', questCommand);
+        
+        return interaction.editReply(payload);
+      },
+    });
   }
 
   private registerEvents() {
-    this.messageHandler = (message: Message) => {
-      if (message.author.bot || !message.guild) return;
-      const now = Date.now();
-      const userId = message.author.id;
-      if (now - (lastMessageTime.get(userId) ?? 0) < 5000) return;
-      lastMessageTime.set(userId, now);
-      console.log(`[Quest] Tracking message from ${message.author.tag} in channel ${message.channelId}`);
-      trackProgress(userId, 'message', message.channelId);
-    };
-
+    this.messageHandler = onMessage;
     this.client.on('messageCreate', this.messageHandler);
+
+    // Component interaction handler
+    this.client.on('interactionCreate', async interaction => {
+      if (!interaction.isMessageComponent() && !interaction.isStringSelectMenu()) return;
+      if (!interaction.customId.startsWith('quest:')) return;
+      try {
+        await onComponent(interaction);
+      } catch (err) {
+        console.error('[Quest] Component error:', err);
+      }
+    });
+
     console.log('✅ Quest message tracking registered');
   }
 
@@ -555,61 +534,8 @@ export default class QuestModule {
     if (this.messageHandler) {
       this.client.off('messageCreate', this.messageHandler);
     }
-    lastMessageTime.clear();
+    lastMsg.clear();
     console.log('Quest module cleanup');
   }
-  
-  // Check if all available quests are claimed
-  private checkAllQuestsClaimed(userId: string, period: 'daily' | 'weekly'): boolean {
-    const sl = getSlot(userId, period);
-    const periodQuests = QUESTS.filter(q => q.period === period);
-    
-    // If no quests exist, return false
-    if (periodQuests.length === 0) return false;
-    
-    // Check if all quests are either claimed or not completed
-    for (const quest of periodQuests) {
-      const progress = sl.prog[quest.id] ?? 0;
-      const completed = progress >= quest.target;
-      const claimed = sl.claimed[quest.id] ?? false;
-      
-      // If any quest is completed but not claimed, return false
-      if (completed && !claimed) {
-        return false;
-      }
-    }
-    
-    // All quests are either claimed or not completed yet
-    return true;
-  }
-  
-  // Build summary embed when all quests claimed
-  private buildSummaryEmbed(user: DiscordUser, period: 'daily' | 'weekly'): EmbedBuilder {
-    checkBookExpiry(user.id);
-    const userData = loadUser(user.id);
-    const sl = getSlot(user.id, period);
-    const { resetAt } = periodInfo(period);
-    const isDaily = period === 'daily';
-    
-    return new EmbedBuilder()
-      .setColor('#5865F2')
-      .setAuthor({ name: isDaily ? '📅 Nhiệm Vụ Hằng Ngày' : '📆 Nhiệm Vụ Hằng Tuần', iconURL: user.displayAvatarURL() })
-      .setDescription([
-        `${emojis.success} **Bạn đã hoàn thành tất cả nhiệm vụ!**`,
-        '',
-        `━━━━━━━━━━━━━━━━━━━━`,
-        '',
-        `${emojis.trophy} **Đã hoàn thành:** ${userData.done ?? 0} nhiệm vụ`,
-        `${emojis.coin} **Xu ${isDaily ? 'hôm nay' : 'tuần này'}:** ${sl.earned} ${emojis.coin}`,
-        userData.book && userData.bookExpiry ? `${emojis.sparkles} **Sổ Xịn VIP:** Hết hạn <t:${Math.floor(userData.bookExpiry / 1000)}:R>` : '',
-        '',
-        `${emojis.clock} **Nhiệm vụ mới:** <t:${Math.floor(resetAt / 1000)}:R>`
-      ].filter(Boolean).join('\n'))
-      .setThumbnail(user.displayAvatarURL())
-      .setFooter({ 
-        text: `${user.username} • Banhcuon-bot`,
-        iconURL: user.displayAvatarURL()
-      })
-      .setTimestamp();
-  }
 }
+

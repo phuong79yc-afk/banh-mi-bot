@@ -1,13 +1,76 @@
-// Autoresponder Module - Entry Point
-import { Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+// Autoresponder Module - Entry Point (Components V2)
+
+import {
+  Client,
+  Collection,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  InteractionContextType,
+  ContainerBuilder,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+} from 'discord.js';
 import { emojis } from '../../config/emojis';
-import { createEnhancedEmbed } from '../../utils/embedHelper';
+import { V2, V2_EPHEMERAL, txt, sep } from '../../utils/v2Helper';
 import { autoresponderManager, MatchMode } from './AutoresponderManager';
+
+// ───────── Helpers ─────────
+
+const COLOR = { main: 0x667eea, success: 0x57f287, error: 0xed4245, warn: 0xfee75c };
+
+const MODES: Record<string, { label: string; emoji: string }> = {
+  equal: { label: 'Bằng nhau', emoji: '🟰' },
+  contains: { label: 'Chứa', emoji: '🔍' },
+  startswith: { label: 'Bắt đầu bằng', emoji: '▶️' },
+  endswith: { label: 'Kết thúc bằng', emoji: '⏹️' },
+};
+
+const modeOf = (mode: string) => MODES[mode] ?? { label: mode, emoji: '⚙️' };
+
+const ts = (t: number) => Math.floor(t / 1000);
+
+const code = (s: string) => `\`${s.replace(/`/g, 'ˋ')}\``;
+
+// Trích dẫn nhiều dòng, giới hạn độ dài
+const quote = (s: string, max = 1000) => {
+  const cut = s.length > max ? s.slice(0, max) + '…' : s;
+  return cut.split('\n').map(l => `> ${l}`).join('\n');
+};
+
+const errorCard = (message: string) =>
+  new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.error} Có lỗi xảy ra`), txt(message));
+
+const successCard = (title: string, body: string) =>
+  new ContainerBuilder().addTextDisplayComponents(txt(`## ${emojis.success} ${title}`), txt(body));
+
+// Thẻ chi tiết dùng chung cho /add và /view
+const detailCard = (ar: any, title: string, color = COLOR.main) => {
+  const mode = modeOf(ar.mode);
+  const footer = [
+    ar.createdBy ? `Tạo bởi <@${ar.createdBy}>` : null,
+    ar.createdAt ? `<t:${ts(ar.createdAt)}:R>` : null,
+    `ID: ${ar.id}`,
+  ].filter(Boolean).join(' • ');
+
+  return new ContainerBuilder().addTextDisplayComponents(txt(`## ${title}`), txt(`**Trigger:** ${code(ar.trigger)}`))
+    .addSeparatorComponents(sep())
+    .addTextDisplayComponents(
+      txt(
+        `**${mode.emoji} Chế độ khớp:** ${mode.label}\n` +
+        `**🔤 Phân biệt hoa/thường:** ${ar.ignoreCase ? 'Không' : 'Có'}`,
+      ),
+    )
+    .addSeparatorComponents(sep(false, false))
+    .addTextDisplayComponents(txt(`**💬 Phản hồi**\n${quote(ar.response)}`))
+    .addSeparatorComponents(sep())
+    .addTextDisplayComponents(txt(`-# ${footer}`));
+};
 
 export default class AutoresponderModule {
   name = 'autoresponder-module';
   description = 'Autoresponder - Auto-reply based on keywords';
-  version = '1.0.0';
+  version = '1.1.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -25,41 +88,27 @@ export default class AutoresponderModule {
   }
 
   private registerCommands() {
-    // /autoresponder add
+    const modeChoices = [
+      { name: 'Bằng nhau', value: 'equal' },
+      { name: 'Chứa', value: 'contains' },
+      { name: 'Bắt đầu bằng', value: 'startswith' },
+      { name: 'Kết thúc bằng', value: 'endswith' },
+    ];
+
+    // ───────── /autoresponder-add ─────────
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-add')
-        .setDescription('➕ Thêm tự động trả lời')
+        .setDescription('Thêm autoresponder')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-        .addStringOption(option =>
-          option
-            .setName('trigger')
-            .setDescription('🔑 Từ khóa kích hoạt')
-            .setRequired(true)
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true))
+        .addStringOption(o => o.setName('response').setDescription('� Nội dung trả lời').setRequired(true))
+        .addStringOption(o =>
+          o.setName('mode').setDescription('Chế độ khớp').setRequired(false).addChoices(...modeChoices),
         )
-        .addStringOption(option =>
-          option
-            .setName('response')
-            .setDescription('💬 Nội dung trả lời')
-            .setRequired(true)
-        )
-        .addStringOption(option =>
-          option
-            .setName('mode')
-            .setDescription('⚙️ Chế độ khớp')
-            .setRequired(false)
-            .addChoices(
-              { name: 'Bằng nhau', value: 'equal' },
-              { name: 'Chứa', value: 'contains' },
-              { name: 'Bắt đầu bằng', value: 'startswith' },
-              { name: 'Kết thúc bằng', value: 'endswith' }
-            )
-        )
-        .addBooleanOption(option =>
-          option
-            .setName('ignorecase')
-            .setDescription('🔤 Bỏ qua chữ hoa/thường')
-            .setRequired(false)
+        .addBooleanOption(o =>
+          o.setName('ignorecase').setDescription('� Bỏ qua chữ hoa/thường').setRequired(false),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
@@ -68,229 +117,216 @@ export default class AutoresponderModule {
         const ignoreCase = interaction.options.getBoolean('ignorecase') ?? true;
 
         const result = autoresponderManager.add(
-          interaction.guildId!,
-          trigger,
-          response,
-          mode,
-          ignoreCase,
-          interaction.user.id
+          interaction.guildId!, trigger, response, mode, ignoreCase, interaction.user.id,
         );
 
         if (!result.success) {
-          return interaction.reply({
-            content: `${emojis.error} ${result.error}`,
-            flags: 64
-          });
+          const replyMethod = interaction.replied || interaction.deferred ? 'editReply' : 'reply';
+          return interaction[replyMethod]({ components: [errorCard(String(result.error))], flags: V2_EPHEMERAL } as any);
         }
 
-        const embed = createEnhancedEmbed({
-          title: '${emojis.success} Autoresponder Added',
-          description: 'Successfully created autoresponder!',
-          color: 'success'
-        })
-          .addFields(
-            { name: 'Trigger', value: `\`${trigger}\``, inline: true },
-            { name: 'Mode', value: mode, inline: true },
-            { name: 'Case Sensitive', value: ignoreCase ? 'No' : 'Yes', inline: true },
-            { name: 'Response', value: response.substring(0, 1024) }
-          )
-          .setFooter({ text: `ID: ${result.autoresponder!.id}` })
-          .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
-      }
+        const replyMethod = interaction.replied || interaction.deferred ? 'editReply' : 'reply';
+        await interaction[replyMethod]({
+          components: [detailCard(result.autoresponder!, `${emojis.success} Đã thêm Autoresponder`, COLOR.success)],
+          flags: V2,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /autoresponder remove
+    // ───────── /autoresponder-remove ─────────
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-remove')
-        .setDescription('➖ Xóa tự động trả lời')
+        .setDescription('Xóa autoresponder')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-        .addStringOption(option =>
-          option
-            .setName('trigger')
-            .setDescription('🔑 Từ khóa kích hoạt')
-            .setRequired(true)
-        ),
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
-
         const result = autoresponderManager.remove(interaction.guildId!, trigger);
 
         if (!result.success) {
-          return interaction.reply({
-            content: `${emojis.error} ${result.error}`,
-            flags: 64
-          });
+          return interaction.reply({ components: [errorCard(String(result.error))], flags: V2_EPHEMERAL } as any);
         }
 
         await interaction.reply({
-          content: `${emojis.success} Successfully deleted autoresponder with trigger \`${trigger}\`!`,
-          flags: 64
-        });
-      }
+          components: [successCard('Đã xóa Autoresponder', `Trigger ${code(trigger)} đã được xóa.`)],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /autoresponder list
+    // ───────── /autoresponder-list ─────────
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-list')
-        .setDescription('📃 Xem danh sách tự động trả lời'),
+        .setDescription('Xem danh sách autoresponder')
+        .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const autoresponders = autoresponderManager.getAll(interaction.guildId!);
+        const list = autoresponderManager.getAll(interaction.guildId!);
 
-        if (autoresponders.length === 0) {
+        if (list.length === 0) {
           return interaction.reply({
-            content: "This guild doesn't have any autoresponders!",
-            flags: 64
-          });
+            components: [
+              new ContainerBuilder().addTextDisplayComponents(
+                  txt('## 📭 Chưa có autoresponder nào'),
+                  txt('-# Dùng `/autoresponder-add` để tạo cái đầu tiên.'),
+                ),
+            ],
+            flags: V2_EPHEMERAL,
+          } as any);
         }
 
-        const embed = new EmbedBuilder()
-          .setColor(0x667eea)
-          .setTitle('${emojis.copy} Autoresponders')
-          .setDescription(
-            `This guild has **${autoresponders.length}** autoresponder(s).\n\n` +
-            autoresponders
-              .map((ar, i) => `${i + 1}. \`${ar.trigger}\` → ${ar.mode} (${ar.ignoreCase ? 'ignore case' : 'case sensitive'})`)
-              .join('\n')
-          )
-          .setFooter({ text: `Use /autoresponder-view to see details` })
-          .setTimestamp();
+        const lines = list.map((ar: any, i: number) => {
+          const mode = modeOf(ar.mode);
+          return `**${i + 1}.** ${code(ar.trigger)}\n-# ${mode.emoji} ${mode.label} • ${ar.ignoreCase ? 'Aa = aa' : 'Phân biệt hoa/thường'}`;
+        });
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
-      }
+        // Giới hạn text của message V2 (4000 ký tự)
+        const shown: string[] = [];
+        let len = 0;
+        for (const line of lines) {
+          if (len + line.length + 1 > 3000) break;
+          shown.push(line);
+          len += line.length + 1;
+        }
+
+        const rest = lines.length - shown.length;
+
+        const options = list.slice(0, 25).map((ar: any, i: number) => ({
+          label: `${i + 1}. ${ar.trigger}`.slice(0, 100),
+          description: modeOf(ar.mode).label,
+          value: String(i),
+        }));
+
+        const container = new ContainerBuilder().addTextDisplayComponents(
+            txt(`## ${emojis.copy} Autoresponders`),
+            txt(`-# Server có **${list.length}** autoresponder`),
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt(shown.join('\n') + (rest > 0 ? `\n… và **${rest}** cái khác` : '')))
+          .addSeparatorComponents(sep())
+          .addActionRowComponents(
+            new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+              new StringSelectMenuBuilder()
+                .setCustomId('ar_view')
+                .setPlaceholder('Chọn để xem chi tiết...')
+                .addOptions(options),
+            ),
+          )
+          .addTextDisplayComponents(
+            txt(`-# Dùng /autoresponder-view để xem chi tiết${list.length > 25 ? ' (menu chỉ hiện 25 cái đầu)' : ''}`),
+          );
+
+        await interaction.reply({ components: [container], flags: V2_EPHEMERAL, allowedMentions: { parse: [] } } as any);
+      },
     };
 
-    // /autoresponder view
+    // ───────── /autoresponder-view ─────────
     const viewCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-view')
-        .setDescription('🔍 Xem chi tiết tự động trả lời')
-        .addStringOption(option =>
-          option
-            .setName('trigger')
-            .setDescription('🔑 Từ khóa kích hoạt')
-            .setRequired(true)
-        ),
+        .setDescription('Xem chi tiết autoresponder')
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
-        const autoresponder = autoresponderManager.get(interaction.guildId!, trigger);
+        const ar = autoresponderManager.get(interaction.guildId!, trigger);
 
-        if (!autoresponder) {
+        if (!ar) {
           return interaction.reply({
-            content: `${emojis.error} No autoresponder found with trigger \`${trigger}\``,
-            flags: 64
-          });
+            components: [errorCard(`Không tìm thấy autoresponder với trigger ${code(trigger)}`)],
+            flags: V2_EPHEMERAL,
+            allowedMentions: { parse: [] },
+          } as any);
         }
 
-        const embed = new EmbedBuilder()
-          .setColor(0x667eea)
-          .setTitle('${emojis.search} Autoresponder Details')
-          .addFields(
-            { name: 'Trigger', value: `\`${autoresponder.trigger}\``, inline: true },
-            { name: 'Mode', value: autoresponder.mode, inline: true },
-            { name: 'Case Sensitive', value: autoresponder.ignoreCase ? 'No' : 'Yes', inline: true },
-            { name: 'Response', value: autoresponder.response.substring(0, 1024) },
-            { name: 'Created By', value: `<@${autoresponder.createdBy}>`, inline: true },
-            { name: 'Created At', value: `<t:${Math.floor(autoresponder.createdAt / 1000)}:R>`, inline: true }
-          )
-          .setFooter({ text: `ID: ${autoresponder.id}` })
-          .setTimestamp();
-
-        await interaction.reply({ embeds: [embed], flags: 64 });
-      }
+        await interaction.reply({
+          components: [detailCard(ar, `${emojis.search} Chi tiết Autoresponder`)],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /autoresponder matchmode
+    // ───────── /autoresponder-matchmode ─────────
     const matchmodeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-matchmode')
         .setDescription('Chỉnh sửa chế độ khớp')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-        .addStringOption(option =>
-          option
-            .setName('trigger')
-            .setDescription('Từ khóa kích hoạt')
-            .setRequired(true)
-        )
-        .addStringOption(option =>
-          option
-            .setName('mode')
-            .setDescription('Chọn chế độ khớp')
-            .setRequired(true)
-            .addChoices(
-              { name: 'Bằng nhau', value: 'equal' },
-              { name: 'Chứa', value: 'contains' },
-              { name: 'Bắt đầu bằng', value: 'startswith' },
-              { name: 'Kết thúc bằng', value: 'endswith' }
-            )
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa kích hoạt').setRequired(true))
+        .addStringOption(o =>
+          o.setName('mode').setDescription('Chọn chế độ khớp').setRequired(true).addChoices(...modeChoices),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const mode = interaction.options.getString('mode', true) as MatchMode;
 
-        const result = autoresponderManager.updateMatchMode(
-          interaction.guildId!,
-          trigger,
-          mode
-        );
+        const result = autoresponderManager.updateMatchMode(interaction.guildId!, trigger, mode);
 
         if (!result.success) {
-          return interaction.reply({
-            content: `${emojis.error} ${result.error}`,
-            flags: 64
-          });
+          return interaction.reply({ components: [errorCard(String(result.error))], flags: V2_EPHEMERAL } as any);
         }
 
+        const m = modeOf(mode);
         await interaction.reply({
-          content: `${emojis.success} Successfully updated match mode to **${mode}** for trigger \`${trigger}\`!`,
-          flags: 64
-        });
-      }
+          components: [
+            successCard('Đã cập nhật chế độ khớp', `Trigger ${code(trigger)} → **${m.emoji} ${m.label}**`),
+          ],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
     };
 
-    // /autoresponder placeholders
+    // ───────── /autoresponder-placeholders ─────────
     const placeholdersCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-placeholders')
         .setDescription('Hiện các biến có sẵn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
-        const embed = new EmbedBuilder()
-          .setColor(0x667eea)
-          .setTitle('📝 Autoresponder Placeholders')
-          .setDescription('Use these placeholders in your autoresponder responses:')
-          .addFields(
-            {
-              name: '${emojis.user} User Placeholders',
-              value: 
-                '`{user}` - Username\n' +
-                '`{user.mention}` - Mention user\n' +
-                '`{user.id}` - User ID\n' +
-                '`{user.name}` - Username\n' +
-                '`{user.displayname}` - Display name'
-            },
-            {
-              name: '🏠 Server Placeholders',
-              value: 
-                '`{server}` - Server name\n' +
-                '`{server.name}` - Server name'
-            },
-            {
-              name: '${emojis.message} Channel & Message Placeholders',
-              value: 
-                '`{channel}` - Channel name\n' +
-                '`{channel.name}` - Channel name\n' +
-                '`{message}` - Message content\n' +
-                '`{message.content}` - Message content'
-            }
-          )
-          .setFooter({ text: 'Example: Welcome {user.mention} to {server}!' })
-          .setTimestamp();
+        const group = (title: string, items: [string, string][]) =>
+          txt(`### ${title}\n` + items.map(([k, v]) => `${code(k)} — ${v}`).join('\n'));
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
-      }
+        const container = new ContainerBuilder().addTextDisplayComponents(
+            txt('## 📝 Autoresponder Placeholders'),
+            txt('-# Dùng các biến này trong nội dung trả lời'),
+          )
+          .addSeparatorComponents(sep(true))
+          .addTextDisplayComponents(
+            group(`${emojis.user} Người dùng`, [
+              ['{user}', 'Username'],
+              ['{user.mention}', 'Mention người dùng'],
+              ['{user.id}', 'User ID'],
+              ['{user.name}', 'Username'],
+              ['{user.displayname}', 'Tên hiển thị'],
+            ]),
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(
+            group('🏠 Server', [
+              ['{server}', 'Tên server'],
+              ['{server.name}', 'Tên server'],
+            ]),
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(
+            group(`${emojis.message} Kênh & Tin nhắn`, [
+              ['{channel}', 'Tên kênh'],
+              ['{channel.name}', 'Tên kênh'],
+              ['{message}', 'Nội dung tin nhắn'],
+              ['{message.content}', 'Nội dung tin nhắn'],
+            ]),
+          )
+          .addSeparatorComponents(sep())
+          .addTextDisplayComponents(txt('-# Ví dụ: Welcome {user.mention} to {server}!'));
+
+        await interaction.reply({ components: [container], flags: V2_EPHEMERAL } as any);
+      },
     };
 
     this.commands.set('autoresponder-add', addCommand);
@@ -302,33 +338,55 @@ export default class AutoresponderModule {
   }
 
   private registerEvents() {
+    // Menu chọn trong /autoresponder-list -> xem chi tiết
+    this.client.on('interactionCreate', async interaction => {
+      if (!interaction.isStringSelectMenu() || interaction.customId !== 'ar_view' || !interaction.guildId) return;
+
+      try {
+        const list = autoresponderManager.getAll(interaction.guildId);
+        const ar = list[Number(interaction.values[0])];
+
+        await interaction.reply({
+          components: [
+            ar
+              ? detailCard(ar, `${emojis.search} Chi tiết Autoresponder`)
+              : errorCard('Không tìm thấy autoresponder này (danh sách có thể đã thay đổi). Hãy dùng lại `/autoresponder-list`.'),
+          ],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      } catch (error) {
+        console.error('Autoresponder select error:', error);
+      }
+    });
+
     // Message listener for autoresponder
-    this.client.on('messageCreate', async (message) => {
+    this.client.on('messageCreate', async message => {
       // Ignore bots and DMs
       if (message.author.bot || !message.guild) return;
 
       // Check for autoresponder match
-      const response = autoresponderManager.checkMessage(
-        message.guild.id,
-        message.content
-      );
+      const response = autoresponderManager.checkMessage(message.guild.id, message.content);
+      if (!response) return;
 
-      if (response) {
-        // Replace placeholders
-        const finalResponse = autoresponderManager.replacePlaceholders(response, {
-          userId: message.author.id,
-          username: message.author.username,
-          displayName: message.member?.displayName || message.author.username,
-          guildName: message.guild.name,
-          channelName: (message.channel as any).name || 'Unknown',
-          messageContent: message.content
+      // Replace placeholders
+      const finalResponse = autoresponderManager.replacePlaceholders(response, {
+        userId: message.author.id,
+        username: message.author.username,
+        displayName: message.member?.displayName || message.author.username,
+        guildName: message.guild.name,
+        channelName: (message.channel as any).name || 'Unknown',
+        messageContent: message.content,
+      });
+
+      try {
+        await message.reply({
+          content: finalResponse.slice(0, 2000),
+          // Chỉ cho phép ping user (vd {user.mention}); chặn @everyone/@here và role
+          allowedMentions: { parse: ['users'], repliedUser: false },
         });
-
-        try {
-          await message.reply(finalResponse);
-        } catch (error) {
-          console.error('Autoresponder error:', error);
-        }
+      } catch (error) {
+        console.error('Autoresponder error:', error);
       }
     });
   }
@@ -337,3 +395,4 @@ export default class AutoresponderModule {
     console.log('🧹 Autoresponder module cleanup');
   }
 }
+

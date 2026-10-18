@@ -1,0 +1,55 @@
+Tất cả 18 commands:
+
+/daily
+  📅 Điểm danh hàng ngày để nhận thưởng
+
+/daily-leaderboard
+  🏆 Xem bảng xếp hạng điểm danh
+
+/daily-stats
+  📊 Xem thống kê điểm danh của bạn
+
+/expression
+  🔢 Biểu thức toán học (vd: 2+2, 5*10)
+
+/force
+  🔄 Buộc setup lại từ đầu (xóa config cũ)
+
+/help
+  📖 Menu Trợ Giúp - Xem tất cả lệnh
+
+/inventory
+  🎒 Xem inventory của bạn
+
+/max
+  🔢 Giá trị tối đa
+
+/min
+  🔢 Giá trị tối thiểu
+
+/options
+  📃 Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)
+
+/poll
+  📊 Tạo bình chọn
+
+/random
+  🎲 Tạo số ngẫu nhiên
+
+/rule
+  📜 Xem luật server
+
+/rule-setup
+  ⚙️ Tạo danh mục và kênh rules riêng
+
+/shop
+  🛒 Xem shop và mua bot roles
+
+/ticket-stats
+  📊 Xem thống kê ticket
+
+/vip-bonus
+  🎁 Nhận 5,000 xu bonus hàng tuần (VIP 7%+)
+
+/vipinfo
+  👑 Xem quyền lợi và hạng VIP
