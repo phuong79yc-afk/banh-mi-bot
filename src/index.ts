@@ -7,8 +7,6 @@ import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { validateEnv } from './utils/envValidator';
-import { AutoOptimizer } from './core/AutoOptimizer';
-import { SecurityScanner } from './core/SecurityScanner';
 import { setupPrefixCommands } from './handlers/prefixCommandHandler';
 import { ModuleLoader } from './core/ModuleLoader';
 import { memoryOptimizer } from './utils/memoryOptimizer';
@@ -202,18 +200,6 @@ client.once('clientReady' as any, async () => {
   console.log(`📊 Servers: ${client.guilds.cache.size}`);
   console.log(`👥 Users: ${client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)}`);
   
-  // Start auto-optimization and security scanning
-  const autoOptimizer = new AutoOptimizer(client);
-  const securityScanner = new SecurityScanner(client);
-  
-  autoOptimizer.start();
-  securityScanner.start();
-  
-  console.log('='.repeat(60));
-  console.log('🔧 Auto-optimizer: Running every 5 minutes');
-  console.log('🔒 Security scanner: Running every 5 minutes');
-  console.log('='.repeat(60) + '\n');  console.log('='.repeat(60) + '\n');
-
   // Set bot status (idle with custom status text matching GlitchBucket)
   client.user?.setPresence({
     activities: [{ 
