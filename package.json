@@ -1,11 +1,12 @@
 {
   "name": "banh-cuon-bot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Discord bot built with discord.js v14 and TypeScript",
   "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('assets', 'dist/assets', {recursive: true}); fs.cpSync('public', 'dist/public', {recursive: true}); fs.mkdirSync('dist/data', {recursive: true});\"",
     "start": "node --expose-gc dist/src/index.js",
+    "start:old": "node --expose-gc dist/src/index.js",
     "start:deploy": "node --expose-gc dist/src/deploy-commands.js && node --expose-gc dist/src/index.js",
     "dev": "npm run build && nodemon --watch src --ext ts --exec \"npm run build && npm start\"",
     "dev:old": "nodemon --exec \"node --expose-gc -r ts-node/register src/index.ts\"",
@@ -26,8 +27,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@discord-player/extractor": "^7.2.0",
+    "@discord-player/opus": "^7.2.0",
     "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^1.0.9",
+    "@snazzah/davey": "^0.1.12",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "axios": "^1.20.0",
@@ -43,12 +47,18 @@
     "ejs": "^6.0.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
+    "ffmpeg-static": "^5.3.0",
     "googleapis": "^178.0.0",
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.3",
     "mcping-js": "^1.5.0",
+    "mediaplex": "^1.0.0",
     "minecraft-server-util": "^5.4.4",
-    "nodemailer": "^9.0.6"
+    "nodemailer": "^9.0.6",
+    "play-dl": "^1.9.7",
+    "simple-ytdl-core": "^1.1.1",
+    "spotify-url-info": "^3.3.3",
+    "ytdl-core": "^4.11.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
