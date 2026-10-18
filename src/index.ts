@@ -4,10 +4,80 @@ import { Player } from 'discord-player';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { validateEnv } from './utils/envValidator';
+import { AutoOptimizer } from './core/AutoOptimizer';
+import { SecurityScanner } from './core/SecurityScanner';
+import { setupPrefixCommands } from './handlers/prefixCommandHandler';
+import { ModuleLoader } from './core/ModuleLoader';
+import { memoryOptimizer } from './utils/memoryOptimizer';
+import { initializeDatabase } from './database/init';
+
+const execAsync = promisify(exec);
 
 dotenv.config();
 validateEnv(); // Validate environment variables before proceeding
+
+// ============================================
+// DUPLICATE INSTANCE DETECTION & AUTO-KILL
+// ============================================
+async function killDuplicateInstances() {
+  try {
+    const currentPid = process.pid;
+    console.log(`🔍 Checking for duplicate bot instances... (PID: ${currentPid})`);
+
+    // Get all node processes running index.js
+    const { stdout } = await execAsync(
+      `powershell -Command "Get-Process | Where-Object {$_.ProcessName -eq 'node'} | Select-Object Id, Path | ConvertTo-Json"`
+    );
+    
+    if (!stdout.trim()) {
+      console.log('✅ No other node processes found');
+      return;
+    }
+
+    const processes = JSON.parse(stdout);
+    const processList = Array.isArray(processes) ? processes : [processes];
+    
+    // Filter: only processes running THIS bot (index.js in dist/src)
+    const botInstances = processList.filter(p => {
+      if (p.Id === currentPid) return false; // Skip current process
+      const path = p.Path || '';
+      // Check if running index.js from dist/src (this bot)
+      return path.includes('dist\\src\\index.js') || path.includes('dist/src/index.js');
+    });
+
+    if (botInstances.length === 0) {
+      console.log('✅ No duplicate bot instances detected');
+      return;
+    }
+
+    console.log(`⚠️  Found ${botInstances.length} duplicate bot instance(s), terminating...`);
+    
+    for (const proc of botInstances) {
+      try {
+        await execAsync(`powershell -Command "Stop-Process -Id ${proc.Id} -Force -ErrorAction SilentlyContinue"`);
+        console.log(`   ✅ Terminated PID ${proc.Id}`);
+      } catch (error) {
+        // Silent fail
+      }
+    }
+
+    // Wait for processes to fully terminate
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('✅ Duplicate detection complete, continuing startup...\n');
+
+  } catch (error) {
+    console.log('⚠️  Duplicate detection skipped (non-critical)\n');
+  }
+}
+
+// Run duplicate check BEFORE anything else (wrapped to avoid top-level await issues)
+(async () => {
+  await killDuplicateInstances();
+  startBot();
+})();
 
 // Extend Client type để thêm commands collection
 declare module 'discord.js' {
@@ -16,70 +86,53 @@ declare module 'discord.js' {
   }
 }
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-});
-
-// Increase max listeners to prevent warning
-client.setMaxListeners(20);
-
-client.commands = new Collection();
-
-// Initialize music player
-const player = new Player(client);
-
-// Load YouTube extractor (optional - requires discord-player-youtubei)
-// player.extractors.register(YoutubeiExtractor, {});
-
-console.log('✅ Music player initialized');
-
-// Player events
-player.events.on('playerStart', (queue: any, track: any) => {
-  const channel = queue.metadata.channel as any;
-  channel?.send(`🎵 Đang phát: **${track.title}** • ${track.author}`);
-});
-
-player.events.on('audioTrackAdd', (queue: any, track: any) => {
-  const channel = queue.metadata.channel as any;
-  channel?.send(`✅ Đã thêm vào hàng đợi: **${track.title}**`);
-});
-
-player.events.on('emptyQueue', (queue: any) => {
-  const channel = queue.metadata.channel as any;
-  channel?.send('✅ Đã phát hết nhạc trong hàng đợi!');
-});
-
-player.events.on('error', (queue: any, error: any) => {
-  console.error(`Music player error:`, error);
-  const channel = queue.metadata.channel as any;
-  channel?.send('❌ Có lỗi xảy ra khi phát nhạc!');
-});
-
-// Export player for dashboard API
-export { player };
-
-// ============================================
-// LOAD MODULES (New Module System)
-// ============================================
-import { ModuleLoader } from './core/ModuleLoader';
-
-// Load modules on ready
+let client: Client;
+let player: Player;
 let moduleLoader: ModuleLoader;
 
-// Export moduleLoader for external access
+// Export for other modules
+export { player };
 export function getModuleLoader(): ModuleLoader | null {
   return moduleLoader || null;
 }
 
+function startBot() {
+  client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildMessageReactions,
+    ],
+  });
+
+  // Increase max listeners to prevent warning
+  client.setMaxListeners(20);
+
+  client.commands = new Collection();
+
+  // Initialize music player
+  player = new Player(client);
+
+  // Load YouTube extractor (optional - requires discord-player-youtubei)
+  // player.extractors.register(YoutubeiExtractor, {});
+
+  console.log('✅ Music player initialized (events handled by music-module)');
+
+  // ============================================
+  // LOAD MODULES (New Module System)
+  // ============================================
+
+  // Load modules on ready
+
 async function initializeModules() {
   try {
+    // ⚠️ CRITICAL: Initialize database schema BEFORE loading modules
+    // Some modules query daily_users table immediately on load
+    initializeDatabase();
+    
     // Pass absolute path to modules directory
     const modulesPath = path.resolve(__dirname, 'modules');
     console.log('📁 Modules path:', modulesPath);
@@ -148,7 +201,18 @@ client.once('clientReady' as any, async () => {
   console.log(`✅ Online: ${client.user?.tag}`);
   console.log(`📊 Servers: ${client.guilds.cache.size}`);
   console.log(`👥 Users: ${client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)}`);
-  console.log('='.repeat(60) + '\n');
+  
+  // Start auto-optimization and security scanning
+  const autoOptimizer = new AutoOptimizer(client);
+  const securityScanner = new SecurityScanner(client);
+  
+  autoOptimizer.start();
+  securityScanner.start();
+  
+  console.log('='.repeat(60));
+  console.log('🔧 Auto-optimizer: Running every 5 minutes');
+  console.log('🔒 Security scanner: Running every 5 minutes');
+  console.log('='.repeat(60) + '\n');  console.log('='.repeat(60) + '\n');
 
   // Set bot status (idle with custom status text matching GlitchBucket)
   client.user?.setPresence({
@@ -162,6 +226,9 @@ client.once('clientReady' as any, async () => {
 
   // Initialize modules
   await initializeModules();
+
+  // Setup prefix commands
+  setupPrefixCommands(client);
 
   // Auto-deploy commands to Discord
   try {
@@ -181,26 +248,36 @@ client.once('clientReady' as any, async () => {
     
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
     
-    // Try guild deploy first (faster), fallback to global if no guild
-    const guildId = process.env.GUILD_ID || '1482354951689605150';
+    // Deploy globally (no 100-command limit, but takes ~1 hour to sync)
+    const deployGlobal = process.env.DEPLOY_GLOBAL === 'true';
     
-    try {
+    if (deployGlobal) {
       await rest.put(
-        Routes.applicationGuildCommands(client.user!.id, guildId),
+        Routes.applicationCommands(client.user!.id),
         { body: commands }
       );
-      console.log(`✅ Deployed ${commands.length} commands to guild ${guildId}`);
-    } catch (guildError: any) {
-      // If guild deploy fails, try global
-      if (guildError.code === 50001) {
-        console.log('⚠️ No guild access, deploying globally...');
+      console.log(`✅ Deployed ${commands.length} commands globally (sync in ~1 hour)`);
+    } else {
+      // Guild deploy (faster but 100-command limit)
+      const guildId = process.env.GUILD_ID || '1482354951689605150';
+      
+      try {
         await rest.put(
-          Routes.applicationCommands(client.user!.id),
+          Routes.applicationGuildCommands(client.user!.id, guildId),
           { body: commands }
         );
-        console.log(`✅ Deployed ${commands.length} commands globally`);
-      } else {
-        throw guildError;
+        console.log(`✅ Deployed ${commands.length} commands to guild ${guildId}`);
+      } catch (guildError: any) {
+        if (guildError.code === 50001) {
+          console.log('⚠️ No guild access, deploying globally...');
+          await rest.put(
+            Routes.applicationCommands(client.user!.id),
+            { body: commands }
+          );
+          console.log(`✅ Deployed ${commands.length} commands globally`);
+        } else {
+          throw guildError;
+        }
       }
     }
   } catch (error) {
@@ -216,6 +293,8 @@ client.once('clientReady' as any, async () => {
 
 // Interaction handler - Optimized for fast response
 client.on('interactionCreate', async (interaction) => {
+  const startTime = Date.now(); // Track performance
+  
   // ⚡ Wrap entire handler in try-catch to prevent crashes
   try {
     // Handle autocomplete
@@ -234,6 +313,11 @@ client.on('interactionCreate', async (interaction) => {
     
     // Handle slash commands
     if (interaction.isChatInputCommand()) {
+      const preExecuteTime = Date.now() - startTime;
+      if (preExecuteTime > 500) {
+        console.warn(`⚠️ Slow pre-execute: ${interaction.commandName} took ${preExecuteTime}ms before execute`);
+      }
+      
       const command = client.commands.get(interaction.commandName);
       
       if (!command) {
@@ -244,6 +328,11 @@ client.on('interactionCreate', async (interaction) => {
       // ⚡ EXECUTE IMMEDIATELY - Let command handle its own defer
       try {
         await command.execute(interaction);
+        
+        const totalTime = Date.now() - startTime;
+        if (totalTime > 2000) {
+          console.warn(`⚠️ Slow command: ${interaction.commandName} took ${totalTime}ms total`);
+        }
       } catch (error: any) {
         console.error(`Error executing ${interaction.commandName}:`, error);
         
@@ -300,106 +389,135 @@ client.on('getAllCommands', (commandsArray: any[]) => {
 client.login(process.env.DISCORD_TOKEN);
 
 // ============================================
-// PREFIX COMMANDS HANDLER
+// PREFIX COMMANDS - Handled by individual modules
 // ============================================
-import { setupPrefixCommands } from './handlers/prefixCommandHandler';
+// Each module handles its own prefix commands (e.g., music-module handles !bc)
+// No global prefix handler needed
 
-// Initialize prefix commands
-setupPrefixCommands(client);
+  // ============================================
+  // AI CHAT HANDLER - DISABLED
+  // ============================================
+  // Removed to prevent duplicate responses. AI handled by ai-module only.
 
-// ============================================
-// AI CHAT - Message Listener for Auto-Reply
-// ============================================
-import { aiChatService } from './utils/aiChatService';
-import { conversationManager } from './utils/conversationManager';
-import { aiChatRateLimiter } from './utils/rateLimiter';
+  // ⚠️ DISABLED - Duplicate with ai-module mention handler
+  // client.on('messageCreate', async (message) => {
+//   // Ignore bot messages
+//   if (message.author.bot) return;
+//   
+//   // Only in guilds
+//   if (!message.guild) return;
 
-client.on('messageCreate', async (message) => {
-  // Ignore bot messages
-  if (message.author.bot) return;
-  
-  // Only in guilds
-  if (!message.guild) return;
+//   const config = conversationManager.getConfig();
 
-  const config = conversationManager.getConfig();
+//   // Check if auto-reply is enabled
+//   if (!config.autoReplyOnMention) return;
 
-  // Check if auto-reply is enabled
-  if (!config.autoReplyOnMention) return;
+//   // Check if bot is mentioned
+//   const botMentioned = message.mentions.has(client.user!);
+//   if (!botMentioned) return;
 
-  // Check if bot is mentioned
-  const botMentioned = message.mentions.has(client.user!);
-  if (!botMentioned) return;
+//   // ⚡ Rate limiting - Prevent spam
+//   if (!aiChatRateLimiter.check(message.author.id)) {
+//     const info = aiChatRateLimiter.getInfo(message.author.id);
+//     return message.reply(`⏱️ Bạn đang gửi tin nhắn quá nhanh! Vui lòng đợi ${info.resetIn}s nữa.`);
+//   }
 
-  // ⚡ Rate limiting - Prevent spam
-  if (!aiChatRateLimiter.check(message.author.id)) {
-    const info = aiChatRateLimiter.getInfo(message.author.id);
-    return message.reply(`⏱️ Bạn đang gửi tin nhắn quá nhanh! Vui lòng đợi ${info.resetIn}s nữa.`);
-  }
+//   // Check if user is blacklisted
+//   if (conversationManager.isUserBlacklisted(message.author.id)) return;
 
-  // Check if user is blacklisted
-  if (conversationManager.isUserBlacklisted(message.author.id)) return;
+//   // Check if channel is allowed
+//   if (!conversationManager.isChannelAllowed(message.channel.id)) return;
 
-  // Check if channel is allowed
-  if (!conversationManager.isChannelAllowed(message.channel.id)) return;
+//   // Check if AI service is available
+//   if (!aiChatService.isAvailable()) {
+//     return message.reply('❌ AI service chưa được cấu hình');
+//   }
 
-  // Check if AI service is available
-  if (!aiChatService.isAvailable()) {
-    return message.reply('❌ AI service chưa được cấu hình');
-  }
+//   try {
+//     // Show typing indicator
+//     await message.channel.sendTyping();
 
-  try {
-    // Show typing indicator
-    await message.channel.sendTyping();
+//     // Remove mention from message
+//     let userMessage = message.content
+//       .replace(/<@!?\d+>/g, '')
+//       .trim();
 
-    // Remove mention from message
-    let userMessage = message.content
-      .replace(/<@!?\d+>/g, '')
-      .trim();
+//     if (!userMessage) {
+//       return message.reply('💭 Bạn muốn hỏi gì?');
+//     }
 
-    if (!userMessage) {
-      return message.reply('💭 Bạn muốn hỏi gì?');
-    }
+//     // Get AI response with retry on rate limit
+//     let response: any = null;
+//     let retries = 0;
+//     const maxRetries = 2;
+//     let currentModel = 'openai/gpt-oss-20b'; // Fastest (1000 T/s)
+//     
+//     while (retries <= maxRetries) {
+//       response = await aiChatService.chat(
+//         message.author.id,
+//         message.guild.id,
+//         userMessage,
+//         { model: currentModel }
+//       );
 
-    // Get AI response
-    const response = await aiChatService.chat(
-      message.author.id,
-      message.guild.id,
-      userMessage,
-      { model: 'openai/gpt-oss-20b' } // Fastest (1000 T/s)
-    );
+//       // Success
+//       if (response.success) break;
 
-    if (!response.success) {
-      return message.reply(`❌ Lỗi: ${response.error}`);
-    }
+//       // Rate limit - try fallback model or retry
+//       if (response.error?.includes('rate_limit') || response.error?.includes('429')) {
+//         retries++;
+//         
+//         // First retry: switch to Llama 3.1 8B (less rate limit)
+//         if (retries === 1 && currentModel === 'openai/gpt-oss-20b') {
+//           currentModel = 'llama-3.1-8b-instant';
+//           console.log('⏳ Rate limit on GPT-OSS, switching to Llama 3.1 8B...');
+//           continue;
+//         }
+//         
+//         // Second retry: wait and try again
+//         if (retries <= maxRetries) {
+//           const delay = 5000;
+//           console.log(`⏳ Rate limit hit, retrying in ${delay/1000}s (attempt ${retries}/${maxRetries})`);
+//           await new Promise(resolve => setTimeout(resolve, delay));
+//           continue;
+//         }
+//       }
+//       
+//       // Other errors or max retries reached
+//       break;
+//     }
 
-    // Split long messages
-    const maxLength = 2000;
-    const responseText = response.message || 'No response';
+//     if (!response || !response.success) {
+//       return message.reply(`❌ Lỗi: ${response?.error || 'Unknown error'}`);
+//     }
 
-    if (responseText.length <= maxLength) {
-      await message.reply(responseText);
-    } else {
-      // Send first chunk as reply
-      await message.reply(responseText.substring(0, maxLength));
+//     // Split long messages
+//     const maxLength = 2000;
+//     const responseText = response.message || 'No response';
 
-      // Send remaining chunks
-      for (let i = maxLength; i < responseText.length; i += maxLength) {
-        await message.channel.send(responseText.substring(i, i + maxLength));
-      }
-    }
+//     if (responseText.length <= maxLength) {
+//       await message.reply(responseText);
+//     } else {
+//       // Send first chunk as reply
+//       await message.reply(responseText.substring(0, maxLength));
 
-  } catch (error) {
-    console.error('AI chat error:', error);
-    message.reply('❌ Có lỗi xảy ra khi xử lý tin nhắn');
-  }
-});
+//       // Send remaining chunks
+//       for (let i = maxLength; i < responseText.length; i += maxLength) {
+//         await message.channel.send(responseText.substring(i, i + maxLength));
+//       }
+//     }
 
-console.log('✅ AI Chat auto-reply listener initialized');
+//   } catch (error) {
+//     console.error('AI chat error:', error);
+//     message.reply('❌ Có lỗi xảy ra khi xử lý tin nhắn');
+//   }
+// });
+
+// console.log('✅ AI Chat auto-reply listener initialized');
 
 // ============================================
 // MEMORY OPTIMIZER - Auto cleanup every 30 minutes
 // ============================================
-import { memoryOptimizer } from './utils/memoryOptimizer';
 
 // Bắt đầu auto cleanup sau 5 phút bot chạy (đợi load xong)
 setTimeout(() => {
@@ -428,6 +546,16 @@ process.on('unhandledRejection', (reason: any, promise) => {
     return;
   }
   
+  // ⚠️ Silent ignore for AbortError from discord-voip (voice connection timeout)
+  if (reason?.name === 'AbortError' || reason?.code === 'ABORT_ERR') {
+    return;
+  }
+  
+  // ⚠️ Silent ignore for "Cannot perform IP discovery - socket closed" from discord-voip
+  if (reason?.message?.includes('Cannot perform IP discovery') || reason?.message?.includes('socket closed')) {
+    return;
+  }
+  
   console.error('🚨 Unhandled Rejection at:', promise);
   console.error('Reason:', reason);
   console.error('Stack:', reason?.stack);
@@ -445,6 +573,16 @@ process.on('uncaughtException', (error: Error) => {
     return;
   }
   
+  // ⚠️ Silent ignore for AbortError from discord-voip
+  if ((error as any).name === 'AbortError' || (error as any).code === 'ABORT_ERR') {
+    return;
+  }
+  
+  // ⚠️ Silent ignore for "Cannot perform IP discovery - socket closed" from discord-voip
+  if (error.message?.includes('Cannot perform IP discovery') || error.message?.includes('socket closed')) {
+    return;
+  }
+  
   console.error('🚨 Uncaught Exception:', error);
   console.error('Stack:', error.stack);
   
@@ -454,6 +592,11 @@ process.on('uncaughtException', (error: Error) => {
 
 // Handle warnings (optional - helps debug)
 process.on('warning', (warning) => {
+  // ⚠️ Silent ignore for AbortError from discord-voip
+  if (warning.name === 'AbortError' || warning.message?.includes('discord-voip')) {
+    return;
+  }
+  
   console.warn('⚠️ Process Warning:', warning.name);
   console.warn('Message:', warning.message);
   if (warning.stack) {
@@ -462,3 +605,5 @@ process.on('warning', (warning) => {
 });
 
 console.log('✅ Global error handlers registered');
+
+} // End of startBot()
