@@ -254,6 +254,15 @@ const clearedCard = () =>
 export default class AIModule {
   name = 'ai-module';
   description = 'Enhanced AI chat with memory and multiple models';
+
+  /**
+   * Check if a provider is available (has at least one working key)
+   */
+  private checkProviderAvailable(provider: Provider): boolean {
+    if (provider === 'groq') return keyRotator.getGroqKey() !== null;
+    if (provider === 'gemini') return keyRotator.getGeminiKey() !== null;
+    return false;
+  }
   version = '1.2.0';
   enabled = true;
   client: Client;
@@ -273,8 +282,25 @@ export default class AIModule {
   }
 
   private checkKeys() {
-    console.log(keyRotator.getGroqKey() ? '  ✅ Groq initialized' : '  ⚠ No Groq keys available');
-    console.log(keyRotator.getGeminiKey() ? '  ✅ Gemini initialized' : '  ⚠ No Gemini keys available');
+    const groqAvailable = keyRotator.getGroqKey() !== null;
+    const geminiAvailable = keyRotator.getGeminiKey() !== null;
+    
+    if (groqAvailable) {
+      console.log('  ✅ Groq API keys loaded');
+    } else {
+      console.warn('  ⚠️  No Groq keys available - Groq models disabled');
+    }
+    
+    if (geminiAvailable) {
+      console.log('  ✅ Gemini API keys loaded');
+    } else {
+      console.warn('  ⚠️  No Gemini keys available - Gemini models disabled');
+    }
+    
+    if (!groqAvailable && !geminiAvailable) {
+      console.error('  ❌ NO AI PROVIDERS AVAILABLE - /ai command will not work');
+      console.error('  💡 Add GROQ_API_KEYS or GEMINI_API_KEY to environment variables');
+    }
   }
 
   private registerCommands() {
@@ -514,6 +540,41 @@ export default class AIModule {
         const provider = modelOption.slice(0, idx) as Provider;
         const modelId = modelOption.slice(idx + 1);
 
+        // Check if provider is available BEFORE showing loading card
+        if (!this.checkProviderAvailable(provider)) {
+          // Try auto-fallback to alternate provider
+          const alternateProvider: Provider = provider === 'groq' ? 'gemini' : 'groq';
+          if (this.checkProviderAvailable(alternateProvider)) {
+            console.log(`[AI] Auto-switching from ${provider} to ${alternateProvider}`);
+            // Use default model of alternate provider
+            const alternateModel = alternateProvider === 'groq' 
+              ? 'openai/gpt-oss-20b' 
+              : 'gemini-2.0-flash-exp';
+            
+            await interaction.editReply({ 
+              components: [simple(0xfee75c, `⚠️ ${provider} không khả dụng`, `-# Đã tự động chuyển sang ${alternateProvider}`)], 
+              flags: V2 
+            } as any);
+            
+            // Wait 1s then continue with alternate provider
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Recursive call with alternate provider
+            const newModelOption = `${alternateProvider}:${alternateModel}`;
+            interaction.options['_hoistedOptions'] = interaction.options['_hoistedOptions'].map((opt: any) => 
+              opt.name === 'model' ? {...opt, value: newModelOption} : opt
+            );
+            return this.handleAIChat(interaction);
+          } else {
+            // No providers available
+            await interaction.editReply({
+              components: [errorCard(`${provider} không khả dụng và không có provider thay thế. Vui lòng thử lại sau.`)],
+              flags: V2
+            } as any);
+            return;
+          }
+        }
+
         // Hiện thẻ "đang suy nghĩ" kèm tên model
         await interaction.editReply({ components: [loadingCard(provider, modelId, style)], flags: V2 } as any);
 
@@ -577,7 +638,7 @@ export default class AIModule {
 
   private async chatWithGroq(model: string, style: string, history: ChatMessage[]): Promise<string> {
     const key = keyRotator.getGroqKey();
-    if (!key) throw new Error('Groq is not initialized (no keys available)');
+    if (!key) throw new Error('Groq không khả dụng (không có API key hoặc tất cả keys bị rate limit)');
 
     const systemPrompt = SYSTEM_PROMPTS[style as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.default;
     const messages = [{ role: 'system', content: systemPrompt }, ...history];
@@ -601,7 +662,7 @@ export default class AIModule {
 
   private async chatWithGemini(model: string, style: string, history: ChatMessage[]): Promise<string> {
     const key = keyRotator.getGeminiKey();
-    if (!key) throw new Error('Gemini is not initialized (no keys available)');
+    if (!key) throw new Error('Gemini không khả dụng (không có API key hoặc tất cả keys bị rate limit)');
 
     const systemPrompt = SYSTEM_PROMPTS[style as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.default;
 
