@@ -20,6 +20,7 @@ import {
   ButtonStyle,
 } from 'discord.js';
 import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { addTransaction } from '../balance-module/entry_point';
 import fs from 'fs';
 import path from 'path';
 
@@ -409,7 +410,8 @@ async function onComponent(i: MessageComponentInteraction | StringSelectMenuInte
     }
 
     s.earned += gained;
-    addCoinsToUser(uid, gained);
+    // Cộng coins vào Turso database thay vì JSON
+    await addTransaction(uid, 'earn', gained, 'coins', `Quest rewards: ${count} completed`);
     saveUser(uid, u);
 
     await i.editReply(buildQuest(i.client, i.user, period as Period));
@@ -417,7 +419,7 @@ async function onComponent(i: MessageComponentInteraction | StringSelectMenuInte
     const lines = [
       `✅ **Nhận thưởng thành công!**`,
       `🏆 Hoàn thành **${count}** nhiệm vụ`,
-      `${COIN} Nhận **+${fmt(gained)}** • Số dư: **${fmt(getUserBalance(uid))}**`,
+      `${COIN} Nhận **+${fmt(gained)}**`,
     ];
 
     if (clipped) {
