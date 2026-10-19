@@ -1,10 +1,6 @@
 // Admin command to reset daily for testing
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-const db = new Database(path.join(dataDir, 'economy.db'));
+import { getTursoDatabase } from '../database/turso';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-reset-daily')
@@ -21,10 +17,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const targetUser = interaction.options.getUser('user', true);
   
   try {
-    const stmt = db.prepare('UPDATE daily_users SET last_daily = NULL WHERE user_id = ?');
-    const result = stmt.run(targetUser.id);
+    const db = getTursoDatabase();
+    const result = await db.execute({
+      sql: 'UPDATE daily_users SET last_daily = NULL WHERE user_id = ?',
+      args: [targetUser.id]
+    });
     
-    if (result.changes > 0) {
+    if (result.rowsAffected > 0) {
       await interaction.reply({
         content: `✅ Đã reset daily cho ${targetUser.toString()}. User có thể dùng /daily lại!`,
         ephemeral: true

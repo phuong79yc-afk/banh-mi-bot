@@ -78,7 +78,7 @@ async function getTransactions(userId: string, limit: number = 20): Promise<Tran
   });
   
   const cols = result.columns;
-  return result.rows.map(row => ({
+  return result.rows.map((row: any) => ({
     id: Number(row[cols.indexOf('id')]),
     user_id: String(row[cols.indexOf('user_id')]),
     type: String(row[cols.indexOf('type')]),
@@ -308,7 +308,7 @@ const bulkCompensateCommand = {
       
       if (filter === 'all') {
         const result = await db.execute('SELECT * FROM daily_users');
-        users = result.rows.map(row => {
+        users = result.rows.map((row: any) => {
           const cols = result.columns;
           return {
             user_id: String(row[cols.indexOf('user_id')]),
@@ -326,7 +326,7 @@ const bulkCompensateCommand = {
           sql: 'SELECT * FROM daily_users WHERE last_daily = ?',
           args: [today]
         });
-        users = result.rows.map(row => {
+        users = result.rows.map((row: any) => {
           const cols = result.columns;
           return {
             user_id: String(row[cols.indexOf('user_id')]),
@@ -340,7 +340,7 @@ const bulkCompensateCommand = {
         });
       } else if (filter === 'has-streak') {
         const result = await db.execute('SELECT * FROM daily_users WHERE streak > 0');
-        users = result.rows.map(row => {
+        users = result.rows.map((row: any) => {
           const cols = result.columns;
           return {
             user_id: String(row[cols.indexOf('user_id')]),

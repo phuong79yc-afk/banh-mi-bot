@@ -513,7 +513,7 @@ export default class DailyModule {
           args: []
         });
         
-        const leaderboard = result.rows.map(row => {
+        const leaderboard = result.rows.map((row: any) => {
           const cols = result.columns;
           return {
             user_id: String(row[cols.indexOf('user_id')]),
@@ -550,12 +550,12 @@ export default class DailyModule {
         container
           .addTextDisplayComponents(text(`# ${emojis.trophy} Bảng Xếp Hạng Điểm Danh`), text('-# Top 10 người điểm danh nhiều nhất'))
           .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-          .addTextDisplayComponents(text(top3.map((e, i) => line(e, i)).join('\n\n')));
+          .addTextDisplayComponents(text(top3.map((e: any, i: number) => line(e, i)).join('\n\n')));
 
         if (rest.length) {
           container
             .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-            .addTextDisplayComponents(text(rest.map((e, i) => line(e, i + 3)).join('\n')));
+            .addTextDisplayComponents(text(rest.map((e: any, i: number) => line(e, i + 3)).join('\n')));
         }
 
         container.addTextDisplayComponents(text('-# Banhcuon-bot'));

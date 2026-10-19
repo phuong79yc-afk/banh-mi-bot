@@ -1,0 +1,9 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    "Admin reset command unmigrated — src/modules/admin-reset-command.ts still imports and uses better-sqlite3 synchronously. Will break if better-sqlite3 is removed. Migrate to Turso or remove if unused.",
+    "Dashboard API unmigrated — src/web/api/dashboardRoutes.ts line 214 creates inline better-sqlite3 connections and calls db.close() after reads. This bypasses Turso entirely and reads stale local SQLite data. Migrate to Turso singleton.",
+    "Temp backup file present — temp_daily.ts at project root contains unmigrated better-sqlite3 code. Delete if this is a backup, or clarify if it's required runtime code."
+  ],
+  "reviewDoc": "d:\\projects\\code\\.agents\\tasks\\turso-migration-review.md"
+}

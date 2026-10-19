@@ -207,23 +207,20 @@ export function createDashboardRoutes(client: Client): Router {
   // ========================================
   
   // Get user coins (blue + gold)
-  router.get('/user/:userId/coins', (req: Request, res: Response) => {
+  router.get('/user/:userId/coins', async (req: Request, res: Response) => {
     const { userId } = req.params;
     
     try {
-      const Database = require('better-sqlite3');
-      const path = require('path');
-      const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-      const dbPath = path.join(dataDir, 'economy.db');
-      
-      const db = new Database(dbPath);
+      const { getTursoDatabase } = await import('../../database/turso');
+      const db = getTursoDatabase();
       
       // Get user data from database (balance = blue coins)
-      const row = db.prepare('SELECT balance, gold_balance FROM daily_users WHERE user_id = ?').get(userId);
+      const result = await db.execute({
+        sql: 'SELECT balance, gold_balance FROM daily_users WHERE user_id = ?',
+        args: [userId]
+      });
       
-      db.close();
-      
-      if (!row) {
+      if (result.rows.length === 0) {
         return res.json({
           success: true,
           blueCoins: 0,
@@ -232,11 +229,16 @@ export function createDashboardRoutes(client: Client): Router {
         });
       }
       
+      const row = result.rows[0];
+      const cols = result.columns;
+      const balance = Number(row[cols.indexOf('balance')]) || 0;
+      const goldBalance = Number(row[cols.indexOf('gold_balance')]) || 0;
+      
       res.json({
         success: true,
-        blueCoins: row.balance || 0,
-        goldCoins: row.gold_balance || 0,
-        coins: row.balance || 0 // legacy field for backward compatibility
+        blueCoins: balance,
+        goldCoins: goldBalance,
+        coins: balance // legacy field for backward compatibility
       });
     } catch (error) {
       console.error('Error fetching coins:', error);

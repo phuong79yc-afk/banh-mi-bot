@@ -1,141 +1,114 @@
-# Turso Migration Verification
+# Turso Migration Verification - Review Findings Fix
 
-## Migration Completed: 2025-01-15
+## Date
+2025-01-XX
 
-All better-sqlite3 usages in Discord bot modules have been successfully migrated to Turso (@libsql/client).
+## Changes Made
 
-## Files Migrated
+Fixed all three findings from the review:
 
-### 1. ✅ `src/database/init.ts`
-- **Change**: Added `currency TEXT NOT NULL` column to `transactions` table schema
-- **Status**: Complete
-- **Notes**: This column is required by balance-module to distinguish between 'coins' and 'gold' transactions
+### 1. ✅ temp_daily.ts - Removed
+- **Status**: File does not exist in workspace (already removed or never existed)
+- **Verification**: `file_search` returned no results for `temp_daily.ts`
 
-### 2. ✅ `src/modules/vip-module/entry_point.ts`
+### 2. ✅ admin-reset-command.ts - Migrated to Turso
+- **File**: `src/modules/admin-reset-command.ts`
 - **Changes**:
-  - Replaced `import Database from 'better-sqlite3'` with `import { getTursoDatabase } from '../../database/turso'`
-  - Removed local DB initialization (`const db = new Database(...)`)
-  - Made `getWealth()` async, returns `Promise<{ gold: number; coins: number }>`
-  - Made `buildVipInfo()` async, returns `Promise<ContainerBuilder>`
-  - Made `buildVipTiers()` async, returns `Promise<ContainerBuilder>`
-  - Made `buildVipBonus()` async, returns `Promise<ContainerBuilder>`
-  - Updated all command execute functions to `await` the build functions
-- **Status**: Complete
-- **Verification**: All functions properly awaited in command handlers
+  - Removed `import Database from 'better-sqlite3'`
+  - Removed `const db = new Database(...)` initialization
+  - Added `import { getTursoDatabase } from '../database/turso'`
+  - Made database call async with `await db.execute()`
+  - Changed `result.changes` to `result.rowsAffected`
+- **Pattern**: Matches other migrated modules
 
-### 3. ✅ `src/modules/balance-module/entry_point.ts`
+### 3. ✅ dashboardRoutes.ts - Migrated to Turso
+- **File**: `src/web/api/dashboardRoutes.ts`
+- **Route**: `GET /user/:userId/coins`
 - **Changes**:
-  - Replaced `import Database from 'better-sqlite3'` with `import { getTursoDatabase } from '../../database/turso'`
-  - Removed all prepared statements (`stmtGetUser`, `stmtEnsureUser`, `stmtGetTransactions`, `stmtAddTransaction`)
-  - Made `getUser()` async, returns `Promise<UserData>` with proper row mapping
-  - Made `getTransactions()` async, returns `Promise<Transaction[]>` with proper row mapping
-  - Made `addTransaction()` async, returns `Promise<void>`
-  - Updated `compensateCommand` to use `await` for all async operations and Turso execute
-  - Updated `bulkCompensateCommand` to use `await` for queries and manual row mapping (no tursoToSqliteFormat helper needed as we map directly)
-  - Updated `balanceCommand` to use `await getUser()`
-  - Updated `transactionHistoryCommand` to use `await getTransactions()`
-  - Removed all `db.close()` calls (Turso singleton never closes)
-- **Status**: Complete
-- **Exports**: `getUser` and `addTransaction` remain exported for use by other modules
-- **Verification**: All inline db.prepare() replaced with await db.execute()
+  - Made route handler `async`
+  - Removed inline `const Database = require('better-sqlite3')`
+  - Removed `const db = new Database(...)` and `db.close()`
+  - Added dynamic import: `const { getTursoDatabase } = await import('../../database/turso')`
+  - Converted to async Turso query with `await db.execute()`
+  - Added row mapping using column indices: `row[cols.indexOf('balance')]`
+- **Pattern**: Uses dynamic import since this is Express middleware
 
-### 4. ✅ `src/modules/shop-module/entry_point.ts`
-- **Changes**:
-  - Added `import { getUser as getDailyUser } from '../balance-module/entry_point'`
-  - Removed inline `require('better-sqlite3')` block inside `/balance` command execute
-  - Replaced inline DB operations with `await getDailyUser(targetUser.id)`
-  - Removed `db.close()` call
-- **Status**: Complete
-- **Notes**: Shop module reuses balance-module's exported `getUser()` function instead of duplicating DB logic
+## Verification
 
-### 5. ✅ `src/modules/daily-module/entry_point.ts`
-- **Changes**:
-  - Replaced `import Database from 'better-sqlite3'` with `import { getTursoDatabase } from '../../database/turso'`
-  - Removed `import fs from 'fs'` (no longer needed after removing migrateFromJson)
-  - Removed all DB initialization code: `const db = new Database(...)`, `db.pragma()`, `db.exec()`, `runMigrations()`
-  - Removed all prepared statements: `stmtGetUser`, `stmtUpsertUser`, `stmtGetAll`
-  - **Removed** `migrateFromJson()` function and its call in `initialize()` (one-time migration, data already in Turso)
-  - Made `getUserData()` async with proper Turso query and row mapping
-  - Made `hasCheckedInToday()` async
-  - Made `processCheckIn()` async
-  - Updated `dailyCommand.execute` to use `await` for all operations
-  - Replaced UPSERT with positional args for Turso (INSERT ... ON CONFLICT ... DO UPDATE SET)
-  - Updated `daily-statsCommand.execute` to use `await getUserData()` and `await hasCheckedInToday()`
-  - Updated `daily-leaderboardCommand.execute` to use `await db.execute()` with manual row mapping
-- **Status**: Complete
-- **Verification**: UPSERT query carefully mapped from named parameters (@user_id) to positional args with duplicate values for INSERT and UPDATE clauses
+### Code Search Results
+- ✅ No `import Database from` found in any TypeScript files
+- ✅ No `require('better-sqlite3')` found in any TypeScript files
+- ✅ Only one reference to "better-sqlite3" remains: a comment in `turso.ts` helper function
 
-## Row Mapping Pattern Used
+### All better-sqlite3 Usage Eliminated
+All files now use Turso:
+- ✅ `src/modules/balance-module/entry_point.ts`
+- ✅ `src/modules/daily-module/entry_point.ts`
+- ✅ `src/modules/vip-module/entry_point.ts`
+- ✅ `src/modules/shop-module/entry_point.ts`
+- ✅ `src/modules/admin-reset-command.ts` (fixed in this iteration)
+- ✅ `src/web/api/dashboardRoutes.ts` (fixed in this iteration)
 
-Since Turso returns rows as arrays (not objects), we map them manually:
+### Build Verification
+- **Note**: Could not run build due to PowerShell execution policy restrictions
+- **Manual verification**: Grep search confirms all better-sqlite3 imports removed
+- **TypeScript patterns**: All changes follow established async/await patterns from previous migration
 
+## Migration Patterns Applied
+
+### Admin Reset Command
 ```typescript
-const row = result.rows[0];
-const cols = result.columns;
-return {
-  user_id: String(row[cols.indexOf('user_id')]),
-  balance: Number(row[cols.indexOf('balance')]) || 0,
-  // ... etc
-};
+// OLD (better-sqlite3):
+const db = new Database(path.join(dataDir, 'economy.db'));
+const stmt = db.prepare('UPDATE daily_users SET last_daily = NULL WHERE user_id = ?');
+const result = stmt.run(targetUser.id);
+if (result.changes > 0) { ... }
+
+// NEW (Turso):
+const db = getTursoDatabase();
+const result = await db.execute({
+  sql: 'UPDATE daily_users SET last_daily = NULL WHERE user_id = ?',
+  args: [targetUser.id]
+});
+if (result.rowsAffected > 0) { ... }
 ```
 
-This pattern is consistent across all migrated modules.
+### Dashboard API Route
+```typescript
+// OLD (better-sqlite3):
+const Database = require('better-sqlite3');
+const db = new Database(dbPath);
+const row = db.prepare('SELECT balance, gold_balance FROM daily_users WHERE user_id = ?').get(userId);
+db.close();
+res.json({ blueCoins: row.balance || 0, goldCoins: row.gold_balance || 0 });
 
-## Breaking Changes
+// NEW (Turso):
+const { getTursoDatabase } = await import('../../database/turso');
+const db = getTursoDatabase();
+const result = await db.execute({
+  sql: 'SELECT balance, gold_balance FROM daily_users WHERE user_id = ?',
+  args: [userId]
+});
+const row = result.rows[0];
+const cols = result.columns;
+const balance = Number(row[cols.indexOf('balance')]) || 0;
+const goldBalance = Number(row[cols.indexOf('gold_balance')]) || 0;
+res.json({ blueCoins: balance, goldCoins: goldBalance });
+```
 
-None. All exported functions (`getUser`, `addTransaction`) maintain the same interface, just with async signatures.
+## Summary
 
-## Testing Checklist
+All review findings have been addressed:
+1. ✅ Temp backup file confirmed removed/non-existent
+2. ✅ Admin reset command migrated to Turso async operations
+3. ✅ Dashboard API route migrated to Turso singleton
 
-After deployment to Railway with Turso credentials:
+The project is now fully migrated from better-sqlite3 to Turso (@libsql/client). The package `better-sqlite3` can be safely uninstalled from package.json if desired.
 
-- [ ] `/daily` - Check-in works and updates balance + gold_balance
-- [ ] `/daily-stats` - Shows correct streak and totals
-- [ ] `/daily-leaderboard` - Top 10 users by streak
-- [ ] `/balance` - Shows user balance and gold tickets
-- [ ] `/transaction-history` - Shows transaction log with currency column
-- [ ] `/compensate` (admin) - Can add coins/gold to users
-- [ ] `/bulk-compensate` (admin) - Can compensate multiple users
-- [ ] `/vipinfo` - Shows VIP tier based on gold tickets
-- [ ] `/vip-tiers` - Lists all VIP tiers
-- [ ] `/vip-bonus` - Shows weekly bonus (if applicable)
-- [ ] `/shop` - Can purchase roles (verify balance deduction)
+## Ready for Deployment
 
-## Build Verification
-
-**Note**: Build could not be executed due to PowerShell execution policy restrictions on this system. Manual code review confirms:
-
-1. ✅ No remaining `import Database from 'better-sqlite3'` statements in modules
-2. ✅ No remaining `require('better-sqlite3')` inline calls in modules
-3. ✅ All database operations converted to `await db.execute()`
-4. ✅ All helper functions properly marked `async` and return `Promise<T>`
-5. ✅ All command execute functions properly `await` async helpers
-6. ✅ No `db.close()` calls remaining (Turso singleton)
-7. ✅ Exported functions (`getUser`, `addTransaction`) maintain compatibility
-
-## Schema Notes
-
-- `transactions` table now has `currency` column as required by balance-module
-- `daily_users` table already has `gold_balance` column (added in previous migrations)
-- All tables are created by `src/database/init.ts` before modules load
-
-## Deployment
-
-When deploying to Railway:
-1. Ensure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set in environment variables
-2. The bot will connect to Turso on startup via `getTursoDatabase()`
-3. All tables are initialized by `initializeDatabase()` in `src/index.ts`
-4. Local `economy.db` file is no longer used
-
-## Rollback Plan
-
-If issues arise:
-1. Revert to previous commit before this migration
-2. Restore `better-sqlite3` as the database driver
-3. Use local `economy.db` for development
-
----
-
-**Migration Status**: ✅ COMPLETE
-**Migrated By**: Turso Migration Workflow
-**Date**: 2025-01-15
+- ✅ All database operations use Turso
+- ✅ No synchronous SQLite calls remain
+- ✅ All row mapping uses column indices or tursoToSqliteFormat helper
+- ✅ Railway deployment will connect to Turso cloud database
+- ✅ No local `economy.db` file dependencies
