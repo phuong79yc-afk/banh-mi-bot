@@ -16,8 +16,7 @@ import {
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { picture, combineFiles } from '../../utils/pictureHelper';
-import Database from 'better-sqlite3';
-import fs from 'fs';
+import { getTursoDatabase } from '../../database/turso';
 import path from 'path';
 
 // ==================== CONFIGURATION CONSTANTS ====================
@@ -37,57 +36,6 @@ const ROLE_BONUS_CONFIG = [
 ];
 
 // ==================== DATABASE INITIALIZATION ====================
-// Ensure data directory exists (supports DATABASE_PATH env var for persistent storage)
-const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const db = new Database(path.join(dataDir, 'economy.db'));
-
-// Enable WAL mode for better concurrency and data consistency
-db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL');
-
-function runMigrations() {
-  const tableInfo = db.prepare('PRAGMA table_info(daily_users)').all() as any[];
-  const hasGoldBalance = tableInfo.some((col: any) => col.name === 'gold_balance');
-
-  if (!hasGoldBalance) {
-    console.log('[Migration] Adding gold_balance column to daily_users table...');
-    db.exec('ALTER TABLE daily_users ADD COLUMN gold_balance INTEGER NOT NULL DEFAULT 0');
-    console.log('[Migration] ✅ gold_balance column added successfully!');
-  }
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS daily_users (
-    user_id TEXT PRIMARY KEY,
-    balance INTEGER NOT NULL DEFAULT 0,
-    streak INTEGER NOT NULL DEFAULT 0,
-    max_streak INTEGER NOT NULL DEFAULT 0,
-    total_checkins INTEGER NOT NULL DEFAULT 0,
-    last_daily TEXT
-  )
-`);
-
-runMigrations();
-
-// Prepared statements
-const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
-const stmtUpsertUser = db.prepare(`
-  INSERT INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins, last_daily)
-  VALUES (@user_id, @balance, @gold_balance, @streak, @max_streak, @total_checkins, @last_daily)
-  ON CONFLICT(user_id) DO UPDATE SET
-    balance = balance + @balance,
-    gold_balance = gold_balance + @gold_balance,
-    streak = @streak,
-    max_streak = MAX(max_streak, @max_streak),
-    total_checkins = total_checkins + 1,
-    last_daily = @last_daily
-`);
-const stmtGetAll = db.prepare('SELECT * FROM daily_users ORDER BY streak DESC, total_checkins DESC LIMIT 10');
-
 interface UserDailyData {
   user_id: string;
   last_daily: string | null;
@@ -120,47 +68,16 @@ function getNextMidnightUnix(): number {
   return Math.floor((Date.UTC(y, m - 1, d + 1) - TZ_OFFSET_MS) / 1000);
 }
 
-// ==================== JSON → SQLITE MIGRATION ====================
-function migrateFromJson(): void {
-  const dataPath = path.join(dataDir, 'daily.json');
-  if (!fs.existsSync(dataPath)) {
-    console.log('[Daily] No daily.json found, skipping migration');
-    return;
-  }
-
-  try {
-    const jsonData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-    let migrated = 0;
-
-    const insertStmt = db.prepare(`
-      INSERT OR IGNORE INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    for (const [userId, userData] of Object.entries(jsonData) as [string, any][]) {
-      const result = insertStmt.run(
-        userId,
-        userData.total_rewards || 0,
-        userData.streak || userData.current_streak || 0,
-        userData.max_streak || 0,
-        userData.total_checkins || 0,
-        userData.lastDaily || userData.last_checkin_date || null
-      );
-
-      if (result.changes > 0) migrated++;
-    }
-
-    console.log(`[Daily] Migrated ${migrated} users from JSON to SQLite`);
-  } catch (error) {
-    console.error('[Daily] Migration error:', error);
-  }
-}
-
 // ==================== DATA ACCESS HELPERS ====================
-function getUserData(userId: string): UserDailyData {
-  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
-  return (
-    row ?? {
+async function getUserData(userId: string): Promise<UserDailyData> {
+  const db = getTursoDatabase();
+  const result = await db.execute({
+    sql: 'SELECT * FROM daily_users WHERE user_id = ?',
+    args: [userId]
+  });
+  
+  if (result.rows.length === 0) {
+    return {
       user_id: userId,
       balance: 0,
       gold_balance: 0,
@@ -168,13 +85,33 @@ function getUserData(userId: string): UserDailyData {
       max_streak: 0,
       total_checkins: 0,
       last_daily: null,
-    }
-  );
+    };
+  }
+  
+  const row = result.rows[0];
+  const cols = result.columns;
+  return {
+    user_id: String(row[cols.indexOf('user_id')]),
+    balance: Number(row[cols.indexOf('balance')]) || 0,
+    gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+    streak: Number(row[cols.indexOf('streak')]) || 0,
+    max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+    total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+    last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null,
+  };
 }
 
-function hasCheckedInToday(userId: string): boolean {
-  const row = stmtGetUser.get(userId) as UserDailyData | undefined;
-  return !!row?.last_daily && row.last_daily === getTodayString();
+async function hasCheckedInToday(userId: string): Promise<boolean> {
+  const db = getTursoDatabase();
+  const result = await db.execute({
+    sql: 'SELECT last_daily FROM daily_users WHERE user_id = ?',
+    args: [userId]
+  });
+  
+  if (result.rows.length === 0) return false;
+  
+  const lastDaily = result.rows[0][0];
+  return !!lastDaily && lastDaily === getTodayString();
 }
 
 // ==================== REWARD CALCULATION ====================
@@ -228,8 +165,8 @@ interface CheckInResult {
   streak?: number;
 }
 
-function processCheckIn(userId: string): CheckInResult {
-  const userData = getUserData(userId);
+async function processCheckIn(userId: string): Promise<CheckInResult> {
+  const userData = await getUserData(userId);
   const today = getTodayString();
 
   if (userData.last_daily) {
@@ -321,7 +258,6 @@ export default class DailyModule {
 
   async initialize() {
     console.log('📅 Daily check-in module initialized');
-    migrateFromJson();
     this.registerCommands();
     console.log(`✅ Daily module registered ${this.commands.size} commands`);
   }
@@ -344,11 +280,11 @@ export default class DailyModule {
         const nextMidnight = getNextMidnightUnix();
 
         // Bước 1: xử lý điểm danh
-        const result = processCheckIn(userId);
+        const result = await processCheckIn(userId);
 
         // ---------- Đã điểm danh hôm nay ----------
         if (result.alreadyClaimed) {
-          const data = getUserData(userId);
+          const data = await getUserData(userId);
           const { thumbUrl, files } = loadImages(avatar);
 
           const container = new ContainerBuilder();
@@ -390,19 +326,38 @@ export default class DailyModule {
         const streak = result.streak!;
         const rewards = calculateReward(streak, interaction);
 
-        const userDataBefore = getUserData(userId);
+        const userDataBefore = await getUserData(userId);
 
-        stmtUpsertUser.run({
-          user_id: userId,
-          balance: rewards.total,
-          gold_balance: 1, // 1 vé vàng mỗi lần daily
-          streak,
-          max_streak: Math.max(userDataBefore.max_streak, streak),
-          total_checkins: 1, // tăng thêm 1 qua mệnh đề UPDATE
-          last_daily: getTodayString(),
+        // Perform UPSERT with Turso
+        const db = getTursoDatabase();
+        await db.execute({
+          sql: `INSERT INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins, last_daily)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                  balance = balance + ?,
+                  gold_balance = gold_balance + ?,
+                  streak = ?,
+                  max_streak = MAX(max_streak, ?),
+                  total_checkins = total_checkins + 1,
+                  last_daily = ?`,
+          args: [
+            userId,
+            rewards.total,
+            1,  // gold_balance insert value
+            streak,
+            Math.max(userDataBefore.max_streak, streak),
+            1,  // total_checkins insert value (incremented in UPDATE)
+            getTodayString(),
+            // UPDATE clause values:
+            rewards.total,  // balance increment
+            1,              // gold_balance increment
+            streak,
+            Math.max(userDataBefore.max_streak, streak),
+            getTodayString()
+          ]
         });
 
-        const userDataAfter = getUserData(userId);
+        const userDataAfter = await getUserData(userId);
 
         // Ghi nhận tiến độ quest (dynamic import để tránh circular dependency)
         try {
@@ -492,8 +447,8 @@ export default class DailyModule {
         }
 
         const userId = interaction.user.id;
-        const data = getUserData(userId);
-        const checkedToday = hasCheckedInToday(userId);
+        const data = await getUserData(userId);
+        const checkedToday = await hasCheckedInToday(userId);
 
         const container = new ContainerBuilder();
 
@@ -552,7 +507,24 @@ export default class DailyModule {
           throw error;
         }
 
-        const leaderboard = stmtGetAll.all() as UserDailyData[];
+        const db = getTursoDatabase();
+        const result = await db.execute({
+          sql: 'SELECT * FROM daily_users ORDER BY streak DESC, total_checkins DESC LIMIT 10',
+          args: []
+        });
+        
+        const leaderboard = result.rows.map(row => {
+          const cols = result.columns;
+          return {
+            user_id: String(row[cols.indexOf('user_id')]),
+            balance: Number(row[cols.indexOf('balance')]) || 0,
+            gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+            streak: Number(row[cols.indexOf('streak')]) || 0,
+            max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+            total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+            last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null
+          } as UserDailyData;
+        });
 
         if (leaderboard.length === 0) {
           await interaction.editReply({

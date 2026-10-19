@@ -21,6 +21,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
+import { getUser as getDailyUser } from '../balance-module/entry_point';
 import fs from 'fs';
 import path from 'path';
 
@@ -849,23 +850,8 @@ export default class ShopModule {
         // Get balance from coins.json (shop uses coins.json for cowoncy)
         const bal = getUserBalance(targetUser.id);
 
-        // Get daily data for streak info
-        const Database = require('better-sqlite3');
-        const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-        const dbPath = path.join(dataDir, 'economy.db');
-        const db = new Database(dbPath);
-
-        let dailyData: any;
-        try {
-          db.prepare(`
-            INSERT OR IGNORE INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins)
-            VALUES (?, 0, 0, 0, 0, 0)
-          `).run(targetUser.id);
-
-          dailyData = db.prepare('SELECT * FROM daily_users WHERE user_id = ?').get(targetUser.id);
-        } finally {
-          db.close();
-        }
+        // Get daily data for streak info from Turso
+        const dailyData = await getDailyUser(targetUser.id);
 
         const card = new ContainerBuilder().addSectionComponents(
             new SectionBuilder()

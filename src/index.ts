@@ -129,7 +129,7 @@ async function initializeModules() {
   try {
     // ⚠️ CRITICAL: Initialize database schema BEFORE loading modules
     // Some modules query daily_users table immediately on load
-    initializeDatabase();
+    await initializeDatabase();
     
     // Pass absolute path to modules directory
     const modulesPath = path.resolve(__dirname, 'modules');

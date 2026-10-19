@@ -6,55 +6,10 @@ import {
   EmbedBuilder
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
-import Database from 'better-sqlite3';
+import { getTursoDatabase } from '../../database/turso';
 import path from 'path';
 
 // ==================== DATABASE ====================
-const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-const db = new Database(path.join(dataDir, 'economy.db'));
-
-// Enable WAL mode for better concurrency
-db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL');
-
-// Create transactions table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT NOT NULL,
-    type TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    currency TEXT NOT NULL,
-    description TEXT NOT NULL,
-    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES daily_users(user_id)
-  )
-`);
-
-// Create index for faster queries
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-  CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp DESC);
-`);
-
-const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
-const stmtEnsureUser = db.prepare(`
-  INSERT OR IGNORE INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins)
-  VALUES (?, 0, 0, 0, 0, 0)
-`);
-
-const stmtGetTransactions = db.prepare(`
-  SELECT * FROM transactions 
-  WHERE user_id = ? 
-  ORDER BY timestamp DESC 
-  LIMIT ?
-`);
-
-const stmtAddTransaction = db.prepare(`
-  INSERT INTO transactions (user_id, type, amount, currency, description, timestamp)
-  VALUES (?, ?, ?, ?, ?, datetime('now'))
-`);
-
 interface UserData {
   user_id: string;
   balance: number;
@@ -78,25 +33,75 @@ interface Transaction {
 // ==================== HELPER FUNCTIONS ====================
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 
-function getUser(userId: string): UserData {
-  stmtEnsureUser.run(userId);
-  // Force fresh read from database
-  const userData = stmtGetUser.get(userId) as UserData;
-  return userData;
+async function getUser(userId: string): Promise<UserData> {
+  const db = getTursoDatabase();
+  
+  // Ensure user exists
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins)
+          VALUES (?, 0, 0, 0, 0, 0)`,
+    args: [userId]
+  });
+  
+  // Fetch user data
+  const result = await db.execute({
+    sql: 'SELECT * FROM daily_users WHERE user_id = ?',
+    args: [userId]
+  });
+  
+  if (result.rows.length === 0) {
+    throw new Error('Failed to fetch user data after insert');
+  }
+  
+  // Map row array to UserData object using column names
+  const row = result.rows[0];
+  const cols = result.columns;
+  return {
+    user_id: String(row[cols.indexOf('user_id')]),
+    balance: Number(row[cols.indexOf('balance')]) || 0,
+    gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+    streak: Number(row[cols.indexOf('streak')]) || 0,
+    max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+    total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+    last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null
+  };
 }
 
-function getTransactions(userId: string, limit: number = 20): Transaction[] {
-  return stmtGetTransactions.all(userId, limit) as Transaction[];
+async function getTransactions(userId: string, limit: number = 20): Promise<Transaction[]> {
+  const db = getTursoDatabase();
+  const result = await db.execute({
+    sql: `SELECT * FROM transactions 
+          WHERE user_id = ? 
+          ORDER BY timestamp DESC 
+          LIMIT ?`,
+    args: [userId, limit]
+  });
+  
+  const cols = result.columns;
+  return result.rows.map(row => ({
+    id: Number(row[cols.indexOf('id')]),
+    user_id: String(row[cols.indexOf('user_id')]),
+    type: String(row[cols.indexOf('type')]),
+    amount: Number(row[cols.indexOf('amount')]),
+    currency: String(row[cols.indexOf('currency')]),
+    description: String(row[cols.indexOf('description')]),
+    timestamp: String(row[cols.indexOf('timestamp')])
+  }));
 }
 
-function addTransaction(
+async function addTransaction(
   userId: string,
   type: 'earn' | 'spend' | 'transfer' | 'admin',
   amount: number,
   currency: 'coins' | 'gold',
   description: string
-) {
-  stmtAddTransaction.run(userId, type, amount, currency, description);
+): Promise<void> {
+  const db = getTursoDatabase();
+  await db.execute({
+    sql: `INSERT INTO transactions (user_id, type, amount, currency, description, timestamp)
+          VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+    args: [userId, type, amount, currency, description]
+  });
 }
 
 // Export for other modules
@@ -166,27 +171,27 @@ const compensateCommand = {
 
     try {
       // Get current balance
-      const userData = getUser(targetUser.id);
+      const userData = await getUser(targetUser.id);
       
       // Update database
-      const stmtUpdate = db.prepare(`
-        UPDATE daily_users 
-        SET balance = balance + ?, gold_balance = gold_balance + ? 
-        WHERE user_id = ?
-      `);
-      
-      stmtUpdate.run(coins, gold, targetUser.id);
+      const db = getTursoDatabase();
+      await db.execute({
+        sql: `UPDATE daily_users 
+              SET balance = balance + ?, gold_balance = gold_balance + ? 
+              WHERE user_id = ?`,
+        args: [coins, gold, targetUser.id]
+      });
 
       // Record transactions
       if (coins > 0) {
-        addTransaction(targetUser.id, 'admin', coins, 'coins', `Đền bù: ${reason}`);
+        await addTransaction(targetUser.id, 'admin', coins, 'coins', `Đền bù: ${reason}`);
       }
       if (gold > 0) {
-        addTransaction(targetUser.id, 'admin', gold, 'gold', `Đền bù: ${reason}`);
+        await addTransaction(targetUser.id, 'admin', gold, 'gold', `Đền bù: ${reason}`);
       }
 
       // Get new balance
-      const newUserData = getUser(targetUser.id);
+      const newUserData = await getUser(targetUser.id);
 
       // Confirmation embed
       const embed = new EmbedBuilder()
@@ -298,15 +303,55 @@ const bulkCompensateCommand = {
 
     try {
       // Get users based on filter
+      const db = getTursoDatabase();
       let users: UserData[] = [];
       
       if (filter === 'all') {
-        users = db.prepare('SELECT * FROM daily_users').all() as UserData[];
+        const result = await db.execute('SELECT * FROM daily_users');
+        users = result.rows.map(row => {
+          const cols = result.columns;
+          return {
+            user_id: String(row[cols.indexOf('user_id')]),
+            balance: Number(row[cols.indexOf('balance')]) || 0,
+            gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+            streak: Number(row[cols.indexOf('streak')]) || 0,
+            max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+            total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+            last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null
+          };
+        });
       } else if (filter === 'daily-today') {
         const today = new Date().toISOString().split('T')[0];
-        users = db.prepare('SELECT * FROM daily_users WHERE last_daily = ?').all(today) as UserData[];
+        const result = await db.execute({
+          sql: 'SELECT * FROM daily_users WHERE last_daily = ?',
+          args: [today]
+        });
+        users = result.rows.map(row => {
+          const cols = result.columns;
+          return {
+            user_id: String(row[cols.indexOf('user_id')]),
+            balance: Number(row[cols.indexOf('balance')]) || 0,
+            gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+            streak: Number(row[cols.indexOf('streak')]) || 0,
+            max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+            total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+            last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null
+          };
+        });
       } else if (filter === 'has-streak') {
-        users = db.prepare('SELECT * FROM daily_users WHERE streak > 0').all() as UserData[];
+        const result = await db.execute('SELECT * FROM daily_users WHERE streak > 0');
+        users = result.rows.map(row => {
+          const cols = result.columns;
+          return {
+            user_id: String(row[cols.indexOf('user_id')]),
+            balance: Number(row[cols.indexOf('balance')]) || 0,
+            gold_balance: Number(row[cols.indexOf('gold_balance')]) || 0,
+            streak: Number(row[cols.indexOf('streak')]) || 0,
+            max_streak: Number(row[cols.indexOf('max_streak')]) || 0,
+            total_checkins: Number(row[cols.indexOf('total_checkins')]) || 0,
+            last_daily: row[cols.indexOf('last_daily')] ? String(row[cols.indexOf('last_daily')]) : null
+          };
+        });
       }
 
       if (users.length === 0) {
@@ -356,22 +401,21 @@ const bulkCompensateCommand = {
       }
 
       // Execute bulk compensation
-      const stmtUpdate = db.prepare(`
-        UPDATE daily_users 
-        SET balance = balance + ?, gold_balance = gold_balance + ? 
-        WHERE user_id = ?
-      `);
-
       let success = 0;
       for (const user of users) {
         try {
-          stmtUpdate.run(coins, gold, user.user_id);
+          await db.execute({
+            sql: `UPDATE daily_users 
+                  SET balance = balance + ?, gold_balance = gold_balance + ? 
+                  WHERE user_id = ?`,
+            args: [coins, gold, user.user_id]
+          });
           
           if (coins > 0) {
-            addTransaction(user.user_id, 'admin', coins, 'coins', `Đền bù hàng loạt: ${reason}`);
+            await addTransaction(user.user_id, 'admin', coins, 'coins', `Đền bù hàng loạt: ${reason}`);
           }
           if (gold > 0) {
-            addTransaction(user.user_id, 'admin', gold, 'gold', `Đền bù hàng loạt: ${reason}`);
+            await addTransaction(user.user_id, 'admin', gold, 'gold', `Đền bù hàng loạt: ${reason}`);
           }
           
           success++;
@@ -435,7 +479,7 @@ const balanceCommand = {
 
     const member = interaction.options.getMember('user') || interaction.member;
     const name = (member as any)?.displayName ?? targetUser.username;
-    const userData = getUser(targetUser.id);
+    const userData = await getUser(targetUser.id);
 
     const embed = new EmbedBuilder()
       .setColor(0x4e5058)
@@ -484,7 +528,7 @@ const transactionHistoryCommand = {
     const member = interaction.options.getMember('user') || interaction.member;
     const name = (member as any)?.displayName ?? targetUser.username;
     
-    const transactions = getTransactions(targetUser.id, limit);
+    const transactions = await getTransactions(targetUser.id, limit);
 
     if (transactions.length === 0) {
       const embed = new EmbedBuilder()

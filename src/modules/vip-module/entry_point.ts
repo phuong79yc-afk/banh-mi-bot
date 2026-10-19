@@ -12,9 +12,9 @@ import {
   TextDisplayBuilder,
   ThumbnailBuilder,
 } from 'discord.js';
-import Database from 'better-sqlite3';
 import path from 'path';
 import { emojis } from '../../config/emojis';
+import { getTursoDatabase } from '../../database/turso';
 
 // ==================== VIP TIERS ====================
 interface VIPTier {
@@ -214,20 +214,28 @@ const VIP_TIERS: VIPTier[] = [
 ];
 
 // ==================== DATABASE ====================
-const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), 'data');
-const db = new Database(path.join(dataDir, 'economy.db'));
-
 interface UserData {
   user_id: string;
   gold_balance: number;
   balance: number;
 }
 
-const stmtGetUser = db.prepare('SELECT * FROM daily_users WHERE user_id = ?');
-
-function getWealth(userId: string): { gold: number; coins: number } {
-  const row = stmtGetUser.get(userId) as UserData | undefined;
-  return { gold: row?.gold_balance ?? 0, coins: row?.balance ?? 0 };
+async function getWealth(userId: string): Promise<{ gold: number; coins: number }> {
+  const db = getTursoDatabase();
+  const result = await db.execute({
+    sql: 'SELECT gold_balance, balance FROM daily_users WHERE user_id = ?',
+    args: [userId]
+  });
+  
+  if (result.rows.length === 0) {
+    return { gold: 0, coins: 0 };
+  }
+  
+  const row = result.rows[0];
+  return {
+    gold: Number(row[0]) || 0,  // gold_balance is first column
+    coins: Number(row[1]) || 0  // balance is second column
+  };
 }
 
 // ==================== TIER HELPERS ====================
@@ -304,8 +312,8 @@ function fail(interaction: ChatInputCommandInteraction, label: string, error: un
 }
 
 // ==================== VIEWS ====================
-function buildVipInfo(interaction: ChatInputCommandInteraction): ContainerBuilder {
-  const { gold, coins } = getWealth(interaction.user.id);
+async function buildVipInfo(interaction: ChatInputCommandInteraction): Promise<ContainerBuilder> {
+  const { gold, coins } = await getWealth(interaction.user.id);
   const current = getVIPTier(gold);
   const next = getNextVIPTier(current.tier);
 
@@ -370,8 +378,8 @@ function buildVipInfo(interaction: ChatInputCommandInteraction): ContainerBuilde
   return box(current.color, blocks);
 }
 
-function buildVipTiers(client: Client, userId: string): ContainerBuilder {
-  const mine = getVIPTier(getWealth(userId).gold).tier;
+async function buildVipTiers(client: Client, userId: string): Promise<ContainerBuilder> {
+  const mine = getVIPTier((await getWealth(userId)).gold).tier;
 
   const lines = VIP_TIERS.map((t) => {
     const bonus = t.weeklyBonus > 0 ? ` • 🎁 ${formatNumber(t.weeklyBonus)} xu/tuần` : '';
@@ -394,8 +402,8 @@ function buildVipTiers(client: Client, userId: string): ContainerBuilder {
   ]);
 }
 
-function buildVipBonus(interaction: ChatInputCommandInteraction): ContainerBuilder {
-  const current = getVIPTier(getWealth(interaction.user.id).gold);
+async function buildVipBonus(interaction: ChatInputCommandInteraction): Promise<ContainerBuilder> {
+  const current = getVIPTier((await getWealth(interaction.user.id)).gold);
 
   if (current.weeklyBonus === 0) {
     const required = VIP_TIERS.find((t) => t.weeklyBonus > 0);
@@ -447,7 +455,7 @@ export default class VIPModule {
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await sendV2(interaction, buildVipInfo(interaction));
+          await sendV2(interaction, await buildVipInfo(interaction));
         } catch (error) {
           await fail(interaction, 'xem VIP info', error);
         }
@@ -461,7 +469,7 @@ export default class VIPModule {
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await sendV2(interaction, buildVipTiers(this.client, interaction.user.id));
+          await sendV2(interaction, await buildVipTiers(this.client, interaction.user.id));
         } catch (error) {
           await fail(interaction, 'xem VIP tiers', error);
         }
@@ -475,7 +483,7 @@ export default class VIPModule {
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await sendV2(interaction, buildVipBonus(interaction));
+          await sendV2(interaction, await buildVipBonus(interaction));
         } catch (error) {
           await fail(interaction, 'nhận VIP bonus', error);
         }
