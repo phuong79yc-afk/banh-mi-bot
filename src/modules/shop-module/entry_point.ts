@@ -847,10 +847,7 @@ export default class ShopModule {
 
         const name = member?.displayName ?? targetUser.username;
 
-        // Get balance from coins.json (shop uses coins.json for cowoncy)
-        const bal = getUserBalance(targetUser.id);
-
-        // Get daily data for streak info from Turso
+        // Get daily data from Turso (includes balance, gold, streak)
         const dailyData = await getDailyUser(targetUser.id);
 
         const card = new ContainerBuilder().addSectionComponents(
@@ -858,7 +855,7 @@ export default class ShopModule {
               .addTextDisplayComponents(
                 txt(`### ${emojis.coin} ${name}`),
                 txt(
-                  `**${formatNumber(bal.cowoncy)}** ${emojis.coin}  ·  **${dailyData?.gold_balance || 0}** ${emojis.gem}\n` +
+                  `**${formatNumber(dailyData?.balance || 0)}** ${emojis.coin}  ·  **${dailyData?.gold_balance || 0}** ${emojis.gem}\n` +
                     `${emojis.fire} Streak: **${dailyData?.streak || 0}** ngày  ·  ${emojis.chart} Check-ins: **${dailyData?.total_checkins || 0}** lần`,
                 ),
               )
