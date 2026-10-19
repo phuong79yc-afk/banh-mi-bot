@@ -381,14 +381,27 @@ export default class UtilityModule {
       .replace(/(\d+) months? ago/, '$1 tháng trước')
       .replace(/(\d+) years? ago/, '$1 năm trước');
 
+    // 🚂 Railway env variables (fallback nếu không có .git folder)
+    const railwayCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7);
+    const railwayBranch = process.env.RAILWAY_GIT_BRANCH;
+    const railwayRepo = process.env.RAILWAY_GIT_REPO_NAME;
+    const railwayOwner = process.env.RAILWAY_GIT_REPO_OWNER;
+
+    // Try git commands first (local dev có .git)
     try { 
       const branch = run('git branch --show-current');
       const count = run('git rev-list --count HEAD');
       if (branch && count) {
         branchInfo = `Branch: \`${branch}\` • ${count} commits`;
+      } else if (railwayBranch && railwayCommit) {
+        // Fallback to Railway env vars
+        branchInfo = `Branch: \`${railwayBranch}\` • Commit \`${railwayCommit}\``;
       }
     } catch (e) {
       console.error('[Git] Failed to get branch info:', e);
+      if (railwayBranch && railwayCommit) {
+        branchInfo = `Branch: \`${railwayBranch}\` • Commit \`${railwayCommit}\``;
+      }
     }
 
     try {
@@ -399,9 +412,15 @@ export default class UtilityModule {
         } else if (remote.startsWith('https://')) {
           repoUrl = remote.replace(/\.git$/, '');
         }
+      } else if (railwayOwner && railwayRepo) {
+        // Fallback to Railway env vars
+        repoUrl = `https://github.com/${railwayOwner}/${railwayRepo}`;
       }
     } catch (e) {
       console.error('[Git] Failed to get remote URL:', e);
+      if (railwayOwner && railwayRepo) {
+        repoUrl = `https://github.com/${railwayOwner}/${railwayRepo}`;
+      }
     }
 
     try {
@@ -412,9 +431,15 @@ export default class UtilityModule {
           const msg = rest.join('|').slice(0, 60);
           return `-# ${toVi(time)}  [\`${hash}\`](${repoUrl}/commit/${hash}) ${msg}`;
         }).join('\n');
+      } else if (railwayCommit) {
+        // Fallback: chỉ hiện commit hiện tại từ Railway
+        commitsText = `-# Latest deploy  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit}) Railway deployment`;
       }
     } catch (e) {
       console.error('[Git] Failed to get commit log:', e);
+      if (railwayCommit) {
+        commitsText = `-# Latest deploy  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit}) Railway deployment`;
+      }
     }
 
     return { repoUrl, branchInfo, commitsText };
