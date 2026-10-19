@@ -165,6 +165,54 @@ interface CheckInResult {
   streak?: number;
 }
 
+// ==================== REWARD CALCULATION ====================
+interface RewardResult {
+  base: number;
+  streakBonus: number;
+  streakCapped: boolean;
+  roleBonus: number;
+  roleId: string | null;
+  rolePercent: number | null;
+  roleName: string | null;
+  total: number;
+}
+
+function calculateRewards(member: any, streak: number): RewardResult {
+  const base = BASE_REWARD;
+  const rawStreakBonus = streak * STREAK_BONUS_PER_DAY;
+  const streakBonus = Math.min(rawStreakBonus, STREAK_BONUS_MAX);
+  const streakCapped = rawStreakBonus >= STREAK_BONUS_MAX;
+  
+  let roleBonus = 0;
+  let roleId: string | null = null;
+  let rolePercent: number | null = null;
+  let roleName: string | null = null;
+  
+  // Check role bonuses (highest priority wins)
+  for (const config of ROLE_BONUS_CONFIG) {
+    if (config.roleId && member.roles.cache.has(config.roleId)) {
+      const bonus = Math.floor(base * config.percent / 100);
+      if (bonus > roleBonus) {
+        roleBonus = bonus;
+        roleId = config.roleId;
+        rolePercent = config.percent;
+        roleName = config.name;
+      }
+    }
+  }
+  
+  return {
+    base,
+    streakBonus,
+    streakCapped,
+    roleBonus,
+    roleId,
+    rolePercent,
+    roleName,
+    total: base + streakBonus + roleBonus
+  };
+}
+
 async function processCheckIn(userId: string): Promise<CheckInResult> {
   const userData = await getUserData(userId);
   const today = getTodayString();
@@ -324,7 +372,8 @@ export default class DailyModule {
 
         // ---------- Điểm danh thành công ----------
         const streak = result.streak!;
-        const rewards = calculateReward(streak, interaction);
+        const member = interaction.member;
+        const rewards = calculateRewards(member, streak);
 
         const userDataBefore = await getUserData(userId);
 
