@@ -358,8 +358,19 @@ export default class UtilityModule {
     let branchInfo = 'Git info unavailable';
     let commitsText = '*Không thể lấy thông tin commit*';
 
-    const run = (cmd: string, timeout = 3000) =>
-      execSync(cmd, { cwd: process.cwd(), encoding: 'utf8', timeout }).trim();
+    const run = (cmd: string, timeout = 5000) => {
+      try {
+        return execSync(cmd, { 
+          cwd: process.cwd(), 
+          encoding: 'utf8', 
+          timeout,
+          windowsHide: true
+        }).trim();
+      } catch (error) {
+        console.error(`[Git] Command failed: ${cmd}`, error);
+        return '';
+      }
+    };
 
     const toVi = (t: string) => t
       .replace(/(\d+) seconds? ago/, '$1 giây trước')
@@ -370,22 +381,41 @@ export default class UtilityModule {
       .replace(/(\d+) months? ago/, '$1 tháng trước')
       .replace(/(\d+) years? ago/, '$1 năm trước');
 
-    try { branchInfo = `Branch: \`${run('git branch --show-current')}\` • ${run('git rev-list --count HEAD')} commits`; } catch {}
+    try { 
+      const branch = run('git branch --show-current');
+      const count = run('git rev-list --count HEAD');
+      if (branch && count) {
+        branchInfo = `Branch: \`${branch}\` • ${count} commits`;
+      }
+    } catch (e) {
+      console.error('[Git] Failed to get branch info:', e);
+    }
 
     try {
       const remote = run('git remote get-url origin');
-      if (remote.startsWith('git@github.com:')) repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace(/\.git$/, '');
-      else if (remote.startsWith('https://')) repoUrl = remote.replace(/\.git$/, '');
-    } catch {}
+      if (remote) {
+        if (remote.startsWith('git@github.com:')) {
+          repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace(/\.git$/, '');
+        } else if (remote.startsWith('https://')) {
+          repoUrl = remote.replace(/\.git$/, '');
+        }
+      }
+    } catch (e) {
+      console.error('[Git] Failed to get remote URL:', e);
+    }
 
     try {
-      const log = run('git log -5 --pretty=format:"%ar|%h|%s"', 5000);
-      commitsText = log.split('\n').map(line => {
-        const [time, hash, ...rest] = line.replace(/"/g, '').split('|');
-        const msg = rest.join('|').slice(0, 60);
-        return `-# ${toVi(time)}  [\`${hash}\`](${repoUrl}/commit/${hash}) ${msg}`;
-      }).join('\n');
-    } catch {}
+      const log = run('git log -5 --pretty=format:"%ar|%h|%s"');
+      if (log) {
+        commitsText = log.split('\n').filter(Boolean).map(line => {
+          const [time, hash, ...rest] = line.replace(/"/g, '').split('|');
+          const msg = rest.join('|').slice(0, 60);
+          return `-# ${toVi(time)}  [\`${hash}\`](${repoUrl}/commit/${hash}) ${msg}`;
+        }).join('\n');
+      }
+    } catch (e) {
+      console.error('[Git] Failed to get commit log:', e);
+    }
 
     return { repoUrl, branchInfo, commitsText };
   }
