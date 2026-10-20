@@ -353,93 +353,59 @@ export default class UtilityModule {
   }
 
   // Lấy thông tin git cho /information
-  private getGitInfo() {
-    let repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
-    let branchInfo = 'Git info unavailable';
-    let commitsText = '*Không thể lấy thông tin commit*';
-
-    const run = (cmd: string, timeout = 5000) => {
-      try {
-        return execSync(cmd, { 
-          cwd: process.cwd(), 
-          encoding: 'utf8', 
-          timeout,
-          windowsHide: true
-        }).trim();
-      } catch (error) {
-        console.error(`[Git] Command failed: ${cmd}`, error);
-        return '';
-      }
-    };
-
-    const toVi = (t: string) => t
-      .replace(/(\d+) seconds? ago/, '$1 giây trước')
-      .replace(/(\d+) minutes? ago/, '$1 phút trước')
-      .replace(/(\d+) hours? ago/, '$1 giờ trước')
-      .replace(/(\d+) days? ago/, '$1 ngày trước')
-      .replace(/(\d+) weeks? ago/, '$1 tuần trước')
-      .replace(/(\d+) months? ago/, '$1 tháng trước')
-      .replace(/(\d+) years? ago/, '$1 năm trước');
-
-    // 🚂 Railway env variables (fallback nếu không có .git folder)
+  private async getGitInfo() {
+    const repoOwner = 'phuong79yc-afk';
+    const repoName = 'banh-mi-bot';
+    const repoUrl = `https://github.com/${repoOwner}/${repoName}`;
+    
+    // Railway commit SHA (auto-updated on each deploy)
     const railwayCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7);
-    const railwayBranch = process.env.RAILWAY_GIT_BRANCH;
-    const railwayRepo = process.env.RAILWAY_GIT_REPO_NAME;
-    const railwayOwner = process.env.RAILWAY_GIT_REPO_OWNER;
-
-    // Try git commands first (local dev có .git)
-    try { 
-      const branch = run('git branch --show-current');
-      const count = run('git rev-list --count HEAD');
-      if (branch && count) {
-        branchInfo = `Branch: \`${branch}\` • ${count} commits`;
-      } else if (railwayBranch && railwayCommit) {
-        // Fallback to Railway env vars
-        branchInfo = `Branch: \`${railwayBranch}\` • Commit \`${railwayCommit}\``;
-      }
-    } catch (e) {
-      console.error('[Git] Failed to get branch info:', e);
-      if (railwayBranch && railwayCommit) {
-        branchInfo = `Branch: \`${railwayBranch}\` • Commit \`${railwayCommit}\``;
-      }
+    const railwayBranch = process.env.RAILWAY_GIT_BRANCH || 'main';
+    
+    let branchInfo = `Branch: \`${railwayBranch}\``;
+    if (railwayCommit) {
+      branchInfo += ` • Commit \`${railwayCommit}\``;
     }
+    
+    let commitsText = `-# Latest commit  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit})`;
 
+    // Fetch latest commits from GitHub API (real-time)
     try {
-      const remote = run('git remote get-url origin');
-      if (remote) {
-        if (remote.startsWith('git@github.com:')) {
-          repoUrl = remote.replace('git@github.com:', 'https://github.com/').replace(/\.git$/, '');
-        } else if (remote.startsWith('https://')) {
-          repoUrl = remote.replace(/\.git$/, '');
-        }
-      } else if (railwayOwner && railwayRepo) {
-        // Fallback to Railway env vars
-        repoUrl = `https://github.com/${railwayOwner}/${railwayRepo}`;
-      }
-    } catch (e) {
-      console.error('[Git] Failed to get remote URL:', e);
-      if (railwayOwner && railwayRepo) {
-        repoUrl = `https://github.com/${railwayOwner}/${railwayRepo}`;
-      }
-    }
-
-    try {
-      const log = run('git log -5 --pretty=format:"%ar|%h|%s"');
-      if (log) {
-        commitsText = log.split('\n').filter(Boolean).map(line => {
-          const [time, hash, ...rest] = line.replace(/"/g, '').split('|');
-          const msg = rest.join('|').slice(0, 60);
-          return `-# ${toVi(time)}  [\`${hash}\`](${repoUrl}/commit/${hash}) ${msg}`;
+      const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/commits?per_page=5`);
+      if (response.ok) {
+        const commits = await response.json() as Array<{
+          sha: string;
+          commit: {
+            message: string;
+            author: {
+              date: string;
+            };
+          };
+        }>;
+        const toVi = (date: string) => {
+          const now = Date.now();
+          const then = new Date(date).getTime();
+          const diff = Math.floor((now - then) / 1000);
+          
+          if (diff < 60) return `${diff} giây trước`;
+          if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+          if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+          if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+          if (diff < 2592000) return `${Math.floor(diff / 604800)} tuần trước`;
+          if (diff < 31536000) return `${Math.floor(diff / 2592000)} tháng trước`;
+          return `${Math.floor(diff / 31536000)} năm trước`;
+        };
+        
+        commitsText = commits.map((c) => {
+          const hash = c.sha.slice(0, 7);
+          const msg = c.commit.message.split('\n')[0].slice(0, 60);
+          const time = toVi(c.commit.author.date);
+          return `-# ${time}  [\`${hash}\`](${repoUrl}/commit/${c.sha}) ${msg}`;
         }).join('\n');
-      } else if (railwayCommit) {
-        // Fallback: chỉ hiện commit hiện tại từ Railway
-        commitsText = `-# Latest deploy  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit}) Railway deployment`;
       }
-    } catch (e) {
-      console.error('[Git] Failed to get commit log:', e);
-      if (railwayCommit) {
-        commitsText = `-# Latest deploy  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit}) Railway deployment`;
-      }
+    } catch (error) {
+      // Fallback if GitHub API fails
+      console.log('[Git] GitHub API fetch failed, using Railway commit only');
     }
 
     return { repoUrl, branchInfo, commitsText };
@@ -724,7 +690,7 @@ export default class UtilityModule {
         const memUsage = (mem.heapUsed / 1024 / 1024).toFixed(0);
         const memPercent = ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1);
 
-        const { repoUrl, branchInfo, commitsText } = self.getGitInfo();
+        const { repoUrl, branchInfo, commitsText } = await self.getGitInfo();
 
         let helpMention = '/help';
         try {
