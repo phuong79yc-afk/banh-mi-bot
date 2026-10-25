@@ -214,22 +214,31 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
     throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
   }
 
-  const isPhoto = /\/photo\//.test(url);
-  const imageUrls = page?.imageUrls?.length ? page.imageUrls : (oembed?.imageUrls ?? []);
+  const sources = [page, oembed];
+  const pick = <K extends keyof TikTokData>(key: K): TikTokData[K] | undefined => {
+    for (const src of sources) {
+      const v = src?.[key];
+      if (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== '') return v as TikTokData[K];
+    }
+    return undefined;
+  };
+
+  const imageUrls = pick('imageUrls') ?? [];
+  const stats = page?.stats ?? oembed?.stats;
 
   const data: TikTokData = {
     url,
-    isPhoto,
-    postId: page?.postId ?? oembed?.postId ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
-    caption: page?.caption || oembed?.caption || '',
-    tags: page?.tags?.length ? page.tags : (oembed?.tags ?? []),
-    authorName: page?.authorName || oembed?.authorName || 'Không rõ',
-    authorHandle: page?.authorHandle,
-    authorUrl: page?.authorUrl || oembed?.authorUrl,
+    isPhoto: /\/photo\//.test(url),
+    postId: pick('postId') ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
+    caption: pick('caption') ?? '',
+    tags: pick('tags') ?? [],
+    authorName: pick('authorName') ?? 'Không rõ',
+    authorHandle: pick('authorHandle'),
+    authorUrl: pick('authorUrl'),
     imageUrls,
-    totalImages: page?.totalImages ?? imageUrls.length,
-    stats: page?.stats,
-    music: page?.music,
+    totalImages: pick('totalImages') ?? imageUrls.length,
+    stats,
+    music: pick('music'),
   };
 
   cache.set(url, { at: Date.now(), data });
