@@ -1,79 +1,90 @@
+// TikTok Module - Tự tạo thẻ đẹp khi có link TikTok + lệnh /tiktok
+
 import {
-  ActionRowBuilder,
-  AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ChatInputCommandInteraction,
   Client,
   Collection,
-  ContainerBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
   Message,
-  MessageFlags,
+  User,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  AttachmentBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  SlashCommandBuilder,
-  TextDisplayBuilder,
-  User,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 
+// ==================== CONFIG ====================
 const AUTO_EMBED = true;
 const SUPPRESS_ORIGINAL = true;
 const MAX_LINKS_PER_MESSAGE = 2;
+const MAX_IMAGES = 4;
 const PLAYABLE_HOST = 'vxtiktok.com';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
-
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const COLOR_TIKTOK = 0xfe2c55;
 const COLOR_RED = 0xed4245;
+
+// ==================== COMPONENTS V2 HELPERS ====================
 const V2 = MessageFlags.IsComponentsV2;
 const NO_PING = { parse: [] as never[], repliedUser: false };
-
 const text = (content: string) => new TextDisplayBuilder().setContent(content);
-
 const divider = (size: SeparatorSpacingSize = SeparatorSpacingSize.Small) =>
   new SeparatorBuilder().setDivider(true).setSpacing(size);
 
 const linkButton = (label: string, url: string, emoji?: string) => {
-  const button = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url);
-  if (emoji) button.setEmoji(emoji);
-  return button;
+  const b = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url);
+  if (emoji) b.setEmoji(emoji);
+  return b;
 };
 
 const errorPayload = (content: string) => ({
-  components: [
-    new ContainerBuilder()
-      .setAccentColor(COLOR_RED)
-      .addTextDisplayComponents(text(`${emojis.error || '❌'} ${content}`)),
-  ],
+  components: [new ContainerBuilder().setAccentColor(COLOR_RED).addTextDisplayComponents(text(`${emojis.error || '❌'} ${content}`))],
   flags: V2 as any,
   allowedMentions: NO_PING,
 });
 
+// ==================== TIKTOK HELPERS ====================
 const TIKTOK_REGEX = /(?<!<)https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s<>)\]]+/gi;
+
+interface TikTokStats {
+  views?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+}
 
 interface TikTokData {
   url: string;
   isPhoto: boolean;
-  videoId?: string;
+  postId?: string;
   caption: string;
   tags: string[];
   authorName: string;
+  authorHandle?: string;
   authorUrl?: string;
-  thumbUrl?: string;
+  imageUrls: string[];
+  totalImages: number;
+  stats?: TikTokStats;
+  music?: string;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
   try {
     return await fetch(url, {
       ...init,
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Banhcuon-bot)', ...(init.headers ?? {}) },
+      headers: { 'User-Agent': BROWSER_UA, ...((init.headers as Record<string, string>) ?? {}) },
     });
   } finally {
     clearTimeout(timer);
@@ -81,20 +92,113 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Re
 }
 
 function cleanUrl(raw: string): string {
-  const url = new URL(raw);
-  url.search = '';
-  url.hash = '';
-  if (url.hostname === 'm.tiktok.com') url.hostname = 'www.tiktok.com';
-  return url.toString().replace(/\/$/, '');
+  const u = new URL(raw);
+  u.search = '';
+  u.hash = '';
+  if (u.hostname === 'm.tiktok.com') u.hostname = 'www.tiktok.com';
+  return u.toString().replace(/\/$/, '');
 }
 
 async function resolveUrl(raw: string): Promise<string> {
-  const url = new URL(raw);
-  const isShort = /^(vm|vt)\.tiktok\.com$/i.test(url.hostname) || /^\/t\//.test(url.pathname);
+  const u = new URL(raw);
+  const isShort = /^(vm|vt)\.tiktok\.com$/i.test(u.hostname) || /^\/t\//.test(u.pathname);
   if (!isShort) return cleanUrl(raw);
+  const res = await fetchWithTimeout(raw, { redirect: 'follow' });
+  return cleanUrl(res.url || raw);
+}
 
-  const response = await fetchWithTimeout(raw, { redirect: 'follow' });
-  return cleanUrl(response.url || raw);
+const decodeEntities = (s: string) =>
+  s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+
+const num = (v: unknown): number | undefined => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+function splitCaption(raw: string) {
+  const tags = Array.from(new Set(raw.match(/#[^\s#]+/g) ?? [])).slice(0, 8);
+  const caption = raw.replace(/#[^\s#]+/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return { caption, tags };
+}
+
+async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
+  try {
+    const res = await fetchWithTimeout(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const { caption, tags } = splitCaption((json.title ?? '').toString());
+    return {
+      postId: json.embed_product_id,
+      caption,
+      tags,
+      authorName: json.author_name,
+      authorUrl: json.author_url,
+      imageUrls: json.thumbnail_url ? [json.thumbnail_url] : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: { 'Accept-Language': 'en-US,en;q=0.9', Accept: 'text/html,application/xhtml+xml' },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const script = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
+    if (script) {
+      try {
+        const json = JSON.parse(script[1]);
+        const item = json?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
+        if (item) {
+          const { caption, tags } = splitCaption((item.desc ?? '').toString());
+          const photoUrls: string[] = (item.imagePost?.images ?? [])
+            .map((img: any) => img?.imageURL?.urlList?.[0])
+            .filter(Boolean);
+          const cover: string | undefined = item.video?.originCover || item.video?.cover || item.video?.dynamicCover;
+          const imageUrls = photoUrls.length ? photoUrls : cover ? [cover] : [];
+          const handle: string | undefined = item.author?.uniqueId;
+          return {
+            postId: item.id,
+            caption,
+            tags,
+            authorName: item.author?.nickname || handle,
+            authorHandle: handle ? `@${handle}` : undefined,
+            authorUrl: handle ? `https://www.tiktok.com/@${handle}` : undefined,
+            imageUrls,
+            totalImages: imageUrls.length,
+            stats: {
+              views: num(item.stats?.playCount),
+              likes: num(item.stats?.diggCount),
+              comments: num(item.stats?.commentCount),
+              shares: num(item.stats?.shareCount),
+            },
+            music: item.music?.title ? `${item.music.title}${item.music.authorName ? ` — ${item.music.authorName}` : ''}` : undefined,
+          };
+        }
+      } catch {
+        // Try OG fallback
+      }
+    }
+
+    const og = (prop: string) => {
+      const m =
+        html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']*)["']`, 'i')) ||
+        html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:${prop}["']`, 'i'));
+      return m ? decodeEntities(m[1]) : undefined;
+    };
+
+    const image = og('image');
+    const title = og('title') ?? og('description');
+    if (!image && !title) return null;
+    const { caption, tags } = splitCaption(title ?? '');
+    return { caption, tags, imageUrls: image ? [image] : [] };
+  } catch {
+    return null;
+  }
 }
 
 const cache = new Map<string, { at: number; data: TikTokData }>();
@@ -104,79 +208,79 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
-  const parsedUrl = new URL(url);
-  const photoMatch = parsedUrl.pathname.match(/^\/@([^/]+)\/photo\/(\d+)/i);
-  const response = await fetchWithTimeout(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
-  if (!response.ok) {
-    if (photoMatch) {
-      const data: TikTokData = {
-        url,
-        isPhoto: true,
-        videoId: photoMatch[2],
-        caption: '',
-        tags: [],
-        authorName: `@${photoMatch[1]}`,
-        authorUrl: `https://www.tiktok.com/@${photoMatch[1]}`,
-      };
-      cache.set(url, { at: Date.now(), data });
-      return data;
-    }
-    throw new Error('Không lấy được thông tin video (có thể đã bị xóa hoặc để riêng tư).');
+  const [oembed, page] = await Promise.all([fetchOEmbed(url), fetchPageData(url)]);
+
+  if (!oembed && !page) {
+    throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
   }
 
-  const json: any = await response.json();
-  const title: string = (json.title ?? '').toString();
-
-  const tags = Array.from(new Set(title.match(/#[^\s#]+/g) ?? [])).slice(0, 8);
-  const caption = title.replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+  const isPhoto = /\/photo\//.test(url);
+  const imageUrls = page?.imageUrls?.length ? page.imageUrls : (oembed?.imageUrls ?? []);
 
   const data: TikTokData = {
     url,
-    isPhoto: Boolean(photoMatch),
-    videoId: json.embed_product_id ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
-    caption,
-    tags,
-    authorName: json.author_name ?? 'Không rõ',
-    authorUrl: json.author_url,
-    thumbUrl: json.thumbnail_url,
+    isPhoto,
+    postId: page?.postId ?? oembed?.postId ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
+    caption: page?.caption || oembed?.caption || '',
+    tags: page?.tags?.length ? page.tags : (oembed?.tags ?? []),
+    authorName: page?.authorName || oembed?.authorName || 'Không rõ',
+    authorHandle: page?.authorHandle,
+    authorUrl: page?.authorUrl || oembed?.authorUrl,
+    imageUrls,
+    totalImages: page?.totalImages ?? imageUrls.length,
+    stats: page?.stats,
+    music: page?.music,
   };
 
   cache.set(url, { at: Date.now(), data });
   return data;
 }
 
-async function downloadThumbnail(url?: string): Promise<AttachmentBuilder | null> {
-  if (!url) return null;
+async function downloadImages(urls: string[], max: number): Promise<AttachmentBuilder[]> {
+  const results = await Promise.allSettled(
+    urls.slice(0, max).map(async (u) => {
+      const res = await fetchWithTimeout(u, { headers: { Referer: 'https://www.tiktok.com/' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    })
+  );
 
-  try {
-    const response = await fetchWithTimeout(url);
-    if (!response.ok) return null;
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return new AttachmentBuilder(buffer, { name: 'tiktok-thumb.jpg' });
-  } catch {
-    return null;
+  const files: AttachmentBuilder[] = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled') files.push(new AttachmentBuilder(r.value, { name: `tiktok-${files.length}.jpg` }));
   }
+  return files;
 }
 
-const truncate = (value: string, maxLength: number) =>
-  value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
+function compact(n?: number): string {
+  if (n === undefined) return '—';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1).replace('.', ',')}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace('.', ',')}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace('.', ',')}K`;
+  return String(n);
+}
 
 async function buildTikTokPayload(rawUrl: string, requester: User) {
   const data = await fetchTikTok(rawUrl);
-  const thumb = await downloadThumbnail(data.thumbUrl);
+  const files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
   const container = new ContainerBuilder().setAccentColor(COLOR_TIKTOK);
-  container.addTextDisplayComponents(text('-# 🎵 TIKTOK'));
+  container.addTextDisplayComponents(text(`-# 🎵 TIKTOK • ${data.isPhoto ? 'BÀI ĐĂNG ẢNH' : 'VIDEO'}`));
 
   const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
   container.addTextDisplayComponents(text(`# ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`));
 
-  if (thumb) {
+  if (files.length) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL('attachment://tiktok-thumb.jpg'),
-      ),
+        ...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`))
+      )
     );
+    if (data.isPhoto && data.totalImages > files.length) {
+      container.addTextDisplayComponents(text(`-# 📷 Còn ${data.totalImages - files.length} ảnh khác trong bài đăng`));
+    }
   }
 
   const body: string[] = [];
@@ -184,30 +288,35 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
     body.push(
       truncate(data.caption, 350)
         .split('\n')
-        .map((line) => `> ${line}`)
-        .join('\n'),
+        .map((l) => `> ${l}`)
+        .join('\n')
     );
   }
   if (data.tags.length) body.push(`-# ${data.tags.join(' ')}`);
+  if (body.length) container.addSeparatorComponents(divider()).addTextDisplayComponents(text(body.join('\n')));
 
-  if (body.length) {
+  if (data.stats && Object.values(data.stats).some((v) => v !== undefined)) {
+    const s = data.stats;
     container
       .addSeparatorComponents(divider())
-      .addTextDisplayComponents(text(body.join('\n')));
+      .addTextDisplayComponents(
+        text(`👁️ **${compact(s.views)}**  ·  ❤️ **${compact(s.likes)}**  ·  💬 **${compact(s.comments)}**  ·  🔁 **${compact(s.shares)}**`)
+      );
   }
 
-  const info = [`👤 **Tác giả:** ${authorLabel}`];
-  if (data.videoId) info.push(`🆔 **${data.isPhoto ? 'Bài đăng ID' : 'Video ID'}:** \`${data.videoId}\``);
+  const info: string[] = [`👤 **Tác giả:** ${authorLabel}${data.authorHandle ? ` (${data.authorHandle})` : ''}`];
+  if (data.music) info.push(`🎶 **Nhạc:** ${truncate(data.music, 80)}`);
+  if (data.postId) info.push(`🆔 **${data.isPhoto ? 'Bài đăng' : 'Video'} ID:** \`${data.postId}\``);
 
   container
     .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
     .addTextDisplayComponents(text(info.join('\n')));
 
   const buttons = [linkButton('Mở TikTok', data.url, '🎵')];
-  if (PLAYABLE_HOST && !data.isPhoto) {
+  if (PLAYABLE_HOST) {
     const playable = new URL(data.url);
     playable.hostname = PLAYABLE_HOST;
-    buttons.push(linkButton('Xem video', playable.toString(), '▶️'));
+    buttons.push(linkButton(data.isPhoto ? 'Xem bài đăng' : 'Xem video', playable.toString(), '▶️'));
   }
   if (data.authorUrl) buttons.push(linkButton('Trang cá nhân', data.authorUrl, '👤'));
 
@@ -220,19 +329,19 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
     components: [container],
     flags: V2 as any,
     allowedMentions: NO_PING,
-    files: thumb ? [thumb] : [],
+    files,
   };
 }
 
+// ==================== MODULE ====================
 export default class TikTokModule {
   name = 'tiktok-module';
   description = 'Tạo thẻ đẹp cho link TikTok';
-  version = '1.0.0';
+  version = '1.1.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
-
-  private messageHandler?: (message: Message) => Promise<void>;
+  private messageHandler?: (message: Message) => void;
 
   constructor(client: Client) {
     this.client = client;
@@ -251,9 +360,7 @@ export default class TikTokModule {
       data: new SlashCommandBuilder()
         .setName('tiktok')
         .setDescription('🎵 Tạo thẻ đẹp từ link TikTok')
-        .addStringOption((option) =>
-          option.setName('link').setDescription('Link video TikTok').setRequired(true),
-        ),
+        .addStringOption((o) => o.setName('link').setDescription('Link video hoặc bài đăng TikTok').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
@@ -268,7 +375,7 @@ export default class TikTokModule {
 
         if (!match) {
           await interaction.editReply(
-            errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`'),
+            errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`')
           );
           return;
         }
@@ -278,9 +385,7 @@ export default class TikTokModule {
         } catch (error) {
           console.error('[TikTok] /tiktok error:', error);
           await interaction.editReply(
-            errorPayload(
-              error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok, hãy thử lại sau!',
-            ),
+            errorPayload(error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok, hãy thử lại sau!')
           );
         }
       },
@@ -301,14 +406,14 @@ export default class TikTokModule {
         try {
           const payload = await buildTikTokPayload(link, message.author);
           await message.reply(payload);
-          posted += 1;
+          posted++;
         } catch (error) {
           console.error(`[TikTok] Không tạo được thẻ cho ${link}:`, error instanceof Error ? error.message : error);
         }
       }
 
       if (SUPPRESS_ORIGINAL && posted > 0) {
-        message.suppressEmbeds(true).catch(() => undefined);
+        message.suppressEmbeds(true).catch(() => {});
       }
     };
 
