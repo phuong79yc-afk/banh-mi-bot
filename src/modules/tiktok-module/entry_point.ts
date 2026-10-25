@@ -140,10 +140,53 @@ async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
   }
 }
 
+async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
+  try {
+    const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=0`);
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const d = json?.data;
+    if (json?.code !== 0 || !d) return null;
+
+    const { caption, tags } = splitCaption((d.title ?? '').toString());
+    const photos: string[] = Array.isArray(d.images) ? d.images.filter(Boolean) : [];
+    const cover: string | undefined = d.origin_cover || d.cover;
+    const imageUrls = photos.length ? photos : cover ? [cover] : [];
+    const handle: string | undefined = d.author?.unique_id;
+
+    return {
+      postId: d.id,
+      caption,
+      tags,
+      authorName: d.author?.nickname || handle,
+      authorHandle: handle ? `@${handle}` : undefined,
+      authorUrl: handle ? `https://www.tiktok.com/@${handle}` : undefined,
+      imageUrls,
+      totalImages: imageUrls.length,
+      stats: {
+        views: num(d.play_count),
+        likes: num(d.digg_count),
+        comments: num(d.comment_count),
+        shares: num(d.share_count),
+      },
+      music: d.music_info?.title ? `${d.music_info.title}${d.music_info.author ? ` — ${d.music_info.author}` : ''}` : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
   try {
     const res = await fetchWithTimeout(url, {
-      headers: { 'Accept-Language': 'en-US,en;q=0.9', Accept: 'text/html,application/xhtml+xml' },
+      headers: { 
+        'Accept-Language': 'en-US,en;q=0.9', 
+        Accept: 'text/html,application/xhtml+xml',
+        'Referer': 'https://www.tiktok.com/',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+      },
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -208,13 +251,21 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
-  const [oembed, page] = await Promise.all([fetchOEmbed(url), fetchPageData(url)]);
+  // Try API first (more reliable), then fallback to oEmbed and page scraping
+  const [api, oembed, page] = await Promise.all([
+    fetchApiData(url),
+    fetchOEmbed(url),
+    fetchPageData(url)
+  ]);
 
-  if (!oembed && !page) {
+  console.log(`[TikTok] Sources: api=${api ? 'ok' : 'fail'} | oembed=${oembed ? 'ok' : 'fail'} | page=${page ? 'ok' : 'fail'}`);
+
+  if (!api && !oembed && !page) {
     throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
   }
 
-  const sources = [page, oembed];
+  // Priority: API > page > oEmbed
+  const sources = [api, page, oembed];
   const pick = <K extends keyof TikTokData>(key: K): TikTokData[K] | undefined => {
     for (const src of sources) {
       const v = src?.[key];
@@ -224,7 +275,7 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   };
 
   const imageUrls = pick('imageUrls') ?? [];
-  const stats = page?.stats ?? oembed?.stats;
+  const stats = api?.stats ?? page?.stats ?? oembed?.stats;
 
   const data: TikTokData = {
     url,
