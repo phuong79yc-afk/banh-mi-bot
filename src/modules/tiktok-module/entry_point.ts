@@ -1,4 +1,4 @@
-// TikTok Module - Tự tạo thẻ đẹp khi có link TikTok + lệnh /tiktok
+// TikTok Module - Auto-embed TikTok links with video download
 
 import {
   Client,
@@ -7,6 +7,7 @@ import {
   ChatInputCommandInteraction,
   Message,
   User,
+  Guild,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -27,6 +28,8 @@ const SUPPRESS_ORIGINAL = true;
 const MAX_LINKS_PER_MESSAGE = 2;
 const MAX_IMAGES = 4;
 const PLAYABLE_HOST = 'vxtiktok.com';
+const ATTACH_VIDEO = true; // Download and attach video
+const VIDEO_TIMEOUT_MS = 30000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -75,6 +78,8 @@ interface TikTokData {
   totalImages: number;
   stats?: TikTokStats;
   music?: string;
+  videoUrl?: string;
+  videoSize?: number;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
@@ -134,42 +139,6 @@ async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
       authorName: json.author_name,
       authorUrl: json.author_url,
       imageUrls: json.thumbnail_url ? [json.thumbnail_url] : [],
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
-  try {
-    const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=0`);
-    if (!res.ok) return null;
-    const json: any = await res.json();
-    const d = json?.data;
-    if (json?.code !== 0 || !d) return null;
-
-    const { caption, tags } = splitCaption((d.title ?? '').toString());
-    const photos: string[] = Array.isArray(d.images) ? d.images.filter(Boolean) : [];
-    const cover: string | undefined = d.origin_cover || d.cover;
-    const imageUrls = photos.length ? photos : cover ? [cover] : [];
-    const handle: string | undefined = d.author?.unique_id;
-
-    return {
-      postId: d.id,
-      caption,
-      tags,
-      authorName: d.author?.nickname || handle,
-      authorHandle: handle ? `@${handle}` : undefined,
-      authorUrl: handle ? `https://www.tiktok.com/@${handle}` : undefined,
-      imageUrls,
-      totalImages: imageUrls.length,
-      stats: {
-        views: num(d.play_count),
-        likes: num(d.digg_count),
-        comments: num(d.comment_count),
-        shares: num(d.share_count),
-      },
-      music: d.music_info?.title ? `${d.music_info.title}${d.music_info.author ? ` — ${d.music_info.author}` : ''}` : undefined,
     };
   } catch {
     return null;
@@ -244,6 +213,45 @@ async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
   }
 }
 
+async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
+  try {
+    const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=0`);
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const d = json?.data;
+    if (json?.code !== 0 || !d) return null;
+
+    const { caption, tags } = splitCaption((d.title ?? '').toString());
+    const photos: string[] = Array.isArray(d.images) ? d.images.filter(Boolean) : [];
+    const cover: string | undefined = d.origin_cover || d.cover;
+    const imageUrls = photos.length ? photos : cover ? [cover] : [];
+    const handle: string | undefined = d.author?.unique_id;
+    const abs = (u?: string) => (u ? (u.startsWith('/') ? `https://www.tikwm.com${u}` : u) : undefined);
+
+    return {
+      postId: d.id,
+      caption,
+      tags,
+      authorName: d.author?.nickname || handle,
+      authorHandle: handle ? `@${handle}` : undefined,
+      authorUrl: handle ? `https://www.tiktok.com/@${handle}` : undefined,
+      imageUrls,
+      totalImages: imageUrls.length,
+      stats: {
+        views: num(d.play_count),
+        likes: num(d.digg_count),
+        comments: num(d.comment_count),
+        shares: num(d.share_count),
+      },
+      music: d.music_info?.title ? `${d.music_info.title}${d.music_info.author ? ` — ${d.music_info.author}` : ''}` : undefined,
+      videoUrl: abs(d.play || d.hdplay),
+      videoSize: num(d.size) ?? num(d.hd_size),
+    };
+  } catch {
+    return null;
+  }
+}
+
 const cache = new Map<string, { at: number; data: TikTokData }>();
 
 async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
@@ -251,7 +259,9 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
-  // Try API first (more reliable), then fallback to oEmbed and page scraping
+  const isPhotoUrl = /\/photo\//.test(url);
+  const needVideo = ATTACH_VIDEO && !isPhotoUrl;
+
   const [api, oembed, page] = await Promise.all([
     fetchApiData(url),
     fetchOEmbed(url),
@@ -264,7 +274,6 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
     throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
   }
 
-  // Priority: API > page > oEmbed
   const sources = [api, page, oembed];
   const pick = <K extends keyof TikTokData>(key: K): TikTokData[K] | undefined => {
     for (const src of sources) {
@@ -279,7 +288,7 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
 
   const data: TikTokData = {
     url,
-    isPhoto: /\/photo\//.test(url),
+    isPhoto: isPhotoUrl,
     postId: pick('postId') ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
     caption: pick('caption') ?? '',
     tags: pick('tags') ?? [],
@@ -290,6 +299,8 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
     totalImages: pick('totalImages') ?? imageUrls.length,
     stats,
     music: pick('music'),
+    videoUrl: pick('videoUrl'),
+    videoSize: pick('videoSize'),
   };
 
   cache.set(url, { at: Date.now(), data });
@@ -312,19 +323,82 @@ async function downloadImages(urls: string[], max: number): Promise<AttachmentBu
   return files;
 }
 
+function uploadLimitBytes(guild?: Guild | null): number {
+  const tier = guild?.premiumTier ?? 0;
+  const limitMb = tier >= 3 ? 100 : tier === 2 ? 50 : 10;
+  return limitMb * 1024 * 1024 - 512 * 1024;
+}
+
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+
+async function downloadVideo(url: string, maxBytes: number): Promise<AttachmentBuilder | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), VIDEO_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.tikwm.com/' },
+    });
+
+    if (!res.ok || !res.body) return null;
+
+    const declared = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) return null;
+
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    const reader = res.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > maxBytes) {
+        controller.abort();
+        return null;
+      }
+      chunks.push(value);
+    }
+
+    return new AttachmentBuilder(Buffer.concat(chunks), { name: 'tiktok.mp4' });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
 function compact(n?: number): string {
   if (n === undefined) return '—';
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1).replace('.', ',')}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace('.', ',')}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace('.', ',')}K`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return String(n);
 }
 
-async function buildTikTokPayload(rawUrl: string, requester: User) {
+async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild | null) {
   const data = await fetchTikTok(rawUrl);
-  const files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
+
+  let files: AttachmentBuilder[] = [];
+  let videoNote: string | undefined;
+
+  if (ATTACH_VIDEO && !data.isPhoto && data.videoUrl) {
+    const limit = uploadLimitBytes(guild);
+    if (data.videoSize && data.videoSize > limit) {
+      videoNote = `⚠️ Video ${mb(data.videoSize)} vượt giới hạn ${mb(limit)}`;
+    } else {
+      const video = await downloadVideo(data.videoUrl, limit);
+      if (video) {
+        files = [video];
+      } else {
+        videoNote = '⚠️ Không tải được video';
+      }
+    }
+  }
+
+  if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
   const container = new ContainerBuilder().setAccentColor(COLOR_TIKTOK);
   container.addTextDisplayComponents(text(`-# 🎵 TIKTOK • ${data.isPhoto ? 'BÀI ĐĂNG ẢNH' : 'VIDEO'}`));
@@ -339,7 +413,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
       )
     );
     if (data.isPhoto && data.totalImages > files.length) {
-      container.addTextDisplayComponents(text(`-# 📷 Còn ${data.totalImages - files.length} ảnh khác trong bài đăng`));
+      container.addTextDisplayComponents(text(`-# 📷 Còn ${data.totalImages - files.length} ảnh khác`));
     }
   }
 
@@ -382,8 +456,12 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
 
   container
     .addSeparatorComponents(divider())
-    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons))
-    .addTextDisplayComponents(text(`-# Chia sẻ bởi ${requester.username} • Banhcuon-bot`));
+    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
+
+  const foot: string[] = [];
+  if (videoNote) foot.push(videoNote);
+  foot.push(`Chia sẻ bởi ${requester.username} • Banhcuon-bot`);
+  container.addTextDisplayComponents(text(`-# ${foot.join(' • ')}`));
 
   return {
     components: [container],
@@ -396,8 +474,8 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
 // ==================== MODULE ====================
 export default class TikTokModule {
   name = 'tiktok-module';
-  description = 'Tạo thẻ đẹp cho link TikTok';
-  version = '1.1.0';
+  description = 'Tạo thẻ đẹp cho link TikTok + tải video';
+  version = '1.4.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -441,7 +519,7 @@ export default class TikTokModule {
         }
 
         try {
-          await interaction.editReply(await buildTikTokPayload(match[0], interaction.user));
+          await interaction.editReply(await buildTikTokPayload(match[0], interaction.user, interaction.guild));
         } catch (error) {
           console.error('[TikTok] /tiktok error:', error);
           await interaction.editReply(
@@ -461,10 +539,12 @@ export default class TikTokModule {
       const links = Array.from(new Set(message.content.match(TIKTOK_REGEX) ?? [])).slice(0, MAX_LINKS_PER_MESSAGE);
       if (!links.length) return;
 
+      if ('sendTyping' in message.channel) message.channel.sendTyping().catch(() => {});
+
       let posted = 0;
       for (const link of links) {
         try {
-          const payload = await buildTikTokPayload(link, message.author);
+          const payload = await buildTikTokPayload(link, message.author, message.guild);
           await message.reply(payload);
           posted++;
         } catch (error) {
