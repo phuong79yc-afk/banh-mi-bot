@@ -1,0 +1,18 @@
+{
+  "name": "tiktok-module",
+  "displayName": "TikTok Auto-Embed",
+  "description": "Tự động tạo thẻ đẹp cho link TikTok",
+  "version": "1.1.0",
+  "enabled": true,
+  "entry": "entry_point.ts",
+  "author": "Banh Mi Bot",
+  "dependencies": [],
+  "commands": ["tiktok"],
+  "features": [
+    "Auto-embed TikTok links in chat",
+    "Download TikTok videos/images",
+    "/tiktok command for manual embed",
+    "Components V2 with beautiful cards",
+    "Support photo posts and videos"
+  ]
+}
