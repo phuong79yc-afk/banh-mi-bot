@@ -24,7 +24,7 @@ import { emojis } from '../../config/emojis';
 const AUTO_EMBED = true;
 const SUPPRESS_ORIGINAL = true;
 const MAX_LINKS_PER_MESSAGE = 2;
-const MAX_IMAGES = 4;
+const MAX_IMAGES = 6;
 const PLAYABLE_HOST = 'vxtiktok.com';
 const ATTACH_VIDEO = true;
 const VIDEO_TIMEOUT_MS = 30000;
