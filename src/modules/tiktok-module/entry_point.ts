@@ -1,4 +1,4 @@
-// TikTok Module - Auto-embed TikTok links with video download
+// TikTok Module - Auto-embed with video download
 
 import {
   Client,
@@ -8,14 +8,12 @@ import {
   Message,
   User,
   Guild,
-  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
+  SectionBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
@@ -28,21 +26,31 @@ const SUPPRESS_ORIGINAL = true;
 const MAX_LINKS_PER_MESSAGE = 2;
 const MAX_IMAGES = 4;
 const PLAYABLE_HOST = 'vxtiktok.com';
-const ATTACH_VIDEO = true; // Download and attach video
+const ATTACH_VIDEO = true;
 const VIDEO_TIMEOUT_MS = 30000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const COLOR_TIKTOK = 0xfe2c55;
+
+const LIKE_TIERS = [
+  { min: 1_000_000, color: 0xfe2c55 },
+  { min: 100_000, color: 0xe67e22 },
+  { min: 10_000, color: 0x2ecc71 },
+  { min: 1_000, color: 0x3498db },
+  { min: 0, color: 0x95a5a6 },
+];
+const COLOR_UNKNOWN = 0x4e5058;
 const COLOR_RED = 0xed4245;
 
-// ==================== COMPONENTS V2 HELPERS ====================
+function colorByLikes(likes?: number): number {
+  if (likes === undefined) return COLOR_UNKNOWN;
+  return LIKE_TIERS.find((t) => likes >= t.min)!.color;
+}
+
+// ==================== HELPERS ====================
 const V2 = MessageFlags.IsComponentsV2;
 const NO_PING = { parse: [] as never[], repliedUser: false };
 const text = (content: string) => new TextDisplayBuilder().setContent(content);
-const divider = (size: SeparatorSpacingSize = SeparatorSpacingSize.Small) =>
-  new SeparatorBuilder().setDivider(true).setSpacing(size);
-
 const linkButton = (label: string, url: string, emoji?: string) => {
   const b = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url);
   if (emoji) b.setEmoji(emoji);
@@ -55,7 +63,6 @@ const errorPayload = (content: string) => ({
   allowedMentions: NO_PING,
 });
 
-// ==================== TIKTOK HELPERS ====================
 const TIKTOK_REGEX = /(?<!<)https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s<>)\]]+/gi;
 
 interface TikTokStats {
@@ -148,8 +155,8 @@ async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
 async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
   try {
     const res = await fetchWithTimeout(url, {
-      headers: { 
-        'Accept-Language': 'en-US,en;q=0.9', 
+      headers: {
+        'Accept-Language': 'en-US,en;q=0.9',
         Accept: 'text/html,application/xhtml+xml',
         'Referer': 'https://www.tiktok.com/',
         'Sec-Fetch-Dest': 'document',
@@ -192,7 +199,7 @@ async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
           };
         }
       } catch {
-        // Try OG fallback
+        // fallback
       }
     }
 
@@ -262,13 +269,9 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const isPhotoUrl = /\/photo\//.test(url);
   const needVideo = ATTACH_VIDEO && !isPhotoUrl;
 
-  const [api, oembed, page] = await Promise.all([
-    fetchApiData(url),
-    fetchOEmbed(url),
-    fetchPageData(url)
-  ]);
+  const [api, oembed, page] = await Promise.all([fetchApiData(url), fetchOEmbed(url), fetchPageData(url)]);
 
-  console.log(`[TikTok] Sources: api=${api ? 'ok' : 'fail'} | oembed=${oembed ? 'ok' : 'fail'} | page=${page ? 'ok' : 'fail'}`);
+  console.log(`[TikTok] api=${api ? 'ok' : 'fail'} | oembed=${oembed ? 'ok' : 'fail'} | page=${page ? 'ok' : 'fail'}`);
 
   if (!api && !oembed && !page) {
     throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
@@ -400,68 +403,52 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 
   if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
-  const container = new ContainerBuilder().setAccentColor(COLOR_TIKTOK);
-  container.addTextDisplayComponents(text(`-# 🎵 TIKTOK • ${data.isPhoto ? 'BÀI ĐĂNG ẢNH' : 'VIDEO'}`));
-
-  const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
-  container.addTextDisplayComponents(text(`# ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`));
+  const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
 
   if (files.length) {
     container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(
-        ...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`))
-      )
-    );
-    if (data.isPhoto && data.totalImages > files.length) {
-      container.addTextDisplayComponents(text(`-# 📷 Còn ${data.totalImages - files.length} ảnh khác`));
-    }
-  }
-
-  const body: string[] = [];
-  if (data.caption) {
-    body.push(
-      truncate(data.caption, 350)
-        .split('\n')
-        .map((l) => `> ${l}`)
-        .join('\n')
+      new MediaGalleryBuilder().addItems(...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`)))
     );
   }
-  if (data.tags.length) body.push(`-# ${data.tags.join(' ')}`);
-  if (body.length) container.addSeparatorComponents(divider()).addTextDisplayComponents(text(body.join('\n')));
 
-  if (data.stats && Object.values(data.stats).some((v) => v !== undefined)) {
-    const s = data.stats;
-    container
-      .addSeparatorComponents(divider())
-      .addTextDisplayComponents(
-        text(`👁️ **${compact(s.views)}**  ·  ❤️ **${compact(s.likes)}**  ·  💬 **${compact(s.comments)}**  ·  🔁 **${compact(s.shares)}**`)
-      );
+  const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
+  const hasVideoFile = files.some((f) => f.name === 'tiktok.mp4');
+
+  const head: string[] = [`### ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`];
+  if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
+  if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
+
+  const tail: string[] = [];
+  const st = data.stats;
+  if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
+    tail.push(`❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
   }
 
-  const info: string[] = [`👤 **Tác giả:** ${authorLabel}${data.authorHandle ? ` (${data.authorHandle})` : ''}`];
-  if (data.music) info.push(`🎶 **Nhạc:** ${truncate(data.music, 80)}`);
-  if (data.postId) info.push(`🆔 **${data.isPhoto ? 'Bài đăng' : 'Video'} ID:** \`${data.postId}\``);
+  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !hasVideoFile;
+  let buttonUrl = data.url;
+  let buttonLabel = 'Mở TikTok';
+  let buttonEmoji = '🎵';
 
-  container
-    .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-    .addTextDisplayComponents(text(info.join('\n')));
-
-  const buttons = [linkButton('Mở TikTok', data.url, '🎵')];
-  if (PLAYABLE_HOST) {
+  if (usePlayable) {
     const playable = new URL(data.url);
     playable.hostname = PLAYABLE_HOST;
-    buttons.push(linkButton(data.isPhoto ? 'Xem bài đăng' : 'Xem video', playable.toString(), '▶️'));
+    buttonUrl = playable.toString();
+    buttonLabel = 'Xem video';
+    buttonEmoji = '▶️';
   }
-  if (data.authorUrl) buttons.push(linkButton('Trang cá nhân', data.authorUrl, '👤'));
-
-  container
-    .addSeparatorComponents(divider())
-    .addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
   const foot: string[] = [];
+  if (usePlayable) foot.push(`[TikTok](${data.url})`);
+  if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
   if (videoNote) foot.push(videoNote);
-  foot.push(`Chia sẻ bởi ${requester.username} • Banhcuon-bot`);
-  container.addTextDisplayComponents(text(`-# ${foot.join(' • ')}`));
+  foot.push(`Chia sẻ bởi ${requester.username}`);
+  tail.push(`-# ${foot.join(' • ')}`);
+
+  container.addSectionComponents(
+    new SectionBuilder()
+      .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
+      .setButtonAccessory(linkButton(buttonLabel, buttonUrl, buttonEmoji))
+  );
 
   return {
     components: [container],
@@ -474,8 +461,8 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 // ==================== MODULE ====================
 export default class TikTokModule {
   name = 'tiktok-module';
-  description = 'Tạo thẻ đẹp cho link TikTok + tải video';
-  version = '1.4.0';
+  description = 'TikTok auto-embed with video download';
+  version = '1.5.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -512,9 +499,7 @@ export default class TikTokModule {
         const match = link.match(/https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s<>)\]]+/i);
 
         if (!match) {
-          await interaction.editReply(
-            errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`')
-          );
+          await interaction.editReply(errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`'));
           return;
         }
 
@@ -522,9 +507,7 @@ export default class TikTokModule {
           await interaction.editReply(await buildTikTokPayload(match[0], interaction.user, interaction.guild));
         } catch (error) {
           console.error('[TikTok] /tiktok error:', error);
-          await interaction.editReply(
-            errorPayload(error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok, hãy thử lại sau!')
-          );
+          await interaction.editReply(errorPayload(error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok!'));
         }
       },
     };
