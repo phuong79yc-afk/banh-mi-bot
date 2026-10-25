@@ -6,11 +6,11 @@ import {
 } from 'discord.js';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 import { emojis, EMOJI_IDS } from '../../config/emojis';
 import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import * as path from 'path';
 
 export default class UtilityModule {
   name = 'utility';
@@ -692,17 +692,42 @@ export default class UtilityModule {
 
         // Bot info
         const repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
-        const branchInfo = 'v2.5.0 • Railway Deployment';
         
-        // Latest updates changelog
-        const updates = [
-          '🎵 **TikTok Module** — Auto-embed cho link TikTok',
-          '🗄️ **Turso Database** — Persistent storage',
-          '💰 **Quest Rewards** — Hoàn thành quest nhận coins',
-          '🎨 **Components V2** — UI hiện đại hơn',
-          '🤖 **AI Chat** — Groq AI integration',
-        ];
-        const updatesText = updates.map(u => `-# ${u}`).join('\n');
+        // Read updates from UPDATES.md
+        let updatesText = '-# Đang tải...';
+        let branchInfo = 'Railway Deployment';
+        try {
+          const updatesPath = path.join(process.cwd(), 'UPDATES.md');
+          const updatesFile = fs.readFileSync(updatesPath, 'utf-8');
+          
+          // Extract version from first ## header
+          const versionMatch = updatesFile.match(/##\s+v([\d.]+)/);
+          if (versionMatch) {
+            branchInfo = `v${versionMatch[1]} • Railway Deployment`;
+          }
+          
+          // Extract first 5 bullet points from first version
+          const bullets = updatesFile
+            .split(/##\s+v[\d.]+/)[1] // Get first version section
+            ?.match(/^-\s+.+$/gm) // Find all bullet points
+            ?.slice(0, 5) // Take first 5
+            ?.map(line => `-# ${line.substring(2).trim()}`) // Format for Discord
+            ?.join('\n');
+          
+          if (bullets) {
+            updatesText = bullets;
+          }
+        } catch (error) {
+          console.error('[Info] Failed to read UPDATES.md:', error);
+          // Fallback
+          updatesText = [
+            '-# 🎵 **TikTok Module** — Auto-embed cho link TikTok',
+            '-# 🗄️ **Turso Database** — Persistent storage',
+            '-# 💰 **Quest Rewards** — Hoàn thành quest nhận coins',
+            '-# 🎨 **Components V2** — UI hiện đại hơn',
+            '-# 🤖 **AI Chat** — Groq AI integration',
+          ].join('\n');
+        }
 
         let helpMention = '/help';
         try {
