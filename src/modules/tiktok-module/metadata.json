@@ -1,0 +1,11 @@
+{
+  "name": "tiktok-module",
+  "version": "1.0.0",
+  "description": "Auto-detect TikTok links and create rich Components V2 cards",
+  "enabled": true,
+  "priority": 30,
+  "type": 1,
+  "slashCommands": [
+    "/tiktok"
+  ]
+}
