@@ -690,7 +690,19 @@ export default class UtilityModule {
         const memUsage = (mem.heapUsed / 1024 / 1024).toFixed(0);
         const memPercent = ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1);
 
-        const { repoUrl, branchInfo, commitsText } = await self.getGitInfo();
+        // Bot info
+        const repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
+        const branchInfo = 'v2.5.0 • Railway Deployment';
+        
+        // Latest updates changelog
+        const updates = [
+          '🎵 **TikTok Module** — Auto-embed cho link TikTok',
+          '🗄️ **Turso Database** — Persistent storage',
+          '💰 **Quest Rewards** — Hoàn thành quest nhận coins',
+          '🎨 **Components V2** — UI hiện đại hơn',
+          '🤖 **AI Chat** — Groq AI integration',
+        ];
+        const updatesText = updates.map(u => `-# ${u}`).join('\n');
 
         let helpMention = '/help';
         try {
@@ -725,7 +737,7 @@ export default class UtilityModule {
             ),
           )
           .addSeparatorComponents(sep())
-          .addTextDisplayComponents(txt(`### ${emojis.refresh} Latest Updates\n${commitsText}`))
+          .addTextDisplayComponents(txt(`### ${emojis.refresh} Latest Updates\n${updatesText}`))
           .addSeparatorComponents(sep())
           .addActionRowComponents(
             new ActionRowBuilder<ButtonBuilder>().addComponents(
