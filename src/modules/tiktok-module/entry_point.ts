@@ -56,6 +56,7 @@ const TIKTOK_REGEX = /(?<!<)https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s
 
 interface TikTokData {
   url: string;
+  isPhoto: boolean;
   videoId?: string;
   caption: string;
   tags: string[];
@@ -103,8 +104,23 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
+  const parsedUrl = new URL(url);
+  const photoMatch = parsedUrl.pathname.match(/^\/@([^/]+)\/photo\/(\d+)/i);
   const response = await fetchWithTimeout(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
   if (!response.ok) {
+    if (photoMatch) {
+      const data: TikTokData = {
+        url,
+        isPhoto: true,
+        videoId: photoMatch[2],
+        caption: '',
+        tags: [],
+        authorName: `@${photoMatch[1]}`,
+        authorUrl: `https://www.tiktok.com/@${photoMatch[1]}`,
+      };
+      cache.set(url, { at: Date.now(), data });
+      return data;
+    }
     throw new Error('Không lấy được thông tin video (có thể đã bị xóa hoặc để riêng tư).');
   }
 
@@ -116,6 +132,7 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
 
   const data: TikTokData = {
     url,
+    isPhoto: Boolean(photoMatch),
     videoId: json.embed_product_id ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
     caption,
     tags,
@@ -152,7 +169,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
   container.addTextDisplayComponents(text('-# 🎵 TIKTOK'));
 
   const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
-  container.addTextDisplayComponents(text(`# 🎬 ${authorLabel}`));
+  container.addTextDisplayComponents(text(`# ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`));
 
   if (thumb) {
     container.addMediaGalleryComponents(
@@ -180,14 +197,14 @@ async function buildTikTokPayload(rawUrl: string, requester: User) {
   }
 
   const info = [`👤 **Tác giả:** ${authorLabel}`];
-  if (data.videoId) info.push(`🆔 **Video ID:** \`${data.videoId}\``);
+  if (data.videoId) info.push(`🆔 **${data.isPhoto ? 'Bài đăng ID' : 'Video ID'}:** \`${data.videoId}\``);
 
   container
     .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
     .addTextDisplayComponents(text(info.join('\n')));
 
   const buttons = [linkButton('Mở TikTok', data.url, '🎵')];
-  if (PLAYABLE_HOST) {
+  if (PLAYABLE_HOST && !data.isPhoto) {
     const playable = new URL(data.url);
     playable.hostname = PLAYABLE_HOST;
     buttons.push(linkButton('Xem video', playable.toString(), '▶️'));
