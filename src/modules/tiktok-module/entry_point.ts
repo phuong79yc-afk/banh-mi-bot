@@ -40,7 +40,7 @@ const LIKE_TIERS = [
   { min: 0, color: 0x95a5a6 },
 ];
 const COLOR_UNKNOWN = 0x4e5058;
-const COLOR_RED = 0xed4245;
+const COLOR_RED = 0xed4245;;
 
 function colorByLikes(likes?: number): number {
   if (likes === undefined) return COLOR_UNKNOWN;
