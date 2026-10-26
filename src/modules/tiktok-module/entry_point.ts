@@ -8,6 +8,7 @@ import {
   Message,
   User,
   Guild,
+  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
@@ -447,7 +448,14 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   container.addSectionComponents(
     new SectionBuilder()
       .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
-      .setButtonAccessory(linkButton(buttonLabel, buttonUrl, buttonEmoji))
+  );
+
+  // Nút TikTok ở dưới cùng thay vì bên phải
+  const buttons = [linkButton(buttonLabel, buttonUrl, buttonEmoji)];
+  if (data.authorUrl) buttons.push(linkButton('Tác giả', data.authorUrl, '👤'));
+  
+  container.addActionRowComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
   );
 
   return {
