@@ -12,6 +12,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
+  EmbedBuilder,
   ContainerBuilder,
   TextDisplayBuilder,
   SectionBuilder,
@@ -382,6 +383,50 @@ function compact(n?: number): string {
   return String(n);
 }
 
+async function buildTikTokPayloadFallback(data: TikTokData, files: AttachmentBuilder[], requester: User, buttonUrl: string, buttonLabel: string): Promise<any> {
+  const description: string[] = [];
+  
+  if (data.caption) description.push(truncate(data.caption, 200));
+  if (data.tags.length) description.push(`\n${data.tags.slice(0, 5).join(' ')}`);
+  
+  const st = data.stats;
+  if (st) {
+    description.push(`\n❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
+  }
+  
+  description.push(`\n*Chia sẻ bởi ${requester.username}*`);
+
+  const embed = new EmbedBuilder()
+    .setColor(colorByLikes(data.stats?.likes))
+    .setDescription(description.join(''))
+    .setFooter({ text: 'TikTok' });
+
+  if (data.authorName) {
+    embed.setAuthor({ 
+      name: data.authorName,
+      url: data.authorUrl || undefined,
+    });
+  }
+
+  if (files.length && files[0].name?.endsWith('.jpg')) {
+    embed.setImage(`attachment://${files[0].name}`);
+  }
+
+  const buttons = [
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(buttonLabel).setURL(buttonUrl).setEmoji('🎵')
+  ];
+  
+  if (data.authorUrl) {
+    buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Tác giả').setURL(data.authorUrl).setEmoji('👤'));
+  }
+
+  return {
+    embeds: [embed],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)],
+    files,
+  };
+}
+
 async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild | null) {
   const data = await fetchTikTok(rawUrl);
 
@@ -404,71 +449,70 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 
   if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
-  const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
-
-  if (files.length) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`)))
-    );
-  }
-
-  const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
-  const hasVideoFile = files.some((f) => f.name === 'tiktok.mp4');
-
-  // Use Unicode emoji as fallback if custom emoji fails
-  const photoEmoji = '📸'; // Fallback: <a:photo:1564128026214666310>
-  const mediaEmoji = '🎬'; // Fallback: <a:media:1564127996577718282>
-  
-  const head: string[] = [`### ${data.isPhoto ? photoEmoji : mediaEmoji} ${authorLabel}`];
-  if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
-  if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
-
-  const tail: string[] = [];
-  const st = data.stats;
-  if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-    // Use Unicode emoji as fallback
-    tail.push(`❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
-  }
-
-  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !hasVideoFile;
+  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !files.some((f) => f.name === 'tiktok.mp4');
   let buttonUrl = data.url;
   let buttonLabel = 'Mở TikTok';
-  let buttonEmoji = '🎵'; // Fallback: <:tiktok_logo_icon_181737:1564115733938573434>
 
   if (usePlayable) {
     const playable = new URL(data.url);
     playable.hostname = PLAYABLE_HOST;
     buttonUrl = playable.toString();
     buttonLabel = 'Xem video';
-    buttonEmoji = '▶️';
   }
 
-  const foot: string[] = [];
-  if (usePlayable) foot.push(`[TikTok](${data.url})`);
-  if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
-  if (videoNote) foot.push(videoNote);
-  foot.push(`Chia sẻ bởi ${requester.username}`);
-  tail.push(`-# ${foot.join(' • ')}`);
+  // Try Components V2 first, fallback to Embed if fails
+  try {
+    const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
 
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
-  );
+    if (files.length) {
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`)))
+      );
+    }
 
-  // Nút TikTok ở dưới cùng thay vì bên phải
-  const buttons = [linkButton(buttonLabel, buttonUrl, buttonEmoji)];
-  if (data.authorUrl) buttons.push(linkButton('Tác giả', data.authorUrl, '👤'));
-  
-  container.addActionRowComponents(
-    new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
-  );
+    const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
+    const photoEmoji = '📸';
+    const mediaEmoji = '🎬';
+    
+    const head: string[] = [`### ${data.isPhoto ? photoEmoji : mediaEmoji} ${authorLabel}`];
+    if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
+    if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
 
-  return {
-    components: [container],
-    flags: V2 as any,
-    allowedMentions: NO_PING,
-    files,
-  };
+    const tail: string[] = [];
+    const st = data.stats;
+    if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
+      tail.push(`❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
+    }
+
+    const foot: string[] = [];
+    if (usePlayable) foot.push(`[TikTok](${data.url})`);
+    if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
+    if (videoNote) foot.push(videoNote);
+    foot.push(`Chia sẻ bởi ${requester.username}`);
+    tail.push(`-# ${foot.join(' • ')}`);
+
+    container.addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
+    );
+
+    const buttons = [linkButton(buttonLabel, buttonUrl, '🎵')];
+    if (data.authorUrl) buttons.push(linkButton('Tác giả', data.authorUrl, '👤'));
+    
+    container.addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
+    );
+
+    return {
+      components: [container],
+      flags: V2 as any,
+      allowedMentions: NO_PING,
+      files,
+    };
+  } catch (v2Error) {
+    console.log('[TikTok] Components V2 failed, using Embed fallback:', v2Error instanceof Error ? v2Error.message : v2Error);
+    return buildTikTokPayloadFallback(data, files, requester, buttonUrl, buttonLabel);
+  }
 }
 
 // ==================== MODULE ====================
