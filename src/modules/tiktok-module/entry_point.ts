@@ -1,4 +1,4 @@
-// TikTok Module - Auto-embed with video download
+// TikTok Module - Tự tạo thẻ đẹp khi có link TikTok + lệnh /tiktok
 
 import {
   Client,
@@ -8,11 +8,11 @@ import {
   Message,
   User,
   Guild,
-  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
-  EmbedBuilder,
+  ActionRowBuilder,
+  // ===== Components V2 =====
   ContainerBuilder,
   TextDisplayBuilder,
   SectionBuilder,
@@ -21,35 +21,72 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
+import { spawn } from 'child_process';
+import { promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
 
 // ==================== CONFIG ====================
+/** Tự động tạo thẻ khi có người gửi link TikTok trong tin nhắn */
 const AUTO_EMBED = true;
+/** Ẩn embed mặc định của Discord ở tin nhắn gốc (bot cần quyền Manage Messages) */
 const SUPPRESS_ORIGINAL = true;
+/** Số link tối đa xử lý trong một tin nhắn */
 const MAX_LINKS_PER_MESSAGE = 2;
-const MAX_IMAGES = 6;
+/** Số ảnh tối đa hiển thị cho bài đăng dạng ảnh */
+const MAX_IMAGES = 4;
+/**
+ * Domain proxy giúp Discord phát video trực tiếp (dịch vụ bên thứ ba).
+ * Để chuỗi rỗng '' nếu không muốn hiện nút "Xem video".
+ */
 const PLAYABLE_HOST = 'vxtiktok.com';
+/**
+ * API dự phòng (dịch vụ bên thứ ba) để lấy số tim / bình luận / chia sẻ khi trang TikTok không trả về.
+ * Chỉ được gọi khi các nguồn chính không có số liệu. Để chuỗi rỗng '' để tắt hoàn toàn.
+ */
+const STATS_API = 'https://www.tikwm.com/api/';
+/**
+ * Tải video về và đính kèm để xem trực tiếp trong Discord.
+ * Cần STATS_API (để lấy link video không watermark). Video lớn hơn giới hạn upload của server sẽ chỉ hiện ảnh bìa.
+ */
 const ATTACH_VIDEO = true;
 const VIDEO_TIMEOUT_MS = 30000;
+/**
+ * Nén video nặng bằng ffmpeg cho vừa giới hạn upload (cần cài ffmpeg trên máy chạy bot).
+ * Không có ffmpeg thì tự bỏ qua, bot chỉ hiện link tải video.
+ */
+const COMPRESS_VIDEO = true;
+const MAX_COMPRESS_SOURCE_BYTES = 60 * 1024 * 1024; // chỉ nén video gốc tối đa 60MB
+const COMPRESS_TIMEOUT_MS = 60000;
+/** Thời gian lưu cache kết quả (ms) */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
+// Màu viền + kiểu tim theo số tim (ít -> nhiều)
 const LIKE_TIERS = [
-  { min: 1_000_000, color: 0xfe2c55 },
-  { min: 100_000, color: 0xe67e22 },
-  { min: 10_000, color: 0x2ecc71 },
-  { min: 1_000, color: 0x3498db },
-  { min: 0, color: 0x95a5a6 },
+  { min: 10_000_000, color: 0xe91e63, heart: '❤️‍🔥' }, // ≥ 10M  : tim lửa (siêu viral)
+  { min: 1_000_000, color: 0xfe2c55, heart: '❤️' }, //     ≥ 1M   : tim đỏ
+  { min: 100_000, color: 0xe67e22, heart: '🧡' }, //       ≥ 100K : tim cam
+  { min: 10_000, color: 0x2ecc71, heart: '💚' }, //        ≥ 10K  : tim xanh lá
+  { min: 1_000, color: 0x3498db, heart: '💙' }, //         ≥ 1K   : tim xanh dương
+  { min: 0, color: 0x95a5a6, heart: '🤍' }, //             < 1K   : tim trắng
 ];
-const COLOR_UNKNOWN = 0x4e5058;
-const COLOR_RED = 0xed4245;;
+const COLOR_UNKNOWN = 0x4e5058; // không lấy được số tim
+const COLOR_RED = 0xed4245;
+const tierOf = (likes: number) => LIKE_TIERS.find((t) => likes >= t.min)!;
 
 function colorByLikes(likes?: number): number {
-  if (likes === undefined) return COLOR_UNKNOWN;
-  return LIKE_TIERS.find((t) => likes >= t.min)!.color;
+  return likes === undefined ? COLOR_UNKNOWN : tierOf(likes).color;
 }
 
-// ==================== HELPERS ====================
+/** Kiểu tim đổi theo số tim, khớp với màu viền */
+function heartByLikes(likes?: number): string {
+  return likes === undefined ? '❤️' : tierOf(likes).heart;
+}
+
+// ==================== COMPONENTS V2 HELPERS ====================
 const V2 = MessageFlags.IsComponentsV2;
 const NO_PING = { parse: [] as never[], repliedUser: false };
 const text = (content: string) => new TextDisplayBuilder().setContent(content);
@@ -65,6 +102,8 @@ const errorPayload = (content: string) => ({
   allowedMentions: NO_PING,
 });
 
+// ==================== TIKTOK HELPERS ====================
+// Bắt link tiktok.com (kể cả vm./vt./m./www. và dạng tiktok.com/t/xxxx), bỏ qua link bọc trong <...>
 const TIKTOK_REGEX = /(?<!<)https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s<>)\]]+/gi;
 
 interface TikTokStats {
@@ -75,7 +114,7 @@ interface TikTokStats {
 }
 
 interface TikTokData {
-  url: string;
+  url: string; // link đã làm sạch
   isPhoto: boolean;
   postId?: string;
   caption: string;
@@ -83,12 +122,14 @@ interface TikTokData {
   authorName: string;
   authorHandle?: string;
   authorUrl?: string;
+  /** Ảnh để hiển thị: ảnh bìa (video) hoặc các ảnh của bài đăng (photo) */
   imageUrls: string[];
   totalImages: number;
   stats?: TikTokStats;
   music?: string;
   videoUrl?: string;
-  videoSize?: number;
+  videoSize?: number; // bytes (nếu API cho biết)
+  duration?: number; // giây
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
@@ -105,6 +146,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Re
   }
 }
 
+/** Bỏ tham số theo dõi, chuẩn hóa domain */
 function cleanUrl(raw: string): string {
   const u = new URL(raw);
   u.search = '';
@@ -113,6 +155,7 @@ function cleanUrl(raw: string): string {
   return u.toString().replace(/\/$/, '');
 }
 
+/** Link rút gọn (vm./vt./tiktok.com/t/) -> link đầy đủ */
 async function resolveUrl(raw: string): Promise<string> {
   const u = new URL(raw);
   const isShort = /^(vm|vt)\.tiktok\.com$/i.test(u.hostname) || /^\/t\//.test(u.pathname);
@@ -135,6 +178,7 @@ function splitCaption(raw: string) {
   return { caption, tags };
 }
 
+/** Nguồn 1: oEmbed công khai (ổn định nhưng ít dữ liệu, bài ảnh thường thiếu caption/ảnh) */
 async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
   try {
     const res = await fetchWithTimeout(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
@@ -154,21 +198,19 @@ async function fetchOEmbed(url: string): Promise<Partial<TikTokData> | null> {
   }
 }
 
+/**
+ * Nguồn 2: đọc dữ liệu nhúng trong trang bài đăng (có caption đầy đủ, thống kê, ảnh của bài photo).
+ * Cấu trúc trang do TikTok quyết định và có thể thay đổi nên mọi bước đều được bảo vệ bằng try/catch.
+ */
 async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
   try {
     const res = await fetchWithTimeout(url, {
-      headers: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        Accept: 'text/html,application/xhtml+xml',
-        'Referer': 'https://www.tiktok.com/',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-      },
+      headers: { 'Accept-Language': 'en-US,en;q=0.9', Accept: 'text/html,application/xhtml+xml' },
     });
     if (!res.ok) return null;
     const html = await res.text();
 
+    // --- Cách 1: JSON nhúng ---
     const script = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/);
     if (script) {
       try {
@@ -201,10 +243,11 @@ async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
           };
         }
       } catch {
-        // fallback
+        // bỏ qua, thử cách 2
       }
     }
 
+    // --- Cách 2: thẻ Open Graph ---
     const og = (prop: string) => {
       const m =
         html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']*)["']`, 'i')) ||
@@ -222,9 +265,11 @@ async function fetchPageData(url: string): Promise<Partial<TikTokData> | null> {
   }
 }
 
+/** Nguồn 3 (dự phòng): API bên thứ ba, chỉ dùng khi thiếu số liệu */
 async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
+  if (!STATS_API) return null;
   try {
-    const res = await fetchWithTimeout(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=0`);
+    const res = await fetchWithTimeout(`${STATS_API}?url=${encodeURIComponent(url)}&hd=0`);
     if (!res.ok) return null;
     const json: any = await res.json();
     const d = json?.data;
@@ -255,6 +300,7 @@ async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
       music: d.music_info?.title ? `${d.music_info.title}${d.music_info.author ? ` — ${d.music_info.author}` : ''}` : undefined,
       videoUrl: abs(d.play || d.hdplay),
       videoSize: num(d.size) ?? num(d.hd_size),
+      duration: num(d.duration),
     };
   } catch {
     return null;
@@ -268,18 +314,25 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
+  // Gọi song song oEmbed và trang bài đăng, nguồn nào lỗi thì bỏ qua
+  const [oembed, page] = await Promise.all([fetchOEmbed(url), fetchPageData(url)]);
+
+  // Thiếu số tim -> hỏi thêm API dự phòng
   const isPhotoUrl = /\/photo\//.test(url);
   const needVideo = ATTACH_VIDEO && !isPhotoUrl;
+  const needApi = !!STATS_API && (page?.stats?.likes === undefined || needVideo);
+  const api = needApi ? await fetchApiData(url) : null;
 
-  const [api, oembed, page] = await Promise.all([fetchApiData(url), fetchOEmbed(url), fetchPageData(url)]);
+  console.log(
+    `[TikTok] nguồn dữ liệu: oembed=${oembed ? 'ok' : 'lỗi'} | trang=${page?.stats ? 'ok' : page ? 'không có số liệu' : 'lỗi'} | api=${needApi ? (api ? 'ok' : 'lỗi') : 'bỏ qua'}`
+  );
 
-  console.log(`[TikTok] api=${api ? 'ok' : 'fail'} | oembed=${oembed ? 'ok' : 'fail'} | page=${page ? 'ok' : 'fail'}`);
-
-  if (!api && !oembed && !page) {
+  if (!oembed && !page && !api) {
     throw new Error('Không lấy được thông tin bài đăng (có thể đã bị xóa, để riêng tư hoặc TikTok đang chặn truy cập).');
   }
 
-  const sources = [api, page, oembed];
+  // Thứ tự ưu tiên: trang > API dự phòng > oEmbed
+  const sources = [page, api, oembed];
   const pick = <K extends keyof TikTokData>(key: K): TikTokData[K] | undefined => {
     for (const src of sources) {
       const v = src?.[key];
@@ -289,11 +342,11 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   };
 
   const imageUrls = pick('imageUrls') ?? [];
-  const stats = api?.stats ?? page?.stats ?? oembed?.stats;
+  const stats = [page?.stats, api?.stats].find((st) => st?.likes !== undefined) ?? page?.stats ?? api?.stats;
 
   const data: TikTokData = {
     url,
-    isPhoto: isPhotoUrl,
+    isPhoto: /\/photo\//.test(url),
     postId: pick('postId') ?? url.match(/\/(?:video|photo)\/(\d+)/)?.[1],
     caption: pick('caption') ?? '',
     tags: pick('tags') ?? [],
@@ -306,12 +359,14 @@ async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
     music: pick('music'),
     videoUrl: pick('videoUrl'),
     videoSize: pick('videoSize'),
+    duration: pick('duration'),
   };
 
   cache.set(url, { at: Date.now(), data });
   return data;
 }
 
+/** Tải ảnh về để đính kèm (link ảnh của TikTok có chữ ký và hết hạn nhanh) */
 async function downloadImages(urls: string[], max: number): Promise<AttachmentBuilder[]> {
   const results = await Promise.allSettled(
     urls.slice(0, max).map(async (u) => {
@@ -328,27 +383,29 @@ async function downloadImages(urls: string[], max: number): Promise<AttachmentBu
   return files;
 }
 
+/** Giới hạn dung lượng upload theo cấp boost của server (trừ chút dư địa) */
 function uploadLimitBytes(guild?: Guild | null): number {
   const tier = guild?.premiumTier ?? 0;
   const limitMb = tier >= 3 ? 100 : tier === 2 ? 50 : 10;
   return limitMb * 1024 * 1024 - 512 * 1024;
 }
 
-const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')}MB`;
 
-async function downloadVideo(url: string, maxBytes: number): Promise<AttachmentBuilder | null> {
+/** Tải video về bộ nhớ, dừng ngay nếu vượt giới hạn dung lượng */
+async function downloadVideoBuffer(url: string, maxBytes: number): Promise<{ buffer?: Buffer; tooBig?: boolean }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), VIDEO_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.tikwm.com/' },
+      headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.tiktok.com/' },
     });
 
-    if (!res.ok || !res.body) return null;
+    if (!res.ok || !res.body) return {};
 
     const declared = Number(res.headers.get('content-length'));
-    if (Number.isFinite(declared) && declared > maxBytes) return null;
+    if (Number.isFinite(declared) && declared > maxBytes) return { tooBig: true };
 
     const chunks: Uint8Array[] = [];
     let total = 0;
@@ -360,166 +417,218 @@ async function downloadVideo(url: string, maxBytes: number): Promise<AttachmentB
       total += value.length;
       if (total > maxBytes) {
         controller.abort();
-        return null;
+        return { tooBig: true };
       }
       chunks.push(value);
     }
 
-    return new AttachmentBuilder(Buffer.concat(chunks), { name: 'tiktok.mp4' });
+    return { buffer: Buffer.concat(chunks) };
   } catch {
-    return null;
+    return {};
   } finally {
     clearTimeout(timer);
   }
 }
 
+// ---------- Nén video bằng ffmpeg (tùy chọn) ----------
+let ffmpegAvailable: boolean | null = null;
+
+async function hasFfmpeg(): Promise<boolean> {
+  if (ffmpegAvailable !== null) return ffmpegAvailable;
+  ffmpegAvailable = await new Promise<boolean>((resolve) => {
+    const proc = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
+    proc.on('error', () => resolve(false));
+    proc.on('close', (code) => resolve(code === 0));
+  });
+  if (!ffmpegAvailable) console.log('[TikTok] Không tìm thấy ffmpeg, bỏ qua nén video');
+  return ffmpegAvailable;
+}
+
+// Chỉ nén từng video một để không làm nghẽn CPU
+let compressQueue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = compressQueue.then(fn, fn);
+  compressQueue = run.catch(() => {});
+  return run;
+}
+
+/** Nén video xuống dưới `maxBytes`. Trả về null nếu không thể nén tới mức chấp nhận được. */
+async function compressVideo(input: Buffer, durationSec: number, maxBytes: number): Promise<Buffer | null> {
+  if (!durationSec || durationSec <= 0) return null;
+
+  const audioKbps = 96;
+  // Dư ~8% cho phần overhead của container
+  const totalKbps = Math.floor((maxBytes * 8 * 0.92) / durationSec / 1000);
+  const videoKbps = totalKbps - audioKbps;
+
+  if (videoKbps < 250) return null; // video quá dài, nén xuống sẽ quá mờ
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tiktok-'));
+  const inFile = path.join(dir, 'in.mp4');
+  const outFile = path.join(dir, 'out.mp4');
+
+  try {
+    await fsp.writeFile(inFile, input);
+
+    const args = [
+      '-y', '-i', inFile,
+      '-c:v', 'libx264', '-preset', 'veryfast',
+      '-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${videoKbps * 2}k`,
+      '-vf', "scale='min(720,iw)':-2",
+      '-c:a', 'aac', '-b:a', `${audioKbps}k`,
+      '-movflags', '+faststart',
+      outFile,
+    ];
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn('ffmpeg', args, { stdio: 'ignore' });
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        reject(new Error('ffmpeg quá thời gian'));
+      }, COMPRESS_TIMEOUT_MS);
+
+      proc.on('error', (e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        code === 0 ? resolve() : reject(new Error(`ffmpeg thoát với mã ${code}`));
+      });
+    });
+
+    const out = await fsp.readFile(outFile);
+    return out.length <= maxBytes ? out : null;
+  } catch (error) {
+    console.error('[TikTok] Nén video thất bại:', error instanceof Error ? error.message : error);
+    return null;
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
+/** 1234 -> 1,2K · 1500000 -> 1,5M */
 function compact(n?: number): string {
   if (n === undefined) return '—';
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1).replace('.', ',')}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace('.', ',')}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace('.', ',')}K`;
   return String(n);
 }
 
-async function buildTikTokPayloadFallback(data: TikTokData, files: AttachmentBuilder[], requester: User, buttonUrl: string, buttonLabel: string): Promise<any> {
-  const description: string[] = [];
-  
-  if (data.caption) description.push(truncate(data.caption, 200));
-  if (data.tags.length) description.push(`\n${data.tags.slice(0, 5).join(' ')}`);
-  
-  const st = data.stats;
-  if (st) {
-    description.push(`\n❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
-  }
-  
-  description.push(`\n*Chia sẻ bởi ${requester.username}*`);
-
-  const embed = new EmbedBuilder()
-    .setColor(colorByLikes(data.stats?.likes))
-    .setDescription(description.join(''))
-    .setFooter({ text: 'TikTok' });
-
-  if (data.authorName) {
-    embed.setAuthor({ 
-      name: data.authorName,
-      url: data.authorUrl || undefined,
-    });
-  }
-
-  if (files.length && files[0].name?.endsWith('.jpg')) {
-    embed.setImage(`attachment://${files[0].name}`);
-  }
-
-  const buttons = [
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(buttonLabel).setURL(buttonUrl).setEmoji('🎵')
-  ];
-  
-  if (data.authorUrl) {
-    buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Tác giả').setURL(data.authorUrl).setEmoji('👤'));
-  }
-
-  return {
-    embeds: [embed],
-    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)],
-    files,
-  };
-}
-
+/** Dựng thẻ TikTok (bố cục gọn, màu viền theo số tim) */
 async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild | null) {
   const data = await fetchTikTok(rawUrl);
 
+  // Thử đính kèm video để xem trực tiếp (nén nếu quá nặng); thất bại thì dùng ảnh bìa
   let files: AttachmentBuilder[] = [];
   let videoNote: string | undefined;
 
   if (ATTACH_VIDEO && !data.isPhoto && data.videoUrl) {
     const limit = uploadLimitBytes(guild);
-    if (data.videoSize && data.videoSize > limit) {
-      videoNote = `⚠️ Video ${mb(data.videoSize)} vượt giới hạn ${mb(limit)}`;
+    const canCompress = COMPRESS_VIDEO && !!data.duration && (await hasFfmpeg());
+    const fetchCap = canCompress ? MAX_COMPRESS_SOURCE_BYTES : limit;
+
+    if (data.videoSize && data.videoSize > fetchCap) {
+      videoNote = `⚠️ Video ${mb(data.videoSize)} vượt giới hạn upload ${mb(limit)}`;
     } else {
-      const video = await downloadVideo(data.videoUrl, limit);
-      if (video) {
-        files = [video];
+      const dl = await downloadVideoBuffer(data.videoUrl, fetchCap);
+
+      if (dl.buffer && dl.buffer.length <= limit) {
+        files = [new AttachmentBuilder(dl.buffer, { name: 'tiktok-video.mp4' })];
+      } else if (dl.buffer && canCompress) {
+        const original = dl.buffer;
+        const small = await enqueue(() => compressVideo(original, data.duration!, limit));
+
+        if (small) {
+          files = [new AttachmentBuilder(small, { name: 'tiktok-video.mp4' })];
+          videoNote = `🗜️ Đã nén ${mb(original.length)} → ${mb(small.length)}`;
+        } else {
+          videoNote = `⚠️ Video ${mb(original.length)} quá nặng, không nén được`;
+        }
+      } else if (dl.buffer || dl.tooBig) {
+        videoNote = `⚠️ Video vượt giới hạn upload ${mb(limit)}`;
       } else {
-        videoNote = '⚠️ Không tải được video';
+        videoNote = '⚠️ Không tải được video, hiển thị ảnh bìa';
       }
     }
   }
 
   if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
-  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !files.some((f) => f.name === 'tiktok.mp4');
+  const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
+
+  // Video / ảnh ở trên cùng
+  if (files.length) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        ...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`))
+      )
+    );
+  }
+
+  const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
+  const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
+
+  // Khối 1: tác giả + caption (một dòng) + hashtag
+  const head: string[] = [`### ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`];
+  if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
+  if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
+
+  // Khối 2: tim · bình luận · chia sẻ + chân thẻ
+  const tail: string[] = [];
+  const st = data.stats;
+  if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
+    tail.push(`${heartByLikes(st.likes)} **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
+  }
+
+  // Nút nằm cạnh nội dung (accessory của Section) thay vì một hàng riêng.
+  // Nếu không đính kèm được video thì nút dẫn tới bản có thể phát trực tiếp.
+  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !hasVideoFile;
   let buttonUrl = data.url;
   let buttonLabel = 'Mở TikTok';
+  let buttonEmoji = '🎵';
 
   if (usePlayable) {
     const playable = new URL(data.url);
     playable.hostname = PLAYABLE_HOST;
     buttonUrl = playable.toString();
     buttonLabel = 'Xem video';
+    buttonEmoji = '▶️';
   }
 
-  // Try Components V2 first, fallback to Embed if fails
-  try {
-    const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
+  const foot: string[] = [];
+  if (usePlayable) foot.push(`[TikTok](${data.url})`);
+  if (!hasVideoFile && !data.isPhoto && data.videoUrl) foot.push(`[⬇️ Tải video](${data.videoUrl})`);
+  if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
+  if (videoNote) foot.push(videoNote);
+  foot.push(`Chia sẻ bởi ${requester.username}`);
 
-    if (files.length) {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(...files.map((f) => new MediaGalleryItemBuilder().setURL(`attachment://${f.name}`)))
-      );
-    }
+  tail.push(`-# ${foot.join(' • ')}`);
 
-    const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
-    const photoEmoji = '📸';
-    const mediaEmoji = '🎬';
-    
-    const head: string[] = [`### ${data.isPhoto ? photoEmoji : mediaEmoji} ${authorLabel}`];
-    if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
-    if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
+  container.addSectionComponents(
+    new SectionBuilder()
+      .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
+      .setButtonAccessory(linkButton(buttonLabel, buttonUrl, buttonEmoji))
+  );
 
-    const tail: string[] = [];
-    const st = data.stats;
-    if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-      tail.push(`❤️ **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
-    }
-
-    const foot: string[] = [];
-    if (usePlayable) foot.push(`[TikTok](${data.url})`);
-    if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
-    if (videoNote) foot.push(videoNote);
-    foot.push(`Chia sẻ bởi ${requester.username}`);
-    tail.push(`-# ${foot.join(' • ')}`);
-
-    container.addSectionComponents(
-      new SectionBuilder()
-        .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
-    );
-
-    const buttons = [linkButton(buttonLabel, buttonUrl, '🎵')];
-    if (data.authorUrl) buttons.push(linkButton('Tác giả', data.authorUrl, '👤'));
-    
-    container.addActionRowComponents(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
-    );
-
-    return {
-      components: [container],
-      flags: V2 as any,
-      allowedMentions: NO_PING,
-      files,
-    };
-  } catch (v2Error) {
-    console.log('[TikTok] Components V2 failed, using Embed fallback:', v2Error instanceof Error ? v2Error.message : v2Error);
-    return buildTikTokPayloadFallback(data, files, requester, buttonUrl, buttonLabel);
-  }
+  return {
+    components: [container],
+    flags: V2 as any,
+    allowedMentions: NO_PING,
+    files,
+  };
 }
 
 // ==================== MODULE ====================
 export default class TikTokModule {
   name = 'tiktok-module';
-  description = 'TikTok auto-embed with video download';
-  version = '1.5.0';
+  description = 'Tạo thẻ đẹp cho link TikTok';
+  version = '1.7.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -556,7 +665,9 @@ export default class TikTokModule {
         const match = link.match(/https?:\/\/(?:www\.|m\.|vm\.|vt\.)?tiktok\.com\/[^\s<>)\]]+/i);
 
         if (!match) {
-          await interaction.editReply(errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`'));
+          await interaction.editReply(
+            errorPayload('Link không hợp lệ! Hãy gửi link dạng `https://www.tiktok.com/@user/video/...`')
+          );
           return;
         }
 
@@ -564,7 +675,9 @@ export default class TikTokModule {
           await interaction.editReply(await buildTikTokPayload(match[0], interaction.user, interaction.guild));
         } catch (error) {
           console.error('[TikTok] /tiktok error:', error);
-          await interaction.editReply(errorPayload(error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok!'));
+          await interaction.editReply(
+            errorPayload(error instanceof Error ? error.message : 'Không thể tạo thẻ TikTok, hãy thử lại sau!')
+          );
         }
       },
     };
@@ -579,6 +692,7 @@ export default class TikTokModule {
       const links = Array.from(new Set(message.content.match(TIKTOK_REGEX) ?? [])).slice(0, MAX_LINKS_PER_MESSAGE);
       if (!links.length) return;
 
+      // Hiện "đang nhập..." trong lúc tải video
       if ('sendTyping' in message.channel) message.channel.sendTyping().catch(() => {});
 
       let posted = 0;
@@ -587,34 +701,13 @@ export default class TikTokModule {
           const payload = await buildTikTokPayload(link, message.author, message.guild);
           await message.reply(payload);
           posted++;
-        } catch (error: any) {
-          // Log chi tiết lỗi
-          console.error(`[TikTok] Failed for ${link}:`, error.message);
-          if (error.code) console.error(`[TikTok] Error code: ${error.code}`);
-          if (error.rawError) console.error(`[TikTok] Raw error:`, JSON.stringify(error.rawError, null, 2));
-          
-          // Fallback: Gửi link đơn giản với embed tối thiểu
-          try {
-            const simpleEmbed = new EmbedBuilder()
-              .setColor(0xfe2c55)
-              .setDescription(`🎵 **TikTok Video**\n[Xem trên TikTok](${link})`)
-              .setFooter({ text: `Chia sẻ bởi ${message.author.username}` });
-            
-            await message.reply({ 
-              embeds: [simpleEmbed],
-              components: [
-                new ActionRowBuilder<ButtonBuilder>().addComponents(
-                  new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Mở TikTok').setURL(link).setEmoji('🎵')
-                )
-              ]
-            });
-            posted++;
-          } catch (fallbackError) {
-            console.error(`[TikTok] Fallback also failed:`, fallbackError);
-          }
+        } catch (error) {
+          // Chế độ tự động: lỗi thì im lặng, chỉ ghi log để không làm phiền kênh chat
+          console.error(`[TikTok] Không tạo được thẻ cho ${link}:`, error instanceof Error ? error.message : error);
         }
       }
 
+      // Ẩn embed mặc định nếu đã gửi thẻ thành công
       if (SUPPRESS_ORIGINAL && posted > 0) {
         message.suppressEmbeds(true).catch(() => {});
       }
