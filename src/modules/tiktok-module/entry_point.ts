@@ -588,14 +588,29 @@ export default class TikTokModule {
           await message.reply(payload);
           posted++;
         } catch (error: any) {
-          console.error(`[TikTok] Không tạo được thẻ cho ${link}:`, error instanceof Error ? error.message : error);
+          // Log chi tiết lỗi
+          console.error(`[TikTok] Failed for ${link}:`, error.message);
+          if (error.code) console.error(`[TikTok] Error code: ${error.code}`);
+          if (error.rawError) console.error(`[TikTok] Raw error:`, JSON.stringify(error.rawError, null, 2));
           
-          // Log chi tiết lỗi Discord API
-          if (error.code) {
-            console.error(`[TikTok] Error code: ${error.code}`);
-          }
-          if (error.rawError) {
-            console.error(`[TikTok] Raw error:`, JSON.stringify(error.rawError, null, 2));
+          // Fallback: Gửi link đơn giản với embed tối thiểu
+          try {
+            const simpleEmbed = new EmbedBuilder()
+              .setColor(0xfe2c55)
+              .setDescription(`🎵 **TikTok Video**\n[Xem trên TikTok](${link})`)
+              .setFooter({ text: `Chia sẻ bởi ${message.author.username}` });
+            
+            await message.reply({ 
+              embeds: [simpleEmbed],
+              components: [
+                new ActionRowBuilder<ButtonBuilder>().addComponents(
+                  new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Mở TikTok').setURL(link).setEmoji('🎵')
+                )
+              ]
+            });
+            posted++;
+          } catch (fallbackError) {
+            console.error(`[TikTok] Fallback also failed:`, fallbackError);
           }
         }
       }
