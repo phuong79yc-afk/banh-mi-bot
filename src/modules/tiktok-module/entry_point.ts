@@ -414,14 +414,14 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
   const hasVideoFile = files.some((f) => f.name === 'tiktok.mp4');
 
-  const head: string[] = [`### ${data.isPhoto ? '<a:photo:1564121869207085096>' : '<a:media:1564121841935716422>'} ${authorLabel}`];
+  const head: string[] = [`### ${data.isPhoto ? '<a:photo:1564128026214666310>' : '<a:media:1564127996577718282>'} ${authorLabel}`];
   if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
   if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
 
   const tail: string[] = [];
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-    tail.push(`<a:heart:1564121523952951307> **${compact(st.likes)}** · <a:comment:1564121425575415809> ${compact(st.comments)} · <a:share:1564121402250891425> ${compact(st.shares)}`);
+    tail.push(`<a:heart:1564127969155219496> **${compact(st.likes)}** · <a:comment:1564127871889309696> ${compact(st.comments)} · <a:share:1564128042992009296> ${compact(st.shares)}`);
   }
 
   const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !hasVideoFile;
