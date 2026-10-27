@@ -31,9 +31,11 @@ import {
 import { ticketManager } from './TicketManager';
 import { emojis } from '../../config/emojis';
 
-// ==================== COLORS ====================
+// ==================== STYLE ====================
+/** true = hiện thanh viền màu bên trái card; false = card không viền */
+const USE_ACCENT = false;
+
 const COLOR_TEAL = 0x1abc9c;
-const COLOR_DARK = 0x2b2d31;
 const COLOR_YELLOW = 0xfee75c;
 const COLOR_RED = 0xed4245;
 const COLOR_BLUE = 0x5865f2;
@@ -48,42 +50,83 @@ const text = (content: string) => new TextDisplayBuilder().setContent(content);
 const divider = (size: SeparatorSpacingSize = SeparatorSpacingSize.Small) =>
   new SeparatorBuilder().setDivider(true).setSpacing(size);
 
-/** Payload cho editReply / send (không ping ai) */
-const view = (...containers: (ContainerBuilder | TextDisplayBuilder)[]) =>
-  ({ components: containers, flags: V2, allowedMentions: NO_PING }) as const;
+/** Tạo Container, chỉ gắn màu viền khi USE_ACCENT = true */
+const box = (color?: number) => {
+  const container = new ContainerBuilder();
+  if (USE_ACCENT && color !== undefined) container.setAccentColor(color);
+  return container;
+};
+
+/** Payload gửi / editReply (không ping ai) */
+const view = (...components: (ContainerBuilder | TextDisplayBuilder)[]) =>
+  ({ components, flags: V2, allowedMentions: NO_PING }) as const;
 
 /** Payload ephemeral cho reply */
-const viewEphemeral = (...containers: (ContainerBuilder | TextDisplayBuilder)[]) =>
-  ({ components: containers, flags: V2_EPHEMERAL, allowedMentions: NO_PING }) as const;
+const viewEphemeral = (...components: (ContainerBuilder | TextDisplayBuilder)[]) =>
+  ({ components, flags: V2_EPHEMERAL, allowedMentions: NO_PING }) as const;
 
-/** Container chỉ có 1 đoạn text */
-const notice = (color: number, content: string) =>
-  new ContainerBuilder().addTextDisplayComponents(text(content));
+/** Container chỉ có một đoạn text */
+const notice = (color: number, content: string) => box(color).addTextDisplayComponents(text(content));
 
 const errorView = (content: string) => view(notice(COLOR_RED, content));
 const errorViewEphemeral = (content: string) => viewEphemeral(notice(COLOR_RED, content));
 
-/** Section header: tiêu đề + ảnh bên phải (nếu có) */
-function addHeader(container: ContainerBuilder, title: string, subtitle: string, thumbUrl?: string) {
+/** Tiêu đề: một cụm text (tối đa 3 dòng) + ảnh bên phải (nếu có) */
+function addHeader(container: ContainerBuilder, texts: string[], thumbUrl?: string) {
   if (thumbUrl) {
     container.addSectionComponents(
       new SectionBuilder()
-        .addTextDisplayComponents(text(title), text(subtitle))
+        .addTextDisplayComponents(...texts.slice(0, 3).map(text))
         .setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbUrl))
     );
   } else {
-    container.addTextDisplayComponents(text(title), text(subtitle));
+    container.addTextDisplayComponents(...texts.map(text));
   }
   return container;
 }
 
 const unixNow = () => Math.floor(Date.now() / 1000);
 
+const quote = (s: string) =>
+  s
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+
+/** Thanh tiến độ ▰▰▰▱▱▱ */
+function bar(ratio: number, size = 10): string {
+  const filled = Math.round(Math.max(0, Math.min(1, ratio)) * size);
+  return '▰'.repeat(filled) + '▱'.repeat(size - filled);
+}
+
+/** ms -> "45 phút" | "2 giờ 10 phút" | "1 ngày 3 giờ" */
+function formatDuration(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return minutes % 60 ? `${hours} giờ ${minutes % 60} phút` : `${hours} giờ`;
+  return `${Math.floor(hours / 24)} ngày ${hours % 24} giờ`;
+}
+
+type StepState = 'pending' | 'loading' | 'done';
+interface SetupStep {
+  label: string;
+  state: StepState;
+  detail?: string;
+}
+
+interface SetupSummary {
+  category: string;
+  transcript: string;
+  support: string;
+  role: string;
+}
+
 // ==================== MODULE ====================
 export default class TicketModule {
   name = 'ticket-module';
   description = 'Full-featured Ticket System';
-  version = '2.0.0';
+  version = '3.0.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
@@ -101,23 +144,46 @@ export default class TicketModule {
   }
 
   // ---------- UI: tiến trình setup ----------
-  private buildSetupView(lines: string[], finished = false) {
-    const container = new ContainerBuilder();
+  private buildSetupView(steps: SetupStep[], summary?: SetupSummary) {
+    const done = steps.filter((step) => step.state === 'done').length;
+    const container = box(summary ? COLOR_TEAL : COLOR_BLUE);
 
-    container
-      .addTextDisplayComponents(text('# ⚙️ Thiết lập hệ thống ticket'))
-      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-      .addTextDisplayComponents(text(lines.join('\n')));
+    container.addTextDisplayComponents(
+      text('-# ⚙️ SETUP'),
+      text(summary ? `# ${emojis.success} Thiết lập hoàn tất` : '# Đang thiết lập hệ thống ticket'),
+      text(`\`${bar(done / steps.length, steps.length * 3)}\` **${done}/${steps.length}**`)
+    );
 
-    if (finished) {
+    const icon = (state: StepState) => (state === 'done' ? emojis.success : state === 'loading' ? emojis.loading : '▫️');
+    const stepLines = steps.map((step) => {
+      const label = step.state === 'pending' ? `-# ${step.label}` : step.label;
+      return `${icon(step.state)} ${label}${step.detail ? ` · ${step.detail}` : ''}`;
+    });
+
+    container.addSeparatorComponents(divider(SeparatorSpacingSize.Large)).addTextDisplayComponents(text(stepLines.join('\n')));
+
+    if (summary) {
       container
         .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
         .addTextDisplayComponents(
           text(
             [
-              `### ${emojis.success} Khởi tạo cài đặt mặc định hoàn tất`,
-              '• Để quản lí hoặc thêm một danh mục hỗ trợ, dùng `/ticket panel manage`',
-              '• Để chỉnh sửa các cài đặt có sẵn, dùng `/ticket configuration`',
+              '### Đã tạo',
+              `📁 **Danh mục:** <#${summary.category}>`,
+              `📜 **Transcript:** <#${summary.transcript}>`,
+              `🎫 **Kênh hỗ trợ:** <#${summary.support}>`,
+              `🛡️ **Role hỗ trợ:** <@&${summary.role}>`,
+            ].join('\n')
+          )
+        )
+        .addSeparatorComponents(divider())
+        .addTextDisplayComponents(
+          text(
+            [
+              '### Tiếp theo',
+              '• Thành viên bấm **Tạo ticket** trong kênh hỗ trợ để mở ticket',
+              '• Trong kênh ticket dùng `/ticket-add`, `/ticket-remove`, `/ticket-close`',
+              '• Gán role hỗ trợ cho nhân sự để họ xem và trả lời ticket',
             ].join('\n')
           )
         );
@@ -127,19 +193,30 @@ export default class TicketModule {
   }
 
   // ---------- UI: panel tạo ticket ----------
-  private buildPanelMessage() {
-    const container = new ContainerBuilder().addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents(
-            text('# 🎫 Tạo ticket'),
-            text('Để được hỗ trợ, vui lòng bấm nút **Tạo ticket** bên cạnh.')
-          )
-          .setButtonAccessory(
-            new ButtonBuilder().setCustomId('ticket_create').setLabel('Tạo ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
-          )
+  private buildPanelMessage(guildName?: string) {
+    const container = box(COLOR_TEAL)
+      .addTextDisplayComponents(
+        text('# 🎫 Trung tâm hỗ trợ'),
+        text('Cần giúp đỡ? Tạo ticket để trao đổi riêng với đội ngũ hỗ trợ.')
       )
-      .addSeparatorComponents(divider())
-      .addTextDisplayComponents(text('-# Máy chủ của TrầnTuấn.'));
+      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+      .addTextDisplayComponents(
+        text(
+          [
+            '### Cách hoạt động',
+            '`1` Bấm **Tạo ticket** và mô tả vấn đề của bạn',
+            '`2` Một kênh riêng sẽ được tạo cho bạn',
+            '`3` Chờ đội ngũ hỗ trợ phản hồi',
+          ].join('\n')
+        )
+      )
+      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+      .addActionRowComponents(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder().setCustomId('ticket_create').setLabel('Tạo ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
+        )
+      )
+      .addTextDisplayComponents(text(`-# ${guildName ?? 'Máy chủ của TrầnTuấn'} • Mỗi người chỉ mở được một ticket cùng lúc`));
 
     return { components: [container], flags: V2 } as const;
   }
@@ -149,6 +226,7 @@ export default class TicketModule {
     userId: string;
     username: string;
     avatarUrl: string;
+    guildName: string;
     staffRoleId: string;
     ticketNumber: string;
     issue: string;
@@ -157,25 +235,19 @@ export default class TicketModule {
 
     addHeader(
       container,
-      '# 🎫 Khu vực hỗ trợ',
-      'Chờ một chút và đội ngũ hỗ trợ sẽ đến hỗ trợ bạn nhé!\n-# Hãy đảm bảo bạn đã đọc kĩ luật khi tạo ticket.',
+      [
+        `-# 🎫 TICKET #${opts.ticketNumber}`,
+        '# Khu vực hỗ trợ',
+        `<@${opts.userId}> đã mở ticket · <t:${unixNow()}:R>`,
+      ],
       opts.avatarUrl
     );
 
     container
       .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-      .addTextDisplayComponents(
-        text(
-          [
-            `🔢 **Ticket số:** \`${opts.ticketNumber}\``,
-            `👤 **Người mở:** <@${opts.userId}> (${opts.username})`,
-            `🕒 **Thời gian mở:** <t:${unixNow()}:f>`,
-          ].join('\n')
-        )
-      )
+      .addTextDisplayComponents(text(`### ${emojis.copy} Vấn đề của bạn\n${quote(opts.issue)}`))
       .addSeparatorComponents(divider())
-      .addTextDisplayComponents(text(`### ${emojis.copy} Vấn đề của bạn\n${opts.issue}`))
-      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
+      .addTextDisplayComponents(text('-# Đội ngũ hỗ trợ sẽ phản hồi sớm nhất có thể. Vui lòng đọc kĩ luật của server trong lúc chờ.'))
       .addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId('ticket_claim').setLabel('Nhận ticket').setEmoji('🎫').setStyle(ButtonStyle.Success),
@@ -183,7 +255,7 @@ export default class TicketModule {
           new ButtonBuilder().setCustomId('ticket_close_reason').setLabel('Đóng với lí do').setEmoji('📝').setStyle(ButtonStyle.Secondary)
         )
       )
-      .addTextDisplayComponents(text(`-# Máy chủ của ${opts.username}.`));
+      .addTextDisplayComponents(text(`-# ${opts.guildName}`));
 
     // Dòng mention nằm ngoài Container (Components V2 không cho dùng `content`)
     const ping = text(
@@ -223,27 +295,24 @@ export default class TicketModule {
     // Đóng ticket trong database
     ticketManager.closeTicket(channelId, i.user.id);
 
-    // Thông báo đóng ticket
-    const deleteAt = unixNow() + 10;
-    const closeContainer = new ContainerBuilder();
+    const openedFor = formatDuration(Date.now() - ticket.createdAt);
+    const ticketNo = ticket.ticketId.split('-')[1] ?? ticket.ticketId;
 
+    // Thông báo đóng ticket
+    const closeContainer = box(COLOR_RED).addTextDisplayComponents(
+      text(`-# 🔒 TICKET #${ticketNo}`),
+      text('# Ticket đã đóng'),
+      text(
+        [
+          `👮 **Đóng bởi:** <@${i.user.id}>`,
+          `⏱️ **Đã mở:** ${openedFor} · 👥 ${ticket.participants.length} người tham gia`,
+          ...(reason ? [`📝 **Lý do:** ${reason}`] : []),
+        ].join('\n')
+      )
+    );
     closeContainer
-      .addTextDisplayComponents(
-        text('# 🔒 Ticket đã đóng'),
-        text(`Ticket này đã được đóng bởi <@${i.user.id}>`)
-      )
-      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-      .addTextDisplayComponents(
-        text(
-          [
-            `🆔 **ID Ticket:** \`${ticket.ticketId}\``,
-            `👮 **Đóng bởi:** <@${i.user.id}>`,
-            ...(reason ? [`📝 **Lý do:** ${reason}`] : []),
-          ].join('\n')
-        )
-      )
       .addSeparatorComponents(divider())
-      .addTextDisplayComponents(text(`-# ⏳ Kênh sẽ bị xóa <t:${deleteAt}:R>`));
+      .addTextDisplayComponents(text(`-# ⏳ Kênh sẽ bị xóa <t:${unixNow() + 10}:R>`));
 
     await i.editReply(view(closeContainer));
 
@@ -255,21 +324,14 @@ export default class TicketModule {
         const fileName = `${ticket.ticketId}-transcript.txt`;
         const file = new AttachmentBuilder(Buffer.from(transcript, 'utf-8'), { name: fileName });
 
-        const logContainer = new ContainerBuilder();
-
-        logContainer
+        const logContainer = box(COLOR_BLUE)
           .addTextDisplayComponents(
-            text(`# ${emojis.copy} Transcript Ticket`),
-            text(`-# ${ticket.ticketId}`)
-          )
-          .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-          .addTextDisplayComponents(
+            text('-# 📜 TRANSCRIPT'),
+            text(`# ${ticket.ticketId}`),
             text(
               [
-                `👤 **Tạo bởi:** <@${ticket.userId}>`,
-                `👮 **Đóng bởi:** <@${i.user.id}>`,
-                `⏱️ **Thời gian:** ${Math.floor((Date.now() - ticket.createdAt) / 1000 / 60)} phút`,
-                `👥 **Người tham gia:** ${ticket.participants.length}`,
+                `👤 **Tạo bởi:** <@${ticket.userId}>  ·  👮 **Đóng bởi:** <@${i.user.id}>`,
+                `⏱️ **Đã mở:** ${openedFor}  ·  👥 **${ticket.participants.length}** người tham gia`,
                 ...(reason ? [`📝 **Lý do đóng:** ${reason}`] : []),
               ].join('\n')
             )
@@ -324,15 +386,14 @@ export default class TicketModule {
           );
         }
 
-        const pending = `${emojis.loading} Đang chuẩn bị...`;
-        const lines = [
-          `\`[1/4]\` ${emojis.loading} Khởi tạo config...`,
-          `\`[2/4]\` ${pending}`,
-          `\`[3/4]\` ${pending}`,
-          `\`[4/4]\` ${pending}`,
+        const steps: SetupStep[] = [
+          { label: 'Tạo danh mục & kênh lưu transcript', state: 'loading' },
+          { label: 'Tạo kênh hỗ trợ', state: 'pending' },
+          { label: 'Đăng panel tạo ticket', state: 'pending' },
+          { label: 'Tạo role hỗ trợ & gán quyền', state: 'pending' },
         ];
-
-        await interaction.editReply(this.buildSetupView(lines));
+        const render = () => interaction.editReply(this.buildSetupView(steps));
+        await render();
 
         // STEP 1: Category + transcript channel
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -356,9 +417,9 @@ export default class TicketModule {
           ],
         });
 
-        lines[0] = `\`[1/4]\` ${emojis.success} Khởi tạo config hoàn tất. Đã tạo kênh lưu lịch sử ticket (<#${transcriptChannel.id}>).`;
-        lines[1] = `\`[2/4]\` ${emojis.loading} Tạo kênh hỗ trợ...`;
-        await interaction.editReply(this.buildSetupView(lines));
+        steps[0] = { ...steps[0], state: 'done', detail: `<#${transcriptChannel.id}>` };
+        steps[1].state = 'loading';
+        await render();
 
         // STEP 2: Support channel
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -369,18 +430,18 @@ export default class TicketModule {
           parent: category,
         });
 
-        lines[1] = `\`[2/4]\` ${emojis.success} Tạo kênh hỗ trợ hoàn tất. (<#${supportChannel.id}>).`;
-        lines[2] = `\`[3/4]\` ${emojis.loading} Tạo ticket mặc định...`;
-        await interaction.editReply(this.buildSetupView(lines));
+        steps[1] = { ...steps[1], state: 'done', detail: `<#${supportChannel.id}>` };
+        steps[2].state = 'loading';
+        await render();
 
         // STEP 3: Ticket panel
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        const panelMessage = await supportChannel.send(this.buildPanelMessage());
+        const panelMessage = await supportChannel.send(this.buildPanelMessage(guild.name));
 
-        lines[2] = `\`[3/4]\` ${emojis.success} Tạo ticket mặc định tại kênh <#${supportChannel.id}> hoàn tất.`;
-        lines[3] = `\`[4/4]\` ${emojis.loading} Tạo role hỗ trợ...`;
-        await interaction.editReply(this.buildSetupView(lines));
+        steps[2] = { ...steps[2], state: 'done', detail: `<#${supportChannel.id}>` };
+        steps[3].state = 'loading';
+        await render();
 
         // STEP 4: Support role + permissions
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -412,8 +473,15 @@ export default class TicketModule {
           ticketManager.resetCounter(guild.id);
         }
 
-        lines[3] = `\`[4/4]\` ${emojis.success} Tạo role hỗ trợ <@&${supportRole.id}> & gán quyền hoàn tất.`;
-        await interaction.editReply(this.buildSetupView(lines, true));
+        steps[3] = { ...steps[3], state: 'done', detail: `<@&${supportRole.id}>` };
+        await interaction.editReply(
+          this.buildSetupView(steps, {
+            category: category.id,
+            transcript: transcriptChannel.id,
+            support: supportChannel.id,
+            role: supportRole.id,
+          })
+        );
 
         // Cleanup old resources (background, 3s delay)
         if (force && existingConfig) {
@@ -516,7 +584,9 @@ export default class TicketModule {
 
         ticketManager.addParticipant(interaction.channelId, user.id);
 
-        await interaction.reply(view(notice(COLOR_TEAL, `${emojis.success} Đã thêm <@${user.id}> vào ticket`)));
+        await interaction.reply(
+          view(notice(COLOR_TEAL, `➕ <@${user.id}> đã được thêm vào ticket bởi <@${interaction.user.id}>`))
+        );
       },
     };
 
@@ -544,7 +614,9 @@ export default class TicketModule {
 
         ticketManager.removeParticipant(interaction.channelId, user.id);
 
-        await interaction.reply(view(notice(COLOR_TEAL, `${emojis.success} Đã xóa <@${user.id}> khỏi ticket`)));
+        await interaction.reply(
+          view(notice(COLOR_TEAL, `➖ <@${user.id}> đã bị xóa khỏi ticket bởi <@${interaction.user.id}>`))
+        );
       },
     };
 
@@ -554,12 +626,19 @@ export default class TicketModule {
       execute: async (interaction: ChatInputCommandInteraction) => {
         const stats = ticketManager.getStats(interaction.guildId!);
 
-        const container = new ContainerBuilder();
+        const openRatio = stats.total ? stats.open / stats.total : 0;
+        const closedRatio = stats.total ? stats.closed / stats.total : 0;
+        const pct = (ratio: number) => `${Math.round(ratio * 100)}%`;
+
+        const container = box(COLOR_TEAL);
 
         addHeader(
           container,
-          `# ${emojis.chart} Thống kê Ticket`,
-          `-# ${interaction.guild?.name ?? ''}`,
+          [
+            `-# ${emojis.chart} THỐNG KÊ`,
+            `# ${stats.total} ticket`,
+            `-# ${interaction.guild?.name ?? ''}`,
+          ],
           interaction.guild?.iconURL({ size: 256 }) ?? undefined
         );
 
@@ -568,9 +647,11 @@ export default class TicketModule {
           .addTextDisplayComponents(
             text(
               [
-                `📨 **Tổng ticket:** \`${stats.total}\``,
-                `🟢 **Đang mở:** \`${stats.open}\``,
-                `🔴 **Đã đóng:** \`${stats.closed}\``
+                `🟢 **Đang mở** · \`${stats.open}\`  ${pct(openRatio)}`,
+                `\`${bar(openRatio, 14)}\``,
+                '',
+                `🔴 **Đã đóng** · \`${stats.closed}\`  ${pct(closedRatio)}`,
+                `\`${bar(closedRatio, 14)}\``
               ].join('\n')
             )
           );
@@ -680,7 +761,12 @@ export default class TicketModule {
       });
 
       // Lưu ticket
-      const ticket = ticketManager.createTicket(interaction.guildId!, channel.id, interaction.user.id);
+      const ticket = ticketManager.createTicket(
+        interaction.guildId!,
+        channel.id,
+        interaction.user.id,
+        issueDescription
+      );
 
       // Tin nhắn chào trong kênh ticket
       await channel.send(
@@ -688,6 +774,7 @@ export default class TicketModule {
           userId: interaction.user.id,
           username: interaction.user.username,
           avatarUrl: interaction.user.displayAvatarURL({ size: 256 }),
+          guildName: guild.name,
           staffRoleId: config.staffRoleId!,
           ticketNumber: ticket.ticketId.split('-')[1],
           issue: issueDescription,
