@@ -247,9 +247,22 @@ export function buildThemeHint(themes: string[]): string {
 
 /** Parse AI response and extract JSON */
 export function parseAiJson(raw: string): any {
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('AI không trả về JSON hợp lệ');
-  return JSON.parse(match[0]);
+  if (typeof raw !== 'string') {
+    throw new Error('AI không trả về JSON hợp lệ');
+  }
+
+  const cleaned = raw.trim();
+  const fencedMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidate = fencedMatch ? fencedMatch[1].trim() : cleaned;
+
+  const jsonLike = candidate.match(/\{[\s\S]*\}/);
+  const payload = jsonLike ? jsonLike[0] : candidate;
+
+  try {
+    return JSON.parse(payload);
+  } catch {
+    throw new Error('AI không trả về JSON hợp lệ');
+  }
 }
 
 function uniqueName(name: unknown, used: Set<string>): string {
@@ -275,7 +288,7 @@ export function validateDesign(
   const fixes: string[] = [];
   const warnings: string[] = [];
 
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('Design phải là object JSON');
   }
 
@@ -287,12 +300,19 @@ export function validateDesign(
     throw new Error('Thiếu categories (phải là array)');
   }
 
-  // Auto-fix invalid channel types
+  raw.categories = raw.categories.filter((item: any) => item && typeof item === 'object');
+
   for (const cat of raw.categories) {
-    if (!cat.channels) continue;
-    for (const ch of cat.channels) {
-      if (ch.type && !VALID_TYPES.includes(ch.type)) {
-        fixes.push(`Channel "${ch.name}" type ${ch.type} → Text (0)`);
+    if (!cat || typeof cat !== 'object') continue;
+    if (!Array.isArray(cat.channels)) {
+      cat.channels = [];
+      warnings.push(`Category "${String(cat.name ?? 'Unknown')}" thiếu channels`);
+    }
+
+    for (const ch of cat.channels ?? []) {
+      if (!ch || typeof ch !== 'object') continue;
+      if (ch.type !== undefined && ch.type !== null && !VALID_TYPES.includes(ch.type)) {
+        fixes.push(`Channel "${String(ch.name ?? 'Unknown')}" type ${String(ch.type)} → Text (0)`);
         ch.type = ChannelType.GuildText;
       }
     }
@@ -300,7 +320,7 @@ export function validateDesign(
 
   // Auto-fix missing voice category
   const hasVoice = raw.categories.some((c: any) =>
-    c.channels?.some((ch: any) => ch.type === ChannelType.GuildVoice || ch.type === ChannelType.GuildStageVoice),
+    Array.isArray(c?.channels) && c.channels.some((ch: any) => ch?.type === ChannelType.GuildVoice || ch?.type === ChannelType.GuildStageVoice),
   );
   if (!hasVoice) {
     fixes.push('Thêm Voice Channels category (thiếu voice)');
@@ -316,7 +336,10 @@ export function validateDesign(
   }
 
   // Auto-fix missing welcome
-  const hasWelcome = raw.categories.some((c: any) => c.name.toUpperCase().includes('WELCOME'));
+  const hasWelcome = raw.categories.some((c: any) => {
+    const categoryName = typeof c?.name === 'string' ? c.name : '';
+    return categoryName.toUpperCase().includes('WELCOME');
+  });
   if (!hasWelcome) {
     fixes.push('Thêm Welcome category');
     raw.categories.unshift({
@@ -332,15 +355,18 @@ export function validateDesign(
   const categoryNames = new Set<string>();
   const channelNames = new Set<string>();
   for (const category of raw.categories) {
-    const originalCategoryName = category.name;
-    category.name = uniqueName(category.name, categoryNames);
+    if (!category || typeof category !== 'object') continue;
+
+    const originalCategoryName = typeof category.name === 'string' && category.name.trim() ? category.name : 'Category';
+    category.name = uniqueName(originalCategoryName, categoryNames);
     if (category.name !== originalCategoryName) {
       fixes.push(`Đổi tên category trùng "${originalCategoryName}" thành "${category.name}"`);
     }
 
     for (const channel of category.channels ?? []) {
-      const originalChannelName = channel.name;
-      channel.name = uniqueName(channel.name, channelNames);
+      if (!channel || typeof channel !== 'object') continue;
+      const originalChannelName = typeof channel.name === 'string' && channel.name.trim() ? channel.name : 'Channel';
+      channel.name = uniqueName(originalChannelName, channelNames);
       if (channel.name !== originalChannelName) {
         fixes.push(`Đổi tên channel trùng "${originalChannelName}" thành "${channel.name}"`);
       }

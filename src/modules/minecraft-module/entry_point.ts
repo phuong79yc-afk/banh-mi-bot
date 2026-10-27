@@ -364,50 +364,28 @@ export default class MinecraftModule {
     // Parse MOTD and add color codes
     const rawMotd = status.motd?.clean || 'A Minecraft Server';
     
-    // Aggressive cleaning - CHỈ GIỮ ASCII và version brackets
+    // Keep Vietnamese and line breaks while removing non-printing control characters.
     const cleanMotd = rawMotd
-      .split('')
-      .map((char) => {
-        const code = char.charCodeAt(0);
-        
-        // GIỮ: ASCII printable (32-126) và section sign (167)
-        if ((code >= 32 && code <= 126) || code === 167) {
-          return char;
-        }
-        
-        // XÓA HẾT tất cả Unicode khác
-        return '';
-      })
-      .join('')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // Xóa các pattern junk sau khi clean
-    const finalClean = cleanMotd
-      // Xóa TẤT CẢ dấu chấm đơn lẻ
-      .replace(/\s*\.\s*/g, ' ')
-      // Xóa mọi pattern chứa ]x hoặc x]
-      .replace(/\]\s*x\s*/gi, '') 
-      .replace(/\s*x\s*\]/gi, '')
-      // Xóa pattern [với các ký tự lạ bên trong] nhưng GIỮ [version]
-      .replace(/\[(?![0-9]+\.)[^\]]*\]/g, '')
-      // Format "x 2" thành "2x Rate"
-      .replace(/\s+x\s+(\d+)\s*/gi, ' §6$1x Rate§r ')
-      // Xóa số 0 đơn lẻ
-      .replace(/\s+0+\s+/g, ' ')
-      // Clean up spacing
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // Thêm màu cho các pattern phổ biến
-    const motdWithColors = finalClean
-      .replace(/\s*Hypixel\s+Network/gi, '§fHYPIXEL §6NETWORK§r')
-      .replace(/\[(\d+\.\d+)\/(\d+\.\d+)\]/g, ' §8[§4$1/$2§8]§r')
-      .replace(/\[(\d+\.\d+)x?\s*-\s*(\d+\.\d+)x?\]/gi, ' §8[§6$1x §7- §6$2x§8]§r')
-      .replace(/MEGACITY\s+NETWORK/gi, '§cMEGACITY §6NETWORK§r')
-      .replace(/SB\s+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r');
+      .replace(/\r\n?/g, '\n')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .split('\n')
+      .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+      .join('\n');
 
-    let motdLines = motdWithColors.split('\n').map((line) => line.trim());
+    const finalClean = cleanMotd
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/[ \t]+x[ \t]+(\d+)[ \t]*/gi, ' §6$1x Rate§r ')
+          .replace(/[ \t]+/g, ' ')
+          .trim()
+          .replace(/[ \t]*Hypixel[ \t]+Network/gi, '§fHYPIXEL §6NETWORK§r')
+          .replace(/\[(\d+\.\d+)\/(\d+\.\d+)\]/g, '§8[§4$1/$2§8]§r')
+          .replace(/\[(\d+\.\d+)x?[ \t]*-[ \t]*(\d+\.\d+)x?\]/gi, '§8[§6$1x §7- §6$2x§8]§r')
+          .replace(/MEGACITY[ \t]+NETWORK/gi, '§cMEGACITY §6NETWORK§r')
+          .replace(/SB[ \t]+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r'),
+      );
+    const motdLines = finalClean;
 
     // 1. Server Icon (16, 16, 64x64)
     if (status.favicon) {
@@ -1145,4 +1123,3 @@ export default class MinecraftModule {
     console.log('🧹 Minecraft module cleanup');
   }
 }
-

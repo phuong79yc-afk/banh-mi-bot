@@ -1,6 +1,6 @@
 // Admin command to reset daily for testing
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from 'discord.js';
-import { getTursoDatabase } from '../database/turso';
+import { getTursoDatabase } from '../../database/turso';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-reset-daily')

@@ -581,7 +581,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
     container.addTextDisplayComponents(
-      text(`${emojis.tt_like} **${compact(st.likes)}**  ${emojis.tt_comment} **${compact(st.comments)}**  ${emojis.tt_share} **${compact(st.shares)}`),
+      text(`${emojis.tt_like} **${compact(st.likes)}**  ${emojis.tt_comment} **${compact(st.comments)}**  ${emojis.tt_share} **${compact(st.shares)}$**`),
     );
   }
 
