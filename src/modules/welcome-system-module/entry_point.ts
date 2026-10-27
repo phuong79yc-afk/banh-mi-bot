@@ -26,7 +26,7 @@ import {
   User,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
-import { isFeatureEnabled } from '../settings-module/entry_point';
+import { isFeatureEnabled } from '../../utils/serverFeatures';
 import fs from 'fs';
 import path from 'path';
 
@@ -747,75 +747,7 @@ export default class WelcomeSystemModule {
   name = 'welcome-system-module';
   commands = new Collection<string, any>();
 
-  constructor() {
-    // Register /welcome-setup command
-    const welcomeSetup = new SlashCommandBuilder()
-      .setName('welcome-setup')
-      .setDescription('Configure welcome messages for new members')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addChannelOption((opt) =>
-        opt
-          .setName('channel')
-          .setDescription('The channel to send welcome messages')
-          .addChannelTypes(ChannelType.GuildText)
-          .setRequired(false)
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName('message')
-          .setDescription('Welcome message (use {user}, {username}, {server}, {memberCount})')
-          .setRequired(false)
-      )
-      .addBooleanOption((opt) =>
-        opt.setName('embed').setDescription('Enable embed mode for welcome messages').setRequired(false)
-      )
-      .addRoleOption((opt) =>
-        opt.setName('autorole').setDescription('Role to auto-assign to new members').setRequired(false)
-      )
-      .addBooleanOption((opt) =>
-        opt.setName('enabled').setDescription('Enable/disable welcome system').setRequired(false)
-      );
-
-    this.commands.set('welcome-setup', {
-      data: welcomeSetup,
-      execute: handleWelcomeSetup,
-    });
-
-    // Register /goodbye-setup command
-    const goodbyeSetup = new SlashCommandBuilder()
-      .setName('goodbye-setup')
-      .setDescription('Configure goodbye messages for members who leave')
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-      .addChannelOption((opt) =>
-        opt
-          .setName('channel')
-          .setDescription('The channel to send goodbye messages')
-          .addChannelTypes(ChannelType.GuildText)
-          .setRequired(false)
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName('message')
-          .setDescription('Goodbye message (use {user}, {username}, {server}, {memberCount})')
-          .setRequired(false)
-      )
-      .addBooleanOption((opt) =>
-        opt.setName('embed').setDescription('Enable embed mode for goodbye messages').setRequired(false)
-      )
-      .addBooleanOption((opt) =>
-        opt.setName('enabled').setDescription('Enable/disable goodbye system').setRequired(false)
-      );
-
-    this.commands.set('goodbye-setup', {
-      data: goodbyeSetup,
-      execute: handleGoodbyeSetup,
-    });
-  }
-
-  async initialize(client: Client): Promise<void> {
-    // Event handlers will be registered separately via event system
-    // For now, module only provides setup commands
-    console.log(`✅ Welcome System module initialized (commands only, events TBD)`);
+  async initialize(_client: Client): Promise<void> {
+    console.log('✅ Welcome System module initialized (setup commands removed)');
   }
 }
-

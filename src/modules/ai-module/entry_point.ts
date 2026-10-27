@@ -155,7 +155,6 @@ Bot Commands Knowledge (use when user asks about bot commands):
 
 **⚙️ Settings & Logs:**
 - /log-setup - Cấu hình logging (message delete/edit, member join/leave, mod actions)
-- /welcome-setup - Cấu hình welcome/goodbye messages
 - /serverstats-setup - Tạo kênh thống kê tự động (members, bots, channels, roles)
 - /rule-setup - Tạo danh mục và kênh rules
 - /rule [số thứ tự] - Xem luật cụ thể
@@ -790,4 +789,3 @@ export default class AIModule {
 
 // Named export for module loader
 export { AIModule };
-

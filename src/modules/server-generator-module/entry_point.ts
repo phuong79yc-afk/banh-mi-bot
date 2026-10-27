@@ -37,7 +37,7 @@ import {
   getGuildFeatures,
   setGuildFeature,
   type FeatureKey,
-} from '../settings-module/entry_point';
+} from '../../utils/serverFeatures';
 import {
   buildThemeHint,
   detectThemes,

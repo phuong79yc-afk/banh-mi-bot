@@ -5,8 +5,5 @@
   "enabled": true,
   "priority": 12,
   "type": 1,
-  "slashCommands": [
-    "/welcome-setup",
-    "/goodbye-setup"
-  ]
+  "slashCommands": []
 }
