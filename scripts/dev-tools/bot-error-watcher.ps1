@@ -1,4 +1,4 @@
-# Bot Error Watcher v1.0
+﻿# Bot Error Watcher v1.0
 # Watches bot output for runtime errors and auto-fixes them
 
 param(
@@ -95,7 +95,7 @@ function Apply-AutoFix {
     switch ($fix.Type) {
         "DuplicateDefer" {
             Write-Host "[FIX] Running auto-fixer for duplicate defer in $($fix.File)..." -ForegroundColor Yellow
-            & powershell.exe -ExecutionPolicy Bypass -File ".\scripts\enhanced-auto-fixer.ps1" 2>&1 | Out-Null
+            & powershell.exe -ExecutionPolicy Bypass -File "$PSScriptRoot\auto-fixer.ps1" 2>&1 | Out-Null
             
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "[OK] Auto-fixer completed" -ForegroundColor Green

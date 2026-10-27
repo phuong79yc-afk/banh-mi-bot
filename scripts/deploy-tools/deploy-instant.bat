@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0..\.."
 echo.
 echo ============================================
 echo   INSTANT DEPLOY - Commands hien trong 5s
@@ -15,7 +16,7 @@ echo.
 echo ============================================
 echo.
 
-node scripts\deploy-all-commands.js
+node scripts\deploy-tools\deploy-all-commands.js
 
 echo.
 pause

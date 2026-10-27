@@ -5,6 +5,9 @@ param(
     [string]$Message = "Auto-save: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 )
 
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+Set-Location $ProjectRoot
+
 Write-Host "🔄 Auto Git Push Starting..." -ForegroundColor Cyan
 
 # Check if git repo

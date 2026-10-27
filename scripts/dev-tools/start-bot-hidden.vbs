@@ -1,2 +1,4 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "cmd /c cd /d C:\projects\code && npm start", 0, False
+Set FileSystem = CreateObject("Scripting.FileSystemObject")
+ProjectRoot = FileSystem.GetParentFolderName(FileSystem.GetParentFolderName(FileSystem.GetParentFolderName(WScript.ScriptFullName)))
+WshShell.Run "cmd /c cd /d """ & ProjectRoot & """ && npm start", 0, False

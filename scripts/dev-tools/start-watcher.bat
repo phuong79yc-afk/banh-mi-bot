@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0..\.."
 echo ========================================
 echo   AUTO BUILD, DEPLOY ^& RESTART WATCHER
 echo ========================================
@@ -9,4 +10,4 @@ echo.
 echo Press Ctrl+C to stop.
 echo.
 
-npm run watch:rebuild
+node scripts\dev-tools\watch-and-rebuild.js

@@ -1,11 +1,11 @@
-# Auto Watch & Push - Monitors file changes and auto commits/pushes
-# Usage: .\scripts\auto-watch-push.ps1
+﻿# Auto Watch & Push - Monitors file changes and auto commits/pushes
+# Usage: .\scripts\dev-tools\auto-watch-push.ps1
 
 param(
     [int]$Interval = 30  # Check every 30 seconds
 )
 
-$ProjectPath = "c:\projects\code"
+$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $ProjectPath
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -28,7 +28,7 @@ while ($true) {
         Write-Host "`n[$(Get-Date -Format 'HH:mm:ss')] Changes detected!" -ForegroundColor Yellow
         
         # Run quick push script
-        & "$ProjectPath\scripts\quick-push.ps1"
+        & "$ProjectPath\scripts\dev-tools\auto-git-push.ps1"
         
         if ($LASTEXITCODE -eq 0) {
             $newCommit = git rev-parse HEAD

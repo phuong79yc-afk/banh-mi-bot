@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0..\.."
 echo.
 echo ==========================================
 echo   AUTO REBUILD TRIGGERED
@@ -15,7 +16,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/3] Deploying...
-call node dist/deploy-commands.js
+call node dist/src/deploy-commands.js
 if %errorlevel% neq 0 (
     echo.
     echo ❌ Deploy failed!
@@ -24,7 +25,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [3/3] Restarting bot...
-call .\scripts\restart-bot.bat
+call .\scripts\dev-tools\restart-bot.bat
 
 echo.
 echo ✅ Rebuild complete!

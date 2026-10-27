@@ -1,6 +1,6 @@
 /**
  * Get all emoji IDs from Discord server
- * Run: node scripts/get-emoji-ids.js
+ * Run: node scripts/emoji-tools/get-emoji-ids.js
  */
 
 const { Client, GatewayIntentBits } = require('discord.js');

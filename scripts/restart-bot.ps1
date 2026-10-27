@@ -1,4 +1,4 @@
-# Restart Bot Script
+﻿# Restart Bot Script
 Write-Host "`n=== RESTARTING BOT ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -13,7 +13,8 @@ Write-Host "✅ Old processes stopped`n" -ForegroundColor Green
 
 # Rebuild
 Write-Host "🔨 Building bot..." -ForegroundColor Yellow
-Set-Location "c:\projects\code"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+Set-Location $ProjectRoot
 npm run build
 
 if ($LASTEXITCODE -eq 0) {
@@ -21,7 +22,7 @@ if ($LASTEXITCODE -eq 0) {
     
     # Start bot in new window
     Write-Host "🚀 Starting bot in new window..." -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\projects\code; npm start"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$ProjectRoot'; npm start"
     
     Write-Host "`n✅ Bot restarted successfully!" -ForegroundColor Green
     Write-Host "📝 Check the new window for bot logs`n" -ForegroundColor Cyan

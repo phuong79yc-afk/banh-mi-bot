@@ -16,7 +16,7 @@ npm install
 npm run build
 
 # 4. Deploy commands (QUAN TRỌNG!)
-node scripts/deploy-all-commands.js
+node scripts/deploy-tools/deploy-all-commands.js
 
 # 5. Run bot
 node dist/index.js
@@ -87,13 +87,13 @@ GUILD_ID=1234567890123456789
 
 # 2. Deploy
 scripts\deploy-instant.bat
-# hoặc: node scripts/deploy-all-commands.js
+# hoặc: node scripts/deploy-tools/deploy-all-commands.js
 ```
 
 ### 🌍 Global (1 giờ)
 ```bash
 # Không cần GUILD_ID, nhưng mất 1 giờ commands mới hiện
-node scripts/deploy-all-commands.js
+node scripts/deploy-tools/deploy-all-commands.js
 ```
 
 📖 **Chi tiết:** Xem `HOW-TO-DEPLOY-COMMANDS.md`
@@ -226,7 +226,7 @@ c:\projects\code/
 ### Commands không hiện trong Discord?
 ```bash
 # 1. Check đã deploy chưa
-node scripts/deploy-all-commands.js
+node scripts/deploy-tools/deploy-all-commands.js
 
 # 2. Nếu global - chờ 1 giờ
 # 3. Nếu guild - check GUILD_ID trong .env
@@ -275,7 +275,7 @@ npm run build
 node dist/index.js
 
 # Deploy commands
-node scripts/deploy-all-commands.js
+node scripts/deploy-tools/deploy-all-commands.js
 
 # Delete all commands (cleanup)
 node src/delete-all-commands.ts

@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0..\.."
 echo.
 echo ============================================
 echo   GLOBAL DEPLOY - Commands hien sau 1 gio
@@ -15,7 +16,7 @@ echo.
 
 REM Temporarily remove GUILD_ID for global deploy
 set GUILD_ID=
-node scripts\deploy-all-commands.js
+node scripts\deploy-tools\deploy-all-commands.js
 
 echo.
 pause

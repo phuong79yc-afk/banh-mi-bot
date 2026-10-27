@@ -54,7 +54,7 @@ Module VIP đã được tạo với đầy đủ tính năng:
 ### Option 1: Chạy trực tiếp với ts-node (KHUYÊN DÙNG)
 ```bash
 # Click double vào file này:
-run-direct.bat
+scripts/dev-tools/run-direct.bat
 
 # Hoặc chạy command:
 node --expose-gc -r ts-node/register src/index.ts

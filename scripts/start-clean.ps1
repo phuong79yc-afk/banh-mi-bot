@@ -5,4 +5,5 @@ Start-Sleep -Seconds 2
 
 # Start bot
 Write-Host "Starting bot..." -ForegroundColor Green
+Set-Location (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 node --expose-gc dist/src/index.js

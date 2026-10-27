@@ -6,6 +6,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const projectRoot = path.resolve(__dirname, '..', '..');
 
 console.log('\n🔄 Auto Deploy Triggered...\n');
 
@@ -14,15 +15,15 @@ try {
   console.log('[1/4] 📦 Building TypeScript...');
   execSync('npm run build', { 
     stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
+    cwd: projectRoot
   });
   console.log('✅ Build successful!\n');
 
   // Step 2: Deploy commands to Discord
   console.log('[2/4] 🚀 Deploying commands to Discord...');
-  execSync('node dist/deploy-commands.js', { 
+  execSync('node dist/src/deploy-commands.js', {
     stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
+    cwd: projectRoot
   });
   console.log('✅ Commands deployed!\n');
 
@@ -42,9 +43,9 @@ try {
   // Step 4: Start bot in background
   console.log('[4/4] 🚀 Starting bot...');
   if (process.platform === 'win32') {
-    execSync('start /B npm start', { stdio: 'ignore', cwd: path.join(__dirname, '..') });
+    execSync('start /B npm start', { stdio: 'ignore', cwd: projectRoot });
   } else {
-    execSync('npm start > /dev/null 2>&1 &', { stdio: 'ignore', cwd: path.join(__dirname, '..') });
+    execSync('npm start > /dev/null 2>&1 &', { stdio: 'ignore', cwd: projectRoot });
   }
   console.log('✅ Bot started!\n');
 

@@ -65,12 +65,12 @@ const BROWSER_UA =
 
 // Màu viền + kiểu tim theo số tim (ít -> nhiều)
 const LIKE_TIERS = [
-  { min: 10_000_000, color: 0xe91e63, heart: '❤️‍🔥' }, // ≥ 10M  : tim lửa (siêu viral)
-  { min: 1_000_000, color: 0xfe2c55, heart: '❤️' }, //     ≥ 1M   : tim đỏ
-  { min: 100_000, color: 0xe67e22, heart: '🧡' }, //       ≥ 100K : tim cam
-  { min: 10_000, color: 0x2ecc71, heart: '💚' }, //        ≥ 10K  : tim xanh lá
-  { min: 1_000, color: 0x3498db, heart: '💙' }, //         ≥ 1K   : tim xanh dương
-  { min: 0, color: 0x95a5a6, heart: '🤍' }, //             < 1K   : tim trắng
+  { min: 10_000_000, color: 0xe91e63 }, // ≥ 10M  : siêu viral
+  { min: 1_000_000, color: 0xfe2c55 }, //     ≥ 1M
+  { min: 100_000, color: 0xe67e22 }, //       ≥ 100K
+  { min: 10_000, color: 0x2ecc71 }, //        ≥ 10K
+  { min: 1_000, color: 0x3498db }, //         ≥ 1K
+  { min: 0, color: 0x95a5a6 }, //             < 1K
 ];
 const COLOR_UNKNOWN = 0x4e5058; // không lấy được số tim
 const COLOR_RED = 0xed4245;
@@ -78,11 +78,6 @@ const tierOf = (likes: number) => LIKE_TIERS.find((t) => likes >= t.min)!;
 
 function colorByLikes(likes?: number): number {
   return likes === undefined ? COLOR_UNKNOWN : tierOf(likes).color;
-}
-
-/** Kiểu tim đổi theo số tim, khớp với màu viền */
-function heartByLikes(likes?: number): string {
-  return likes === undefined ? '❤️' : tierOf(likes).heart;
 }
 
 // ==================== COMPONENTS V2 HELPERS ====================
@@ -533,7 +528,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
     const fetchCap = canCompress ? MAX_COMPRESS_SOURCE_BYTES : limit;
 
     if (data.videoSize && data.videoSize > fetchCap) {
-      videoNote = `⚠️ Video ${mb(data.videoSize)} vượt giới hạn upload ${mb(limit)}`;
+          videoNote = `${emojis.warning} Video ${mb(data.videoSize)} vượt giới hạn upload ${mb(limit)}`;
     } else {
       const dl = await downloadVideoBuffer(data.videoUrl, fetchCap);
 
@@ -545,14 +540,14 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 
         if (small) {
           files = [new AttachmentBuilder(small, { name: 'tiktok-video.mp4' })];
-          videoNote = `🗜️ Đã nén ${mb(original.length)} → ${mb(small.length)}`;
+          videoNote = `${emojis.wrench} Đã nén ${mb(original.length)} → ${mb(small.length)}`;
         } else {
-          videoNote = `⚠️ Video ${mb(original.length)} quá nặng, không nén được`;
+          videoNote = `${emojis.warning} Video ${mb(original.length)} quá nặng, không nén được`;
         }
       } else if (dl.buffer || dl.tooBig) {
-        videoNote = `⚠️ Video vượt giới hạn upload ${mb(limit)}`;
+        videoNote = `${emojis.warning} Video vượt giới hạn upload ${mb(limit)}`;
       } else {
-        videoNote = '⚠️ Không tải được video, hiển thị ảnh bìa';
+        videoNote = `${emojis.warning} Không tải được video, hiển thị ảnh bìa`;
       }
     }
   }
@@ -574,31 +569,31 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
 
   // Nội dung: tác giả + caption + hashtag, sau đó là thống kê và chân thẻ.
-  const lines: string[] = [`### ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`];
+  const lines: string[] = [`### ${data.isPhoto ? emojis.tt_photo : emojis.tt_video} ${authorLabel}`];
   if (data.caption) lines.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
   if (data.tags.length) lines.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
 
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-    lines.push(`${heartByLikes(st.likes)} **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
+    lines.push(`${emojis.tt_like} **${compact(st.likes)}** · ${emojis.tt_comment} ${compact(st.comments)} · ${emojis.tt_share} ${compact(st.shares)}`);
   }
 
   const foot: string[] = [];
-  if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
+  if (data.isPhoto && data.totalImages > files.length) foot.push(`${emojis.tt_photo} +${data.totalImages - files.length} ảnh`);
   if (videoNote) foot.push(videoNote);
   foot.push(`Chia sẻ bởi ${requester.username}`);
   lines.push(`-# ${foot.join(' • ')}`);
   container.addTextDisplayComponents(text(lines.join('\n')));
 
   // Nút hành động chính đứng trước; nút video chỉ hiện khi chưa đính kèm video.
-  const buttons = [linkButton('Mở TikTok', data.url, '🎵')];
+  const buttons = [linkButton('Mở TikTok', data.url, emojis.tt_music)];
   if (!data.isPhoto && !hasVideoFile) {
     if (PLAYABLE_HOST) {
       const playable = new URL(data.url);
       playable.hostname = PLAYABLE_HOST;
-      buttons.push(linkButton('Xem video', playable.toString(), '▶️'));
+      buttons.push(linkButton('Xem video', playable.toString(), emojis.tt_video));
     }
-    if (data.videoUrl) buttons.push(linkButton('Tải video', data.videoUrl, '⬇️'));
+    if (data.videoUrl) buttons.push(linkButton('Tải video', data.videoUrl, emojis.download));
   }
   container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
@@ -626,7 +621,7 @@ export default class TikTokModule {
   }
 
   async initialize() {
-    console.log('🎵 TikTok module initialized');
+    console.log(`${emojis.tt_music} TikTok module initialized`);
     this.registerCommands();
     if (AUTO_EMBED) this.registerEvents();
     console.log(`✅ TikTok module registered ${this.commands.size} commands`);
@@ -636,7 +631,7 @@ export default class TikTokModule {
     const tiktokCommand = {
       data: new SlashCommandBuilder()
         .setName('tiktok')
-        .setDescription('🎵 Tạo thẻ đẹp từ link TikTok')
+        .setDescription(`${emojis.tt_music} Tạo thẻ đẹp từ link TikTok`)
         .addStringOption((o) => o.setName('link').setDescription('Link video hoặc bài đăng TikTok').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {

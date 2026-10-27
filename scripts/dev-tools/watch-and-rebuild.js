@@ -4,6 +4,8 @@
 const { exec } = require('child_process');
 const chokidar = require('chokidar');
 const path = require('path');
+const projectRoot = path.resolve(__dirname, '..', '..');
+process.chdir(projectRoot);
 
 let isRebuilding = false;
 let rebuildQueue = false;
@@ -72,7 +74,7 @@ function rebuild(filePath) {
     console.log('✅ Build complete!\n');
     console.log('2️⃣ Deploying commands...');
 
-    exec('node dist/deploy-commands.js', (error, stdout, stderr) => {
+    exec('node dist/src/deploy-commands.js', (error, stdout, stderr) => {
       if (error) {
         console.error('\n❌ DEPLOY FAILED!\n');
         console.error('━'.repeat(50));
@@ -108,7 +110,7 @@ function rebuild(filePath) {
       console.log('✅ Commands deployed!\n');
       console.log('3️⃣ Restarting bot...');
 
-      exec('.\\scripts\\restart-bot.bat', (error, stdout, stderr) => {
+      exec('.\\scripts\\dev-tools\\restart-bot.bat', (error, stdout, stderr) => {
         if (error) {
           console.error('\n❌ RESTART FAILED!\n');
           console.error('━'.repeat(50));
@@ -126,7 +128,7 @@ function rebuild(filePath) {
           }
           
           console.error('\n━'.repeat(50));
-          console.error('💡 Try manually: .\\scripts\\restart-bot.bat\n');
+          console.error('💡 Try manually: .\\scripts\\dev-tools\\restart-bot.bat\n');
         } else {
           // Show restart output (SUCCESS/RUNNING status)
           if (stdout) {

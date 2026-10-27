@@ -1,10 +1,13 @@
-# Auto-Fixer Script
+﻿# Auto-Fixer Script
 # Tự động phát hiện và vá các lỗi phổ biến trong Discord bot
 
 param(
     [switch]$DryRun,
     [switch]$Verbose
 )
+
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+Set-Location $ProjectRoot
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host "🔧 AUTO-FIXER - Discord Bot Error Detector" -ForegroundColor Green

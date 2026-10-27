@@ -4,31 +4,35 @@ Thư mục này chứa các utility scripts được tổ chức theo chức nă
 
 ## 📁 Structure
 
-### `deploy-tools/` (10 files)
-Scripts liên quan đến deploy commands lên Discord:
-- Deploy commands (global/guild)
-- Delete commands
-- Command management
+### `dev-tools/`
+Build, start, restart, auto-fix và watcher cho bot.
 
-### `emoji-tools/` (26 files)
-Scripts quản lý custom emojis:
-- Upload emojis
-- Check emoji usage
-- Replace Unicode with custom emojis
-- Economy emojis
+### `deploy-tools/`
+Deploy và xóa slash commands.
 
-### `dev-tools/` (19 files)
-Scripts hỗ trợ development:
-- Auto-restart bot
-- File watchers
-- Auto rebuild
-- Health checks
+### `command-tools/`
+Quét command từ source/build và xuất báo cáo.
 
-### `archived/` (30 files)
-Scripts cũ không còn sử dụng thường xuyên:
-- Test scripts
-- One-time fix scripts
-- Deprecated utilities
+### `data-tools/`
+Tiện ích kiểm tra/reset dữ liệu; một số script có thể thay đổi dữ liệu người dùng.
+
+### `diagnostics/`
+Kiểm tra server, module và role Discord.
+
+### `emoji-tools/`
+Upload, kiểm tra và quản lý custom emoji.
+
+### `database-tools/`
+Cài đặt và tiện ích cơ sở dữ liệu.
+
+### `test-tools/`
+Script kiểm thử thủ công.
+
+### `git-tools/`
+Shortcut commit/push.
+
+### `maintenance-tools/`
+Script sửa chữa một lần.
 
 ## 🚀 Usage
 
@@ -36,7 +40,13 @@ Chạy scripts từ root project:
 
 ```bash
 # Deploy commands
-node scripts/deploy-tools/deploy-commands.js
+node scripts/deploy-tools/deploy-all-commands.js
+
+# Generate command report
+node scripts/command-tools/list-all-commands.js
+
+# Reset daily data for one user (check the target before running)
+node scripts/data-tools/reset-daily.js USER_ID
 
 # Upload emojis
 node scripts/emoji-tools/upload-emojis.js
@@ -47,4 +57,4 @@ node scripts/emoji-tools/upload-emojis.js
 
 ## ⚠️ Note
 
-Hầu hết các scripts trong `archived/` đã được tích hợp vào bot hoặc không còn cần thiết. Chỉ giữ lại để tham khảo.
+Các tiện ích backup và restore được giữ ở thư mục gốc `scripts/` để các lệnh npm tương ứng tiếp tục hoạt động.

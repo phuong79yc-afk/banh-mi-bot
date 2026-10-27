@@ -8,7 +8,7 @@
       "matcher": "src[\\\\/].*\\.ts$",
       "action": {
         "type": "command",
-        "command": ".\\scripts\\rebuild-on-change.bat",
+        "command": ".\\scripts\\dev-tools\\rebuild-on-change.bat",
         "timeout": 180
       }
     }

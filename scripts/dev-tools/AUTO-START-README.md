@@ -6,38 +6,29 @@ Bot tự động khởi động khi Windows starts up.
 
 Bot sẽ tự động start khi bạn login Windows!
 
-File location: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\DiscordBot.vbs`
+Launcher: `scripts\dev-tools\start-bot-hidden.vbs`
 
 ## 📋 Available Scripts
 
 ### Start Bot (Hidden)
 ```bash
 # Start bot without showing window
-scripts\start-bot-hidden.vbs
+scripts\dev-tools\start-bot-hidden.vbs
 ```
 
 Double-click file hoặc:
 ```cmd
-wscript scripts\start-bot-hidden.vbs
+wscript scripts\dev-tools\start-bot-hidden.vbs
 ```
 
 ### Stop Bot
 ```bash
 # Stop all bot processes
-scripts\stop-bot.bat
+scripts\dev-tools\stop-bot.bat
 ```
 
-### Install Auto-Start
-```bash
-# Add bot to Windows Startup (already done!)
-scripts\install-auto-start.bat
-```
-
-### Uninstall Auto-Start
-```bash
-# Remove bot from Windows Startup
-scripts\uninstall-auto-start.bat
-```
+### Windows Startup
+To start the bot at login, create a Windows shortcut to `scripts\dev-tools\start-bot-hidden.vbs` in the Startup folder (`Win + R`, then `shell:startup`).
 
 ## 🔧 Manual Control
 
@@ -46,13 +37,13 @@ Open Task Manager (Ctrl+Shift+Esc) → Look for `node.exe` processes
 
 ### View bot logs
 ```bash
-cd C:\projects\code
+cd <project-root>
 npm start
 ```
 
 ### Restart bot
-1. Run `scripts\stop-bot.bat`
-2. Run `scripts\start-bot-hidden.vbs`
+1. Run `scripts\dev-tools\stop-bot.bat`
+2. Run `scripts\dev-tools\start-bot-hidden.vbs`
 
 ## 📍 Auto-Start File Location
 
@@ -68,7 +59,7 @@ To access quickly:
 ## ⚙️ How It Works
 
 1. **VBS Script** runs silently in background (no console window)
-2. **Changes to project directory**: `C:\projects\code`
+2. **Changes to the project directory** relative to the VBS file
 3. **Runs command**: `npm start`
 4. **Bot starts automatically** on every Windows login
 
@@ -92,27 +83,23 @@ scripts\install-auto-start.bat
 
 ## 📊 Status
 
-✅ **Auto-start**: Enabled  
-✅ **Bot status**: Running (8 Node.js processes)  
-✅ **Location**: C:\projects\code  
 ✅ **Mode**: Hidden (no console window)  
 
 ## 🐛 Troubleshooting
 
 ### Bot doesn't start automatically
 1. Check if VBS file exists: `shell:startup`
-2. Check file path in VBS: `C:\projects\code`
-3. Test manually: `wscript scripts\start-bot-hidden.vbs`
+2. Test manually: `wscript scripts\dev-tools\start-bot-hidden.vbs`
 
 ### Bot crashes on startup
-1. Check logs: `cd C:\projects\code && npm start`
+1. Check logs: run `npm start` from the project root
 2. Verify .env file exists with valid tokens
 3. Check Node.js version: `node --version` (should be 18+)
 
 ### Multiple bot instances running
 ```bash
-scripts\stop-bot.bat
-wscript scripts\start-bot-hidden.vbs
+scripts\dev-tools\stop-bot.bat
+wscript scripts\dev-tools\start-bot-hidden.vbs
 ```
 
 ## 💡 Tips
@@ -121,7 +108,7 @@ wscript scripts\start-bot-hidden.vbs
 - Check Task Manager for `node.exe` processes
 - Bot auto-restarts on Windows reboot
 - Logs saved in `logs/` folder
-- Use `stop-bot.bat` before making code changes
+- Use `scripts\dev-tools\stop-bot.bat` before making code changes
 
 ---
 

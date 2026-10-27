@@ -2,6 +2,6 @@
   "watch": ["src/**/*.ts"],
   "ext": "ts",
   "ignore": ["node_modules", "dist", "client"],
-  "exec": ".\\scripts\\rebuild-on-change.bat",
+  "exec": ".\\scripts\\dev-tools\\rebuild-on-change.bat",
   "delay": 2000
 }

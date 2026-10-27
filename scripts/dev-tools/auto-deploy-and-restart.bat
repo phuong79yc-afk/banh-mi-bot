@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+cd /d "%~dp0..\.."
 echo.
 echo ================================
 echo 🚀 AUTO DEPLOY ^& RESTART BOT
@@ -17,7 +18,7 @@ echo ✅ Build successful!
 echo.
 
 echo [2/5] 🔄 Deploying commands to Discord...
-node dist/deploy-commands.js
+node dist/src/deploy-commands.js
 if %errorlevel% neq 0 (
     echo ❌ Deploy failed!
     pause

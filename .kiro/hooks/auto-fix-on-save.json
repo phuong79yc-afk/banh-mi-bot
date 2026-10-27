@@ -8,7 +8,7 @@
       "matcher": "src[/\\\\]commands[/\\\\].*\\.ts$",
       "action": {
         "type": "command",
-        "command": "powershell.exe -ExecutionPolicy Bypass -File \".\\scripts\\enhanced-auto-fixer.ps1\" -Verbose 2>&1 | Select-Object -Last 20; if ($LASTEXITCODE -eq 0) { npm run build --silent 2>&1 | Out-Null; Write-Host \"✅ Auto-fixed and rebuilt!\" -ForegroundColor Green } else { Write-Host \"❌ Auto-fix failed\" -ForegroundColor Red }",
+        "command": "powershell.exe -ExecutionPolicy Bypass -File \".\\scripts\\dev-tools\\auto-fixer.ps1\" -Verbose 2>&1 | Select-Object -Last 20; if ($LASTEXITCODE -eq 0) { npm run build --silent 2>&1 | Out-Null; Write-Host \"✅ Auto-fixed and rebuilt!\" -ForegroundColor Green } else { Write-Host \"❌ Auto-fix failed\" -ForegroundColor Red }",
         "timeout": 120
       }
     }
