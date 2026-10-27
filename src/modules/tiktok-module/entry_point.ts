@@ -17,6 +17,8 @@ import {
   TextDisplayBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
@@ -497,7 +499,7 @@ function compact(n?: number): string {
   return String(n);
 }
 
-/** Dựng thẻ TikTok (bố cục gọn, màu viền theo số tim) */
+/** Dựng thẻ TikTok theo bố cục media-first. */
 async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild | null) {
   const data = await fetchTikTok(rawUrl);
 
@@ -548,35 +550,45 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
     );
   }
 
-  const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
   const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
 
-  // Nội dung: tác giả + caption + hashtag, sau đó là thống kê và chân thẻ.
-  const lines: string[] = [`### ${data.isPhoto ? emojis.tt_photo : emojis.tt_video} ${authorLabel}`];
-  if (data.caption) lines.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
-  if (data.tags.length) lines.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
+  const author = data.authorHandle ? `@${data.authorHandle.replace(/^@/, '')}` : data.authorName;
+  const title = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
+  container.addTextDisplayComponents(
+    text(`${data.isPhoto ? emojis.tt_photo : emojis.tt_video} **${title}** (${author})`),
+  );
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  container.addTextDisplayComponents(text(`↗ [Open in TikTok](${data.url})`));
 
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-    lines.push(`${emojis.tt_like} **${compact(st.likes)}** · ${emojis.tt_comment} ${compact(st.comments)} · ${emojis.tt_share} ${compact(st.shares)}`);
+    container.addTextDisplayComponents(
+      text(`${emojis.tt_like} **${compact(st.likes)}**　${emojis.tt_comment} **${compact(st.comments)}**　${emojis.tt_share} **${compact(st.shares)}`),
+    );
   }
 
-  const foot: string[] = [];
-  if (data.isPhoto && data.totalImages > files.length) foot.push(`${emojis.tt_photo} +${data.totalImages - files.length} ảnh`);
-  if (videoNote) foot.push(videoNote);
-  foot.push(`Chia sẻ bởi ${requester.username}`);
-  lines.push(`-# ${foot.join(' • ')}`);
-  container.addTextDisplayComponents(text(lines.join('\n')));
+  const notes: string[] = [];
+  if (data.isPhoto && data.totalImages > files.length) notes.push(`${emojis.tt_photo} +${data.totalImages - files.length} ảnh`);
+  if (videoNote) notes.push(videoNote);
+  if (data.caption) notes.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
+  if (data.tags.length) notes.push(data.tags.slice(0, 3).join(' '));
+  if (notes.length) {
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    container.addTextDisplayComponents(text(`-# ${notes.join(' • ')}`));
+  }
 
-  // Nút hành động chính đứng trước; nút video chỉ hiện khi chưa đính kèm video.
-  const buttons = [linkButton('Mở TikTok', data.url, emojis.tt_music)];
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  const buttons = [linkButton('Open TikTok', data.url, emojis.tt_music)];
   if (!data.isPhoto && !hasVideoFile) {
     if (PLAYABLE_HOST) {
       const playable = new URL(data.url);
       playable.hostname = PLAYABLE_HOST;
-      buttons.push(linkButton('Xem video', playable.toString(), emojis.tt_video));
+      buttons.push(linkButton('Watch video', playable.toString(), emojis.tt_video));
     }
-    if (data.videoUrl) buttons.push(linkButton('Tải video', data.videoUrl, emojis.download));
+    if (data.videoUrl) buttons.push(linkButton('Download', data.videoUrl, emojis.download));
+  }
+  if (data.authorUrl) {
+    buttons.push(linkButton('Creator profile', data.authorUrl));
   }
   container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
