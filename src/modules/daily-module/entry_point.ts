@@ -313,7 +313,7 @@ export default class DailyModule {
   private registerCommands() {
     // ==================== /daily ====================
     const dailyCommand = {
-      data: new SlashCommandBuilder().setName('daily').setDescription('Điểm danh hàng ngày để nhận xu và vé vàng'),
+      data: new SlashCommandBuilder().setName('daily').setDescription('Điểm danh hàng ngày để nhận xu'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           await interaction.deferReply();
@@ -380,11 +380,10 @@ export default class DailyModule {
         // Perform UPSERT with Turso
         const db = getTursoDatabase();
         await db.execute({
-          sql: `INSERT INTO daily_users (user_id, balance, gold_balance, streak, max_streak, total_checkins, last_daily)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+          sql: `INSERT INTO daily_users (user_id, balance, streak, max_streak, total_checkins, last_daily)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                   balance = balance + ?,
-                  gold_balance = gold_balance + ?,
                   streak = ?,
                   max_streak = MAX(max_streak, ?),
                   total_checkins = total_checkins + 1,
@@ -392,14 +391,12 @@ export default class DailyModule {
           args: [
             userId,
             rewards.total,
-            1,  // gold_balance insert value
             streak,
             Math.max(userDataBefore.max_streak, streak),
             1,  // total_checkins insert value (incremented in UPDATE)
             getTodayString(),
             // UPDATE clause values:
             rewards.total,  // balance increment
-            1,              // gold_balance increment
             streak,
             Math.max(userDataBefore.max_streak, streak),
             getTodayString()
@@ -622,4 +619,3 @@ export default class DailyModule {
     console.log('🧹 Daily module cleanup');
   }
 }
-
