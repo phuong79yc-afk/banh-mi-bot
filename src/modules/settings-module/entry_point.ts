@@ -5,18 +5,14 @@
 
 import {
   ActionRowBuilder,
-  ChatInputCommandInteraction,
   Client,
   Collection,
   ContainerBuilder,
   MessageFlags,
-  PermissionFlagsBits,
   SectionBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  SlashCommandBuilder,
   StringSelectMenuBuilder,
-  StringSelectMenuInteraction,
   TextDisplayBuilder,
   ThumbnailBuilder,
   User,
@@ -44,7 +40,7 @@ interface ServerFeaturesData {
   [guildId: string]: GuildFeatures;
 }
 
-type FeatureKey = keyof GuildFeatures;
+export type FeatureKey = keyof GuildFeatures;
 
 interface FeatureOption {
   label: string;
@@ -53,7 +49,7 @@ interface FeatureOption {
 }
 
 /* ───────────────────────────── Feature Definitions ───────────────────────────── */
-const FEATURES: FeatureOption[] = [
+export const FEATURES: FeatureOption[] = [
   { label: 'Welcome System', value: 'welcome_system', emoji: '👋' },
   { label: 'Goodbye System', value: 'goodbye_system', emoji: '👋' },
   { label: 'Auto Role', value: 'auto_role', emoji: '🎭' },
@@ -93,7 +89,7 @@ function saveData(data: ServerFeaturesData): void {
   }
 }
 
-function getGuildFeatures(guildId: string): GuildFeatures {
+export function getGuildFeatures(guildId: string): GuildFeatures {
   const data = loadData();
   if (!data[guildId]) {
     data[guildId] = { ...DEFAULT_FEATURES };
@@ -102,7 +98,7 @@ function getGuildFeatures(guildId: string): GuildFeatures {
   return data[guildId];
 }
 
-function setGuildFeature(guildId: string, feature: FeatureKey, value: boolean): void {
+export function setGuildFeature(guildId: string, feature: FeatureKey, value: boolean): void {
   const data = loadData();
   if (!data[guildId]) {
     data[guildId] = { ...DEFAULT_FEATURES };
@@ -131,7 +127,7 @@ function customId(action: string, userId: string) {
 }
 
 /* ───────────────────────────── UI Cards ───────────────────────────── */
-function buildFeatureCard(user: User, guildId: string): any {
+export function buildFeatureCard(user: User, guildId: string): any {
   const features = getGuildFeatures(guildId);
   
   const container = new ContainerBuilder();
@@ -194,7 +190,7 @@ function buildFeatureCard(user: User, guildId: string): any {
   };
 }
 
-function buildErrorCard(user: User, title: string, message: string): any {
+export function buildErrorCard(user: User, title: string, message: string): any {
   const container = new ContainerBuilder().addTextDisplayComponents(
       text(`## ❌ ${title}`),
       text(message),
@@ -207,7 +203,7 @@ function buildErrorCard(user: User, title: string, message: string): any {
   };
 }
 
-function buildSuccessCard(user: User, featureName: string, newState: boolean): any {
+export function buildSuccessCard(user: User, featureName: string, newState: boolean): any {
   const container = new ContainerBuilder().addTextDisplayComponents(
       text(`## ✅ Feature Updated`),
       text(`**${featureName}** is now ${newState ? '**enabled** ✅' : '**disabled** ❌'}`),
@@ -235,121 +231,12 @@ export default class SettingsModule {
   }
 
   async initialize() {
-    this.registerCommands();
-    this.setupInteractionHandler();
-    console.log(`✅ Settings module registered ${this.commands.size} command(s)`);
+    console.log('✅ Settings feature service initialized');
   }
 
   async shutdown() {
     console.log(`Shutting down ${this.name}`);
   }
 
-  /* ───────────────────────────── Commands ───────────────────────────── */
-  private registerCommands() {
-    this.commands.set('setting', {
-      data: new SlashCommandBuilder()
-        .setName('setting')
-        .setDescription('[Admin] Quản lý cài đặt server')
-        .addSubcommand((sub) =>
-          sub.setName('deesyn-feature').setDescription('�️ Toggle bot features on/off')
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        // Permission check
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-          await interaction.reply(
-            buildErrorCard(
-              interaction.user,
-              'Permission Denied',
-              'You need **Administrator** permission to use this command.'
-            )
-          );
-          return;
-        }
-
-        if (!interaction.guildId) {
-          await interaction.reply(
-            buildErrorCard(interaction.user, 'Error', 'This command can only be used in a server.')
-          );
-          return;
-        }
-
-        const subcommand = interaction.options.getSubcommand();
-
-        if (subcommand === 'deesyn-feature') {
-          try {
-            await interaction.reply(buildFeatureCard(interaction.user, interaction.guildId));
-          } catch (error: any) {
-            console.error('Error showing feature card:', error);
-            await interaction.reply(
-              buildErrorCard(interaction.user, 'Error', 'Failed to load server features.')
-            ).catch(() => {});
-          }
-        }
-      },
-    });
-  }
-
-  /* ───────────────────────────── Interaction Handler ───────────────────────────── */
-  private setupInteractionHandler() {
-    this.client.on('interactionCreate', async (interaction) => {
-      try {
-        if (interaction.isStringSelectMenu() && interaction.customId.startsWith('settings:')) {
-          await this.handleSelectMenu(interaction);
-        }
-      } catch (error) {
-        console.error('Settings module interaction error:', error);
-      }
-    });
-  }
-
-  private async handleSelectMenu(interaction: StringSelectMenuInteraction) {
-    const [, action, ownerId] = interaction.customId.split(':');
-
-    // Check ownership
-    if (interaction.user.id !== ownerId) {
-      await interaction.reply(
-        buildErrorCard(interaction.user, 'Error', 'This is not your menu!')
-      ).catch(() => {});
-      return;
-    }
-
-    if (!interaction.guildId) {
-      await interaction.reply(
-        buildErrorCard(interaction.user, 'Error', 'This command can only be used in a server.')
-      ).catch(() => {});
-      return;
-    }
-
-    if (action === 'toggle') {
-      const selectedFeature = interaction.values[0] as FeatureKey;
-      
-      try {
-        // Get current state
-        const currentFeatures = getGuildFeatures(interaction.guildId);
-        const currentState = currentFeatures[selectedFeature];
-        const newState = !currentState;
-
-        // Toggle feature
-        setGuildFeature(interaction.guildId, selectedFeature, newState);
-
-        // Find feature label
-        const featureOption = FEATURES.find((f) => f.value === selectedFeature);
-        const featureName = featureOption?.label ?? selectedFeature;
-
-        // Show success message (ephemeral)
-        await interaction.reply(buildSuccessCard(interaction.user, featureName, newState));
-
-        // Update main card with new state
-        await interaction.message.edit(buildFeatureCard(interaction.user, interaction.guildId));
-      } catch (error: any) {
-        console.error('Error toggling feature:', error);
-        await interaction.reply(
-          buildErrorCard(interaction.user, 'Error', 'Failed to update feature setting.')
-        ).catch(() => {});
-      }
-    }
-  }
 }
 

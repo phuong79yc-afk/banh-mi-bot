@@ -47,69 +47,116 @@ export interface ValidationReport {
 
 const VALID_TYPES = [ChannelType.GuildText, ChannelType.GuildVoice, ChannelType.GuildStageVoice];
 
-const THEMES = {
-  // Gaming subcategories
+const THEMES: Record<string, string[]> = {
   gaming: ['gaming', 'game', 'esport', 'gamer', 'tournament', 'lfg', 'scrim', 'clan', 'guild', 'pvp', 'pve', 'fps', 'moba', 'mmo'],
+  valorant: ['valorant', 'valo'],
+  league: ['league of legends', 'league', 'lol'],
+  dota: ['dota', 'dota2'],
+  fortnite: ['fortnite'],
+  pubg: ['pubg', 'battleground'],
+  genshin: ['genshin impact', 'genshin'],
+  roblox: ['roblox'],
   minecraft: ['minecraft', 'survival', 'creative', 'build', 'block', 'craft', 'redstone'],
   roleplay: ['roleplay', 'rp', 'character', 'story', 'lore', 'fantasy'],
   fps: ['fps', 'shooter', 'csgo', 'valorant', 'cod', 'battlefield', 'warzone'],
   moba: ['moba', 'league', 'dota', 'lol', 'legends', 'arena'],
   esports: ['esport', 'tournament', 'competitive', 'pro', 'championship'],
-  
-  // Social & Community
-  community: ['community', 'social', 'chat', 'general', 'off-topic', 'chill', 'hangout', 'lounge', 'friend', 'talk'],
-  dating: ['dating', 'romance', 'relationship', 'love', 'meetup', 'singles'],
+  community: ['community', 'social', 'chat', 'general', 'off topic', 'chill', 'hangout', 'lounge', 'friend', 'talk', 'cong dong', 'giao luu', 'tro chuyen', 'ban be'],
+  dating: ['dating', 'romance', 'relationship', 'love', 'meetup', 'singles', 'hen ho', 'tinh yeu'],
   meme: ['meme', 'funny', 'joke', 'humor', 'dank', 'shitpost'],
-  vietnamese: ['viet', 'vietnam', 'tieng viet', 'vietnamese', 'vn'],
-  
-  // Education & Learning
-  school: ['school', 'study', 'homework', 'education', 'learn', 'tutor', 'class', 'student', 'teacher', 'học', 'trường', 'lớp', 'bài tập'],
-  study: ['study', 'homework', 'learning', 'tutorial', 'course'],
-  english: ['english', 'learning', 'esl', 'language', 'grammar'],
-  
-  // Creative & Arts
+  vietnamese: ['viet nam', 'tieng viet', 'vietnamese', 'vn'],
+  school: ['school', 'study', 'homework', 'education', 'learn', 'tutor', 'class', 'student', 'teacher', 'hoc tap', 'truong hoc', 'lop hoc', 'bai tap'],
+  study: ['study', 'homework', 'learning', 'tutorial', 'course', 'hoc tap', 'on thi'],
+  english: ['english', 'esl', 'language', 'grammar', 'tieng anh', 'hoc tieng anh'],
   anime: ['anime', 'manga', 'otaku', 'weeb', 'episode', 'cosplay', 'waifu', 'husbando', 'shounen', 'seinen'],
-  music: ['music', 'song', 'artist', 'producer', 'beat', 'karaoke', 'dj', 'remix', 'soundcloud', 'spotify', 'nhạc'],
-  art: ['art', 'draw', 'design', 'paint', 'illustration', 'sketch', 'artist'],
-  photography: ['photo', 'camera', 'photography', 'picture', 'shot'],
+  music: ['music', 'song', 'artist', 'producer', 'beat', 'karaoke', 'dj', 'remix', 'soundcloud', 'spotify', 'nhac', 'ca hat'],
+  art: ['art', 'draw', 'design', 'paint', 'illustration', 'sketch', 'artist', 'my thuat', 've tranh'],
+  photography: ['photo', 'camera', 'photography', 'picture', 'shot', 'nhiep anh'],
   streaming: ['streaming', 'stream', 'twitch', 'youtube', 'content', 'creator'],
-  movie: ['movie', 'film', 'cinema', 'series', 'tv show', 'netflix'],
-  
-  // Tech & Business
-  tech: ['code', 'programming', 'dev', 'tech', 'project', 'github', 'developer', 'coding', 'software', 'web', 'app', 'api'],
+  movie: ['movie', 'film', 'cinema', 'series', 'tv show', 'netflix', 'phim'],
+  tech: ['code', 'programming', 'dev', 'tech', 'project', 'github', 'developer', 'coding', 'software', 'web', 'app', 'api', 'lap trinh', 'cong nghe', 'phat trien phan mem'],
   crypto: ['crypto', 'bitcoin', 'nft', 'blockchain', 'defi', 'trading', 'token', 'coin', 'wallet', 'eth', 'btc'],
-  business: ['business', 'startup', 'entrepreneur', 'company', 'work', 'office', 'team', 'project', 'meeting', 'doanh nghiệp'],
-  
-  // Lifestyle & Hobbies
-  fitness: ['fitness', 'gym', 'workout', 'exercise', 'health', 'bodybuilding'],
-  food: ['food', 'cooking', 'recipe', 'chef', 'culinary', 'baking'],
-  travel: ['travel', 'trip', 'vacation', 'tour', 'adventure', 'explore'],
-  sports: ['sport', 'football', 'basketball', 'soccer', 'athlete'],
-  chess: ['chess', 'board', 'strategy', 'checkmate'],
-  
-  // Genre themes
-  horror: ['horror', 'scary', 'spooky', 'creepy', 'terror'],
-  fantasy: ['fantasy', 'magic', 'wizard', 'dragon', 'medieval'],
-  scifi: ['scifi', 'sci-fi', 'space', 'robot', 'futuristic', 'alien'],
+  business: ['business', 'startup', 'entrepreneur', 'company', 'work', 'office', 'team', 'project', 'meeting', 'doanh nghiep', 'kinh doanh'],
+  fitness: ['fitness', 'gym', 'workout', 'exercise', 'health', 'bodybuilding', 'the hinh', 'tap gym'],
+  food: ['food', 'cooking', 'recipe', 'chef', 'culinary', 'baking', 'nau an', 'mon an', 'am thuc'],
+  travel: ['travel', 'trip', 'vacation', 'tour', 'adventure', 'explore', 'du lich'],
+  sports: ['sport', 'football', 'basketball', 'soccer', 'athlete', 'the thao', 'bong da', 'bong ro'],
+  chess: ['chess', 'board', 'strategy', 'checkmate', 'co vua'],
+  pets: ['pet', 'pets', 'dog', 'dogs', 'cat', 'cats', 'animal', 'animals', 'thu cung', 'con cho', 'nuoi cho', 'con meo'],
+  nature: ['nature', 'outdoor', 'hiking', 'camping', 'thien nhien', 'leo nui'],
+  horror: ['horror', 'scary', 'spooky', 'creepy', 'terror', 'kinh di'],
+  fantasy: ['fantasy', 'magic', 'wizard', 'dragon', 'medieval', 'ky ao'],
+  scifi: ['scifi', 'sci fi', 'space', 'robot', 'futuristic', 'alien', 'khoa hoc vien tuong'],
 };
 
-/** Detect themes from prompt */
+const normalizeThemeText = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+/** Detect whole words and phrases so short keywords do not match inside unrelated words. */
 export function detectThemes(prompt: string): string[] {
-  const lower = prompt.toLowerCase();
+  const normalizedPrompt = ` ${normalizeThemeText(prompt)} `;
   const detected: string[] = [];
   for (const [theme, keywords] of Object.entries(THEMES)) {
-    if (keywords.some((kw) => lower.includes(kw))) {
+    if (keywords.some((keyword) => normalizedPrompt.includes(` ${normalizeThemeText(keyword)} `))) {
       detected.push(theme);
     }
   }
   return detected.length ? detected : ['community'];
 }
 
-/** Build theme hint for AI prompt */
+const THEME_GUIDANCE: Record<string, string> = {
+  gaming: 'Build around the named games, team-finding, match coordination, clips, events, and voice rooms.',
+  valorant: 'Use Valorant-specific spaces for LFG, agents, maps, patch notes, clips, coaching, scrims, and team voice.',
+  league: 'Use League of Legends spaces for roles, champions, patch notes, LFG, ranked teams, coaching, and esports.',
+  dota: 'Use Dota-specific spaces for heroes, builds, patch notes, LFG, tournaments, coaching, and team voice.',
+  fortnite: 'Use Fortnite-specific spaces for modes, squads, creative maps, updates, clips, tournaments, and voice.',
+  pubg: 'Use PUBG-specific spaces for squad-finding, maps, loadouts, match clips, tournaments, and team voice.',
+  genshin: 'Use Genshin-specific spaces for regions, characters, builds, co-op, events, lore, and help.',
+  roblox: 'Use Roblox-specific spaces for games, experiences, development, group-finding, updates, and showcases.',
+  minecraft: 'Focus on survival worlds, builds, redstone, resource sharing, realm announcements, and voice groups.',
+  roleplay: 'Focus on character creation, lore, in-character scenes, story arcs, and roleplay coordination.',
+  fps: 'Focus on specific shooters, squad-finding, aim/practice, match results, clips, and team voice rooms.',
+  moba: 'Focus on the named MOBA, lanes/roles, team-finding, drafts, coaching, patches, and ranked play.',
+  esports: 'Organize teams, tournaments, scrims, match schedules, results, recruitment, and fan discussion.',
+  community: 'Create a social hub with introductions, topic-focused discussion, sharing, events, and support.',
+  dating: 'Create respectful spaces for introductions, interests, conversation, events, and safety/moderation.',
+  meme: 'Focus on meme sharing, original creations, reactions, and themed humor channels.',
+  vietnamese: 'Use natural Vietnamese wording and preserve all Vietnamese diacritics in names and messages.',
+  school: 'Organize by subjects, classes, study groups, homework help, resources, announcements, and study voice rooms.',
+  study: 'Focus on study sessions, notes/resources, questions, accountability, and quiet voice rooms.',
+  english: 'Focus on language practice, vocabulary, grammar, writing feedback, speaking rooms, and resources.',
+  anime: 'Focus on anime and manga discussion, recommendations, seasonal shows, fan art, and clearly marked spoilers.',
+  music: 'Focus on genres, listening, releases, music creation, feedback, events, and listening voice rooms.',
+  art: 'Focus on sharing work, works-in-progress, critique, resources, commissions, and creative collaboration.',
+  photography: 'Focus on photo sharing, critique, techniques, equipment, editing, and themed challenges.',
+  streaming: 'Focus on creator announcements, content planning, clips, collaborations, community chat, and voice rooms.',
+  movie: 'Focus on films and series, recommendations, reviews, watch parties, and spoiler-separated discussion.',
+  tech: 'Focus on the requested technology or programming stack, projects, Q&A, code review, resources, and collaboration.',
+  crypto: 'Focus on project-specific news, research, market discussion, education, and scam-aware moderation.',
+  business: 'Focus on the named industry, networking, collaboration, resources, opportunities, and professional events.',
+  fitness: 'Focus on training plans, progress, nutrition, questions, accountability, and group challenges.',
+  food: 'Focus on recipes, cooking techniques, meal ideas, food photos, reviews, and regional cuisine.',
+  travel: 'Focus on destinations, itineraries, tips, trip planning, photos, and local recommendations.',
+  sports: 'Focus on the named sport or teams, match discussion, schedules, results, training, and fan events.',
+  chess: 'Focus on games, puzzles, openings, analysis, tournaments, coaching, and player matching.',
+  pets: 'Focus on pet photos, care advice, species or breed channels, adoption, and community stories.',
+  nature: 'Focus on outdoor activities, locations, safety, trip planning, wildlife, and shared experiences.',
+  horror: 'Focus on horror media, scary stories, recommendations, watch parties, and spoiler-separated discussion.',
+  fantasy: 'Focus on fantasy worlds, lore, characters, books/games, creative writing, and roleplay.',
+  scifi: 'Focus on science fiction, space, robotics, worldbuilding, media discussion, and speculative ideas.',
+};
+
+/** Build concrete theme guidance for the AI prompt. */
 export function buildThemeHint(themes: string[]): string {
   if (!themes.length) return '';
-  const hints = themes.map((t) => `${t.charAt(0).toUpperCase() + t.slice(1)} theme hints apply`).join(', ');
-  return `DETECTED THEMES: ${hints}`;
+  const hints = themes.map((theme) => `- ${theme}: ${THEME_GUIDANCE[theme] ?? `Use channels and categories specific to ${theme}.`}`);
+  return `DETECTED THEMES AND DESIGN GUIDANCE:\n${hints.join('\n')}`;
 }
 
 /** Parse AI response and extract JSON */
@@ -117,6 +164,21 @@ export function parseAiJson(raw: string): any {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('AI không trả về JSON hợp lệ');
   return JSON.parse(match[0]);
+}
+
+function uniqueName(name: unknown, used: Set<string>): string {
+  const base = (typeof name === 'string' && name.trim() ? name.trim() : 'Channel').slice(0, 100);
+  const keyOf = (value: string) => normalizeThemeText(value);
+  let candidate = base;
+  let suffix = 2;
+
+  while (used.has(keyOf(candidate))) {
+    const tail = ` ${suffix++}`;
+    candidate = `${base.slice(0, 100 - tail.length).trimEnd()}${tail}`;
+  }
+
+  used.add(keyOf(candidate));
+  return candidate;
 }
 
 /** Validate and auto-fix design */
@@ -179,6 +241,24 @@ export function validateDesign(
         { name: 'rules', type: ChannelType.GuildText, emoji: '📜' },
       ],
     });
+  }
+
+  const categoryNames = new Set<string>();
+  const channelNames = new Set<string>();
+  for (const category of raw.categories) {
+    const originalCategoryName = category.name;
+    category.name = uniqueName(category.name, categoryNames);
+    if (category.name !== originalCategoryName) {
+      fixes.push(`Đổi tên category trùng "${originalCategoryName}" thành "${category.name}"`);
+    }
+
+    for (const channel of category.channels ?? []) {
+      const originalChannelName = channel.name;
+      channel.name = uniqueName(channel.name, channelNames);
+      if (channel.name !== originalChannelName) {
+        fixes.push(`Đổi tên channel trùng "${originalChannelName}" thành "${channel.name}"`);
+      }
+    }
   }
 
   return {

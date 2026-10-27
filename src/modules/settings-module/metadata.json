@@ -6,5 +6,5 @@
   "priority": 13,
   "type": 1,
   "author": "Bánh Cuốn Bot",
-  "slashCommands": ["/setting"]
+  "slashCommands": []
 }

@@ -21,6 +21,7 @@ import {
   PermissionFlagsBits,
   SeparatorSpacingSize,
   SlashCommandBuilder,
+  StringSelectMenuInteraction,
   TextInputBuilder,
   TextInputStyle,
   User,
@@ -28,6 +29,15 @@ import {
 import Groq from 'groq-sdk';
 import { emojis } from '../../config/emojis';
 import { keyRotator } from '../../utils/aiKeyRotator';
+import {
+  buildErrorCard as buildFeatureErrorCard,
+  buildFeatureCard,
+  buildSuccessCard as buildFeatureSuccessCard,
+  FEATURES,
+  getGuildFeatures,
+  setGuildFeature,
+  type FeatureKey,
+} from '../settings-module/entry_point';
 import {
   buildThemeHint,
   detectThemes,
@@ -61,19 +71,21 @@ const customId = (action: string, userId: string, extra?: string | number) =>
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Remove Vietnamese accents for Discord channel names
-const removeVietnameseAccents = (str: string): string => {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
+const toCategoryName = (name: string): string =>
+  name.normalize('NFC').trim().replace(/\s+/g, ' ').toUpperCase();
+
+const toTextChannelName = (name: string): string =>
+  name
+    .normalize('NFC')
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-') // Remove duplicate hyphens
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-};
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}-]/gu, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const toVoiceChannelName = (name: string): string =>
+  name.normalize('NFC').trim().replace(/\s+/g, ' ');
 
 // Theme-specific decorative characters from kituhay.com
 const THEME_STYLES = {
@@ -505,8 +517,24 @@ const THEME_STYLES = {
   }
 };
 
-// Detect theme from design content
-const detectDesignTheme = (design: ServerDesign): keyof typeof THEME_STYLES => {
+const THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
+  'valorant', 'league', 'dota', 'fortnite', 'pubg', 'genshin', 'roblox',
+  'minecraft', 'fps', 'moba', 'esports', 'mmorpg', 'rpg', 'gaming',
+  'vocaloid', 'kpop', 'jpop', 'rock', 'hiphop', 'edm', 'music',
+  'anime', 'streaming', 'youtube', 'podcast', 'movie', 'art', 'photography',
+  'design', 'writing', 'tech', 'crypto', 'business', 'school', 'study', 'english',
+  'fitness', 'food', 'travel', 'sports', 'chess', 'pets', 'nature', 'dating',
+  'meme', 'horror', 'fantasy', 'scifi', 'vietnamese', 'community',
+];
+
+// Prefer themes detected from the user's prompt; inspect generated content only for imports.
+const detectDesignTheme = (
+  design: ServerDesign,
+  requestedThemes: string[] = [],
+): keyof typeof THEME_STYLES => {
+  const requestedTheme = THEME_STYLE_PRIORITY.find((theme) => requestedThemes.includes(theme));
+  if (requestedTheme) return requestedTheme;
+
   const text = JSON.stringify(design).toLowerCase();
   
   // Cute & Aesthetic themes (check FIRST - highest priority for keywords)
@@ -1000,7 +1028,7 @@ function promptModal(userId: string) {
           .setPlaceholder('VD: Gaming VN có kênh chào mừng, Community anime với goodbye channel, Server đơn giản')
           .setRequired(true)
           .setMinLength(10)
-          .setMaxLength(500),
+          .setMaxLength(4000),
       ),
     );
 }
@@ -1094,24 +1122,26 @@ Output ONLY valid JSON in this exact format:
 
 CRITICAL RULES:
 1. Channel types: 0=Text, 2=Voice, 13=Stage ONLY (never use type 5).
-2. Text channels: lowercase with hyphens (general-chat, game-discussion, memes-and-fun). NO DIACRITICS.
-3. Voice channels: Title Case with spaces (Voice Lobby, Gaming Room, Music Lounge, AFK Room). NO DIACRITICS.
-4. Categories: UPPERCASE. NO DIACRITICS.
+2. Text channels: lowercase with hyphens (general-chat, game-discussion, memes-and-fun). Preserve native spelling and diacritics.
+3. Voice channels: Title Case with spaces (Voice Lobby, Gaming Room, Music Lounge, AFK Room). Preserve native spelling and diacritics.
+4. Categories: UPPERCASE. Preserve native spelling and diacritics.
 5. Use ONLY standard unicode emoji. Never use custom emoji like <:name:id>.
-6. For Vietnamese: NEVER use diacritics (á é í ó ú ă ơ ư đ etc) in ANY channel or category names.
-   - Text channels: tro-chuyen, cong-dong, quy-dinh (lowercase with hyphens)
-   - Voice channels: Phong Chat, Phong Game, Phong Nhac (Title Case with spaces)
-   - Categories: CHAO MUNG, CONG DONG, GIONG NOI (UPPERCASE with spaces)
+6. For Vietnamese, always use correct Vietnamese diacritics in channel, category, role, and message names.
+  - Text channels: trò-chuyện, cộng-đồng, quy-định (lowercase with hyphens)
+  - Voice channels: Phòng Trò Chuyện, Phòng Chơi Game, Phòng Nhạc (Title Case with spaces)
+  - Categories: CHÀO MỪNG, CỘNG ĐỒNG, GIỌNG NÓI (UPPERCASE with spaces)
 7. Always include: Welcome category, Community category, Voice category.
    Voice minimum: Voice Lobby, a gaming/general room, Music, AFK.
 8. Roles hierarchy: Owner, Admin, Moderator, VIP/Booster, Member (adapt names to the theme).
 9. Welcome/Goodbye messages: MUST include {user} placeholder. Use emoji for thumbnail. Match theme and be friendly/warm.
 10. Colors: Use hex format (#RRGGBB). Welcome = green tones, Goodbye = warm/orange tones.
+11. Every category name must be unique; every text and voice channel name must be unique across the whole server.
+12. Give each channel a distinct purpose-specific name. Do not repeat generic names like "General", "Chat", "Lobby", or "Voice" across categories.
 
-VIETNAMESE DICTIONARY (NO diacritics - use these examples):
-Text channels: tro-chuyen, cong-dong, quy-dinh, thong-bao, goi-y, mini-game, game-chung, giai-dau, su-kien, hinh-anh, ho-tro, cau-hoi, meme, giai-tri
-Voice channels: Phong Chat, Phong Game, Phong Nhac, Phong Chill, Phong AFK, Phong Hoc, Phong Karaoke, Phong Hop
-Categories: CHAO MUNG, CONG DONG, TRO CHOI, GIONG NOI, SU KIEN, HO TRO, MINI GAMES, GIAI DAU
+VIETNAMESE EXAMPLES (preserve diacritics):
+Text channels: trò-chuyện, cộng-đồng, quy-định, thông-báo, gợi-ý, trò-chơi, giải-đấu, sự-kiện, hình-ảnh, hỗ-trợ, câu-hỏi, giải-trí
+Voice channels: Phòng Trò Chuyện, Phòng Chơi Game, Phòng Nhạc, Phòng Thư Giãn, Phòng Học, Phòng Karaoke, Phòng Họp
+Categories: CHÀO MỪNG, CỘNG ĐỒNG, TRÒ CHƠI, GIỌNG NÓI, SỰ KIỆN, HỖ TRỢ, GIẢI ĐẤU
 
 THEME HINTS for the request are provided in the user message. Use them as inspiration and mix freely.
 
@@ -1127,8 +1157,10 @@ const buildUserPrompt = (prompt: string, themeHint: string) =>
 
 ${themeHint}
 
-Be creative and add many relevant channels and categories that real users would need.
-Match the theme closely (gaming → game channels, study → subject channels, anime → anime discussion channels, ...).
+Treat the user's requested topic, audience, language, and details as requirements. Do not replace a specific topic with a generic community template.
+Make most categories and channels directly useful for the requested topic; include a few practical support categories such as welcome, rules, and voice where appropriate.
+Use the detected theme guidance above to choose concrete, topic-specific channels, not generic filler.
+Preserve Vietnamese diacritics exactly when the request uses Vietnamese.
 
 Default style: clean, with just 1 emoji per item. Only use decorative characters if the user explicitly asks for them.`;
 
@@ -1198,9 +1230,27 @@ export default class ServerGeneratorModule {
       data: new SlashCommandBuilder()
         .setName('generator')
         .setDescription('✨ Tạo cấu trúc server bằng AI: kênh, category, welcome/goodbye tự động 🎨')
+        .addStringOption((option) =>
+          option
+            .setName('mode')
+            .setDescription('Chọn tạo server bằng AI hoặc quản lý tính năng')
+            .addChoices(
+              { name: 'Tạo server bằng AI', value: 'create' },
+              { name: 'Quản lý tính năng server', value: 'features' }
+            )
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
+        if (interaction.options.getString('mode') === 'features') {
+          if (!interaction.guildId) {
+            await interaction.reply(payload(errorEmbed(interaction.user, 'Lỗi', 'Lệnh này chỉ dùng trong server.')));
+            return;
+          }
+          await interaction.reply(buildFeatureCard(interaction.user, interaction.guildId));
+          return;
+        }
+
         const startTime = Date.now();
         
         // Show modal NGAY LẬP TỨC - không được có bất kỳ logic nào trước
@@ -1278,11 +1328,46 @@ export default class ServerGeneratorModule {
             console.warn(`⚠️ Generator button routing took ${routeTime}ms`);
           }
           await this.handleButton(interaction);
+        } else if (interaction.isStringSelectMenu() && interaction.customId.startsWith('settings:')) {
+          await this.handleFeatureSelect(interaction);
         }
       } catch (error) {
         console.error('Server generator interaction error:', error);
       }
     });
+  }
+
+  private async handleFeatureSelect(interaction: StringSelectMenuInteraction) {
+    const [, action, ownerId] = interaction.customId.split(':');
+    if (action !== 'toggle') return;
+
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply(buildFeatureErrorCard(interaction.user, 'Lỗi', 'Menu này không thuộc về bạn.'));
+      return;
+    }
+
+    if (!interaction.guildId) {
+      await interaction.reply(buildFeatureErrorCard(interaction.user, 'Lỗi', 'Lệnh này chỉ dùng trong server.'));
+      return;
+    }
+
+    const feature = FEATURES.find((option) => option.value === interaction.values[0]);
+    if (!feature) {
+      await interaction.reply(buildFeatureErrorCard(interaction.user, 'Lỗi', 'Tính năng không hợp lệ.'));
+      return;
+    }
+
+    try {
+      const newState = !getGuildFeatures(interaction.guildId)[feature.value];
+      setGuildFeature(interaction.guildId, feature.value as FeatureKey, newState);
+      await interaction.reply(buildFeatureSuccessCard(interaction.user, feature.label, newState));
+      await interaction.message.edit(buildFeatureCard(interaction.user, interaction.guildId));
+    } catch (error) {
+      console.error('Error toggling server feature:', error);
+      await interaction.reply(
+        buildFeatureErrorCard(interaction.user, 'Lỗi', 'Không thể cập nhật cài đặt tính năng.')
+      ).catch(() => {});
+    }
   }
 
   private parseId(id: string) {
@@ -1701,7 +1786,7 @@ export default class ServerGeneratorModule {
         // Actions cần defer NGAY - xử lý lâu
         case 'export':
           await i.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
-          return this.onExportDeferred(i, this.designs.get(i.user.id));
+          return this.onExportDeferred(i, this.designs.get(i.user.id), this.reports.get(i.user.id)?.themes);
         case 'json':
           await i.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
           return this.onSendJsonDeferred(i, this.designs.get(i.user.id), false);
@@ -2311,7 +2396,7 @@ export default class ServerGeneratorModule {
   }
 
   /* ─────────────── Export ─────────────── */
-  private async onExportDeferred(i: ButtonInteraction, design: ServerDesign | undefined) {
+  private async onExportDeferred(i: ButtonInteraction, design: ServerDesign | undefined, themes: string[] = []) {
     // Interaction đã được defer ở handleButton
     if (!design) return i.editReply(payload(notFoundEmbed(i.user)));
 
@@ -2342,7 +2427,7 @@ export default class ServerGeneratorModule {
     await render(steps).catch(() => {});
 
     try {
-      const r = await this.applyDesign(i.guild, design, new ProgressTracker(steps, render));
+      const r = await this.applyDesign(i.guild, design, new ProgressTracker(steps, render), themes);
 
       const lines = [
         `${emojis.shield} Roles ~ \`${r.roles}\``,
@@ -2379,13 +2464,18 @@ export default class ServerGeneratorModule {
   }
 
   /** Tạo roles → categories → channels theo thiết kế */
-  private async applyDesign(guild: Guild, design: ServerDesign, tracker: ProgressTracker) {
+  private async applyDesign(
+    guild: Guild,
+    design: ServerDesign,
+    tracker: ProgressTracker,
+    requestedThemes: string[] = [],
+  ) {
     let roles = 0;
     let categories = 0;
     let channels = 0;
 
     // Detect theme for styling
-    const theme = detectDesignTheme(design);
+    const theme = detectDesignTheme(design, requestedThemes);
     const style = THEME_STYLES[theme];
 
     for (const role of design.roles ?? []) {
@@ -2407,7 +2497,7 @@ export default class ServerGeneratorModule {
       let category;
       try {
         // Format category name with theme-specific style
-        const cleanName = removeVietnameseAccents(cat.name).toUpperCase();
+        const cleanName = toCategoryName(cat.name);
         const emoji = cat.emoji || style.category.icon;
         const categoryName = `${style.category.left} ${emoji} ${cleanName} ${style.category.right}`;
         
@@ -2427,7 +2517,7 @@ export default class ServerGeneratorModule {
           try {
             const type = VALID_CHANNEL_TYPES.includes(ch.type as number) ? (ch.type as number) : ChannelType.GuildText;
             const isVoice = type === ChannelType.GuildVoice || type === ChannelType.GuildStageVoice;
-            const cleanName = removeVietnameseAccents(ch.name);
+            const cleanName = isVoice ? toVoiceChannelName(ch.name) : toTextChannelName(ch.name);
             
             // Format channel name based on type and theme
             let channelName: string;
