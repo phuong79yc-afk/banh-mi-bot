@@ -5,6 +5,7 @@ import {
   Collection,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  Interaction,
   Message,
   User,
   Guild,
@@ -23,6 +24,7 @@ import {
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import { promises as fsp } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -287,6 +289,7 @@ async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
 }
 
 const cache = new Map<string, { at: number; data: TikTokData }>();
+const cardContexts = new Map<string, { expiresAt: number; data: TikTokData }>();
 
 async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const url = await resolveUrl(rawUrl);
@@ -499,6 +502,12 @@ function compact(n?: number): string {
   return String(n);
 }
 
+function formatDuration(seconds?: number): string | undefined {
+  if (seconds === undefined) return undefined;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+}
+
 /** Dựng thẻ TikTok theo bố cục media-first. */
 async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild | null) {
   const data = await fetchTikTok(rawUrl);
@@ -540,8 +549,24 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
   const container = new ContainerBuilder();
+  const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
+  const contextId = randomUUID().replace(/-/g, '').slice(0, 12);
+  const now = Date.now();
+  for (const [id, context] of cardContexts) {
+    if (context.expiresAt <= now) cardContexts.delete(id);
+  }
+  if (cardContexts.size >= 1000) {
+    const oldestId = cardContexts.keys().next().value;
+    if (oldestId) cardContexts.delete(oldestId);
+  }
+  cardContexts.set(contextId, { data, expiresAt: now + CACHE_TTL_MS });
 
-  // Video / ảnh ở trên cùng
+  const author = data.authorHandle ? `@${data.authorHandle.replace(/^@/, '')}` : data.authorName;
+  const title = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
+  container.addTextDisplayComponents(
+    text(`${data.isPhoto ? emojis.tt_photo : emojis.tt_video} **${title}** (${author})`),
+  );
+
   if (files.length) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
@@ -550,20 +575,13 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
     );
   }
 
-  const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
-
-  const author = data.authorHandle ? `@${data.authorHandle.replace(/^@/, '')}` : data.authorName;
-  const title = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
-  container.addTextDisplayComponents(
-    text(`${data.isPhoto ? emojis.tt_photo : emojis.tt_video} **${title}** (${author})`),
-  );
   container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   container.addTextDisplayComponents(text(`↗ [Open in TikTok](${data.url})`));
 
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
     container.addTextDisplayComponents(
-      text(`${emojis.tt_like} **${compact(st.likes)}**　${emojis.tt_comment} **${compact(st.comments)}**　${emojis.tt_share} **${compact(st.shares)}`),
+      text(`${emojis.tt_like} **${compact(st.likes)}**  ${emojis.tt_comment} **${compact(st.comments)}**  ${emojis.tt_share} **${compact(st.shares)}`),
     );
   }
 
@@ -577,8 +595,17 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
     container.addTextDisplayComponents(text(`-# ${notes.join(' • ')}`));
   }
 
-  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-  const buttons = [linkButton('Open TikTok', data.url, emojis.tt_music)];
+  const buttons: ButtonBuilder[] = [
+    new ButtonBuilder()
+      .setCustomId(`tiktok:info:${contextId}`)
+      .setEmoji('ℹ️')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`tiktok:transcript:${contextId}`)
+      .setLabel('Transcript')
+      .setEmoji('📝')
+      .setStyle(ButtonStyle.Secondary),
+  ];
   if (!data.isPhoto && !hasVideoFile) {
     if (PLAYABLE_HOST) {
       const playable = new URL(data.url);
@@ -587,9 +614,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
     }
     if (data.videoUrl) buttons.push(linkButton('Download', data.videoUrl, emojis.download));
   }
-  if (data.authorUrl) {
-    buttons.push(linkButton('Creator profile', data.authorUrl));
-  }
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
   return {
@@ -609,6 +634,7 @@ export default class TikTokModule {
   client: Client;
   commands: Collection<string, any>;
   private messageHandler?: (message: Message) => void;
+  private interactionHandler?: (interaction: Interaction) => void;
 
   constructor(client: Client) {
     this.client = client;
@@ -619,7 +645,55 @@ export default class TikTokModule {
     console.log(`${emojis.tt_music} TikTok module initialized`);
     this.registerCommands();
     if (AUTO_EMBED) this.registerEvents();
+    this.registerInteractions();
     console.log(`✅ TikTok module registered ${this.commands.size} commands`);
+  }
+
+  private registerInteractions() {
+    this.interactionHandler = async (interaction) => {
+      if (!interaction.isButton() || !interaction.customId.startsWith('tiktok:')) return;
+
+      const [, action, contextId] = interaction.customId.split(':');
+      const context = cardContexts.get(contextId);
+      if (!context || context.expiresAt <= Date.now()) {
+        cardContexts.delete(contextId);
+        await interaction.reply({ content: 'Thẻ TikTok này đã hết hạn. Hãy gửi lại link để tạo thẻ mới.', ephemeral: true });
+        return;
+      }
+
+      if (action === 'transcript') {
+        await interaction.reply({
+          content: 'Bot hiện chưa hỗ trợ tạo transcript cho video TikTok.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (action !== 'info') return;
+
+      const { data } = context;
+      const stats = data.stats;
+      const info = [
+        `**Tác giả:** ${data.authorName}${data.authorHandle ? ` (@${data.authorHandle.replace(/^@/, '')})` : ''}`,
+        `**Loại:** ${data.isPhoto ? 'Bài đăng ảnh' : 'Video'}`,
+        formatDuration(data.duration) ? `**Thời lượng:** ${formatDuration(data.duration)}` : undefined,
+        stats?.views !== undefined ? `**Lượt xem:** ${compact(stats.views)}` : undefined,
+        stats?.likes !== undefined ? `**Lượt thích:** ${compact(stats.likes)}` : undefined,
+        stats?.comments !== undefined ? `**Bình luận:** ${compact(stats.comments)}` : undefined,
+        stats?.shares !== undefined ? `**Chia sẻ:** ${compact(stats.shares)}` : undefined,
+        data.music ? `**Âm thanh:** ${truncate(data.music, 100)}` : undefined,
+        data.caption ? `**Mô tả:** ${truncate(data.caption, 300)}` : undefined,
+        `[Mở trên TikTok](${data.url})`,
+      ].filter((line): line is string => Boolean(line));
+
+      await interaction.reply({
+        content: info.join('\n'),
+        ephemeral: true,
+        allowedMentions: NO_PING,
+      });
+    };
+
+    this.client.on('interactionCreate', this.interactionHandler);
   }
 
   private registerCommands() {
@@ -694,7 +768,9 @@ export default class TikTokModule {
 
   async cleanup() {
     if (this.messageHandler) this.client.off('messageCreate', this.messageHandler);
+    if (this.interactionHandler) this.client.off('interactionCreate', this.interactionHandler);
     cache.clear();
+    cardContexts.clear();
     console.log('🧹 TikTok module cleanup');
   }
 }
