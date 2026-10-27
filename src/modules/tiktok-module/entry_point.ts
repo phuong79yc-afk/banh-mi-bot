@@ -63,23 +63,6 @@ const FETCH_TIMEOUT_MS = 8000;
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
-// Màu viền + kiểu tim theo số tim (ít -> nhiều)
-const LIKE_TIERS = [
-  { min: 10_000_000, color: 0xe91e63 }, // ≥ 10M  : siêu viral
-  { min: 1_000_000, color: 0xfe2c55 }, //     ≥ 1M
-  { min: 100_000, color: 0xe67e22 }, //       ≥ 100K
-  { min: 10_000, color: 0x2ecc71 }, //        ≥ 10K
-  { min: 1_000, color: 0x3498db }, //         ≥ 1K
-  { min: 0, color: 0x95a5a6 }, //             < 1K
-];
-const COLOR_UNKNOWN = 0x4e5058; // không lấy được số tim
-const COLOR_RED = 0xed4245;
-const tierOf = (likes: number) => LIKE_TIERS.find((t) => likes >= t.min)!;
-
-function colorByLikes(likes?: number): number {
-  return likes === undefined ? COLOR_UNKNOWN : tierOf(likes).color;
-}
-
 // ==================== COMPONENTS V2 HELPERS ====================
 const V2 = MessageFlags.IsComponentsV2;
 const NO_PING = { parse: [] as never[], repliedUser: false };
@@ -91,7 +74,7 @@ const linkButton = (label: string, url: string, emoji?: string) => {
 };
 
 const errorPayload = (content: string) => ({
-  components: [new ContainerBuilder().setAccentColor(COLOR_RED).addTextDisplayComponents(text(`${emojis.error || '❌'} ${content}`))],
+  components: [new ContainerBuilder().addTextDisplayComponents(text(`${emojis.error || '❌'} ${content}`))],
   flags: V2 as any,
   allowedMentions: NO_PING,
 });
@@ -554,7 +537,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 
   if (!files.length) files = await downloadImages(data.imageUrls, data.isPhoto ? MAX_IMAGES : 1);
 
-  const container = new ContainerBuilder().setAccentColor(colorByLikes(data.stats?.likes));
+  const container = new ContainerBuilder();
 
   // Video / ảnh ở trên cùng
   if (files.length) {
