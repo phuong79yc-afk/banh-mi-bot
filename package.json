@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "echo '🔄 Installing dependencies...'",
     "postinstall": "echo '✅ Dependencies installed. Discord.js version:' && npm list discord.js --depth=0 || true",
-    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('assets', 'dist/assets', {recursive: true}); fs.cpSync('public', 'dist/public', {recursive: true}); fs.mkdirSync('dist/data', {recursive: true});\"",
+    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('assets', 'dist/assets', {recursive: true}); fs.cpSync('public', 'dist/public', {recursive: true}); fs.mkdirSync('dist/data', {recursive: true}); fs.copyFileSync('UPDATES.md', 'dist/UPDATES.md');\"",
     "start": "node --expose-gc dist/src/index.js",
     "start:old": "node --expose-gc dist/src/index.js",
     "start:deploy": "node --expose-gc dist/src/deploy-commands.js && node --expose-gc dist/src/index.js",

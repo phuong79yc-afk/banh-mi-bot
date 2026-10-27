@@ -697,7 +697,13 @@ export default class UtilityModule {
         let updatesText = '-# Đang tải...';
         let branchInfo = 'Railway Deployment';
         try {
-          const updatesPath = path.join(process.cwd(), 'UPDATES.md');
+          const updatesPath = [
+            path.resolve(__dirname, '../../../UPDATES.md'),
+            path.resolve(__dirname, '../../../../UPDATES.md'),
+            path.resolve(process.cwd(), 'UPDATES.md'),
+          ].find((candidate) => fs.existsSync(candidate));
+          if (!updatesPath) throw new Error('UPDATES.md not found');
+
           const updatesFile = fs.readFileSync(updatesPath, 'utf-8');
           
           // Extract version from first ## header
@@ -719,14 +725,7 @@ export default class UtilityModule {
           }
         } catch (error) {
           console.error('[Info] Failed to read UPDATES.md:', error);
-          // Fallback
-          updatesText = [
-            '-# 🎵 **TikTok Module** — Auto-embed cho link TikTok',
-            '-# 🗄️ **Turso Database** — Persistent storage',
-            '-# 💰 **Quest Rewards** — Hoàn thành quest nhận coins',
-            '-# 🎨 **Components V2** — UI hiện đại hơn',
-            '-# 🤖 **AI Chat** — Groq AI integration',
-          ].join('\n');
+          updatesText = '-# Chưa tải được thông tin cập nhật.';
         }
 
         let helpMention = '/help';

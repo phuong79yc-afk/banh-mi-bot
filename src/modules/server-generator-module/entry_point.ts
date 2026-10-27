@@ -517,14 +517,24 @@ const THEME_STYLES = {
   }
 };
 
-const THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
+const PREFERRED_THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
   'valorant', 'league', 'dota', 'fortnite', 'pubg', 'genshin', 'roblox',
   'minecraft', 'fps', 'moba', 'esports', 'mmorpg', 'rpg', 'gaming',
   'vocaloid', 'kpop', 'jpop', 'rock', 'hiphop', 'edm', 'music',
+  'kawaii', 'cute', 'pink', 'pastel', 'aesthetic', 'soft', 'cottagecore', 'vintage',
+  'girlpower', 'princess', 'fairy', 'magical', 'flower', 'angel', 'sparkle', 'rainbow',
+  'unicorn', 'heart', 'bunny', 'cat', 'girl', 'star', 'moon', 'discord',
   'anime', 'streaming', 'youtube', 'podcast', 'movie', 'art', 'photography',
   'design', 'writing', 'tech', 'crypto', 'business', 'school', 'study', 'english',
   'fitness', 'food', 'travel', 'sports', 'chess', 'pets', 'nature', 'dating',
-  'meme', 'horror', 'fantasy', 'scifi', 'vietnamese', 'community',
+  'meditation', 'motivation', 'beauty', 'fashion', 'strategy', 'sandbox', 'survival',
+  'discord', 'meme', 'horror', 'fantasy', 'scifi', 'vietnamese', 'community',
+];
+const THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
+  ...PREFERRED_THEME_STYLE_PRIORITY,
+  ...Object.keys(THEME_STYLES)
+    .filter((theme) => !PREFERRED_THEME_STYLE_PRIORITY.includes(theme as keyof typeof THEME_STYLES))
+    .sort((a, b) => b.length - a.length) as (keyof typeof THEME_STYLES)[],
 ];
 
 // Prefer themes detected from the user's prompt; inspect generated content only for imports.

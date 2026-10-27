@@ -1,5 +1,12 @@
 # 🎉 Bot Updates
 
+## v2.6.0 - Generator & TikTok (2026-10-27)
+- 🎨 **Server Generator**: Nhận diện chủ đề cụ thể hơn, giữ dấu tiếng Việt và dùng ký tự trang trí theo chủ đề
+- 🧩 **Channel Names**: Tên category, text channel và voice channel được kiểm tra để tránh trùng lặp
+- ⚙️ **Server Features**: Tích hợp quản lý tính năng vào `/generator`; bỏ lệnh `/setting`
+- 🎵 **TikTok Module**: Thêm bộ emoji riêng màu trắng cho video, ảnh, lượt thích, bình luận và chia sẻ
+- 🎫 **Ticket Module**: Cải thiện panel, tiến độ setup, thống kê và transcript
+
 ## v2.5.0 - TikTok Integration (2026-10-20)
 - ✨ **TikTok Module**: Tự động tạo embed đẹp cho link TikTok
 - 🎵 Hỗ trợ cả video và photo posts
