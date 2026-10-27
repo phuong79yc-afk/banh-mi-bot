@@ -22,7 +22,8 @@ import {
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { addTransaction } from '../balance-module/entry_point';
-import { addCoins, getCurrencyBalance, spendCoins } from '../../utils/currency';
+import { syncVipRolesForMember } from '../vip-module/entry_point';
+import { addCoins, addGems, getCurrencyBalance, spendCoins } from '../../utils/currency';
 import fs from 'fs';
 import path from 'path';
 
@@ -90,7 +91,7 @@ const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'vevang',
     name: 'Vé Vàng',
-    description: '💎 Vé vàng đặc biệt - Dùng để đổi quà VIP\n🎁 Không tính daily bonus',
+    description: '💎 Vé vàng dùng để nâng hạng VIP\n🎁 Mỗi lần mua nhận 1 vé, có thể mua nhiều lần',
     price: 50000,
     emoji: '🎫',
     tag: 'PREMIUM',
@@ -608,7 +609,7 @@ export default class ShopModule {
                 // Filter: skip already-owned and out-of-stock
                 targets = targets.filter((t) => {
                   const roleName = `${t.emoji} ${t.name}`;
-                  if (member.roles.cache.find((r) => r.name === roleName)) {
+                  if (t.id !== 'vevang' && member.roles.cache.find((r) => r.name === roleName)) {
                     skipped.push(`${t.name} (đã có)`);
                     return false;
                   }
@@ -625,6 +626,8 @@ export default class ShopModule {
                   return;
                 }
 
+                const ticketCount = targets.filter((item) => item.id === 'vevang').length;
+                const roleTargets = targets.filter((item) => item.id !== 'vevang');
                 const totalPrice = targets.reduce((a, t) => a + t.price, 0);
                 const currentBal = await getUserBalance(userId);
 
@@ -647,7 +650,7 @@ export default class ShopModule {
                 });
 
                 try {
-                  for (const item of targets) {
+                  for (const item of roleTargets) {
                     const roleName = `${item.emoji} ${item.name}`;
                     let role = guild?.roles.cache.find((r) => r.name === roleName);
                     if (!role) {
@@ -661,8 +664,15 @@ export default class ShopModule {
                     await member.roles.add(role);
                     addToInventory(userId, item.id);
                   }
+
+                  if (ticketCount > 0) {
+                    await addGems(userId, ticketCount);
+                    await addTransaction(userId, 'earn', ticketCount, 'gold', 'Mua Vé Vàng từ shop').catch((error) => {
+                      console.error('[Shop] Failed to record ticket purchase:', error);
+                    });
+                  }
                 } catch (err) {
-                  console.error('[Shop] Role assign error, rolling back:', err);
+                  console.error('[Shop] Purchase fulfillment error, rolling back:', err);
                   // Rollback currency and stock
                   await addCoins(userId, totalPrice);
                   await addTransaction(userId, 'admin', totalPrice, 'coins', 'Shop purchase refund after role assignment failure').catch((error) => {
@@ -672,7 +682,7 @@ export default class ShopModule {
                     if (t.stock != null) decrementSold(t.id);
                   });
                   // Rollback inventory
-                  targets.forEach((t) => {
+                  roleTargets.forEach((t) => {
                     const invData = loadInventory();
                     if (invData[userId]?.[t.id]) {
                       invData[userId][t.id] = Math.max(0, invData[userId][t.id] - 1);
@@ -684,12 +694,26 @@ export default class ShopModule {
                   return;
                 }
 
+                let vipRoleNotice = '';
+                if (ticketCount > 0) {
+                  try {
+                    const balance = await getCurrencyBalance(userId);
+                    const currentTier = await syncVipRolesForMember(member, balance.gems);
+                    vipRoleNotice = `\n${currentTier.icon} Hạng VIP hiện tại: **${currentTier.name}**`;
+                  } catch (error) {
+                    console.error('[Shop] Purchased ticket but failed to sync VIP roles:', error);
+                    vipRoleNotice = '\n⚠️ Vé đã được cộng nhưng role VIP chưa đồng bộ. Hãy kiểm tra quyền Manage Roles của bot.';
+                  }
+                }
+
                 const newBal = await getUserBalance(userId);
 
                 await done(
-                  `${emojis.success} Đã mua ${targets.map((t) => `${t.emoji} **${t.name}**`).join(', ')} thành công!\n` +
-                    `Số dư còn: ${emojis.coin} **${formatNumber(newBal.cowoncy)}**` +
-                    (skipped.length ? `\n-# Bỏ qua: ${skipped.join(', ')}` : ''),
+                  `${emojis.success} Đã mua ${targets.map((t) => `${t.emoji} **${t.name}**`).join(', ')} thành công!` +
+                    (ticketCount > 0 ? `\n🎫 Đã cộng **${ticketCount} Vé Vàng** vào số dư.` : '') +
+                    `\nSố dư còn: ${emojis.coin} **${formatNumber(newBal.cowoncy)}**` +
+                    (skipped.length ? `\n-# Bỏ qua: ${skipped.join(', ')}` : '') +
+                    vipRoleNotice,
                   0x57f287,
                 );
 
@@ -1057,4 +1081,3 @@ export default class ShopModule {
     console.log('🧹 Shop module cleanup');
   }
 }
-

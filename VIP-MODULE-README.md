@@ -72,7 +72,9 @@ Module VIP đọc data từ `daily_users` table:
 - `gold_balance` - Số vé vàng (quyết định hạng VIP)
 - `balance` - Số xu
 
-Shop module đã có nút "👑 VIP Info" gọi command `vip-info`.
+Mỗi lần mua Vé Vàng trong `/shop` tốn 50.000 xu và cộng 1 vé vào `gold_balance`; có thể mua nhiều lần. Trong server mua vé, bot tự tạo và gán role cho các hạng đã đạt. Role các tier thấp hơn được giữ lại; role của tier cao hơn sẽ bị gỡ nếu user xuống hạng.
+
+Lệnh `/vipinfo` và `/vip-tiers` cũng đồng bộ role hiện tại. Lệnh admin cấp vé vàng đồng bộ trong server nơi lệnh được dùng. Bot cần quyền **Manage Roles** và role bot phải nằm cao hơn các role VIP. Shop module có nút "👑 VIP Info" để mở thông tin VIP.
 
 ## 🔧 TODO - Các Tính Năng Cần Thêm
 
@@ -81,23 +83,19 @@ Shop module đã có nút "👑 VIP Info" gọi command `vip-info`.
    - Check cooldown 7 ngày
    - Cộng xu vào balance
 
-2. **VIP Role Auto-Assign**
-   - Tự động cấp/thu hồi role VIP khi mua/hết vé vàng
-   - Sync với shop module
+2. **`/vip-transfer`** - Chuyển xu (VIP 5+)
 
-3. **`/vip-transfer`** - Chuyển xu (VIP 5+)
+3. **`/vip-lottery`** - Vé số VIP (VIP 4+)
 
-4. **`/vip-lottery`** - Vé số VIP (VIP 4+)
+4. **`/vip-stats`** - Thống kê VIP
 
-5. **`/vip-stats`** - Thống kê VIP
-
-6. **`/vip-leaderboard`** - Top VIP users
+5. **`/vip-leaderboard`** - Top VIP users
 
 ## 📂 File Structure
 
 ```
 src/modules/vip-module/
-└── entry_point.ts (470 lines)
+└── entry_point.ts
     ├── VIP_TIERS[] - 11 tiers config
     ├── getVIPTier() - Calculate tier by gold tickets
     ├── /vipinfo command

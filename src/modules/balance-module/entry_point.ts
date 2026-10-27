@@ -14,6 +14,7 @@ import {
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { getTursoDatabase } from '../../database/turso';
+import { syncVipRolesForMember } from '../vip-module/entry_point';
 import path from 'path';
 
 // ==================== DATABASE ====================
@@ -192,14 +193,30 @@ const compensateCommand = {
 
       // Record transactions
       if (coins > 0) {
-        await addTransaction(targetUser.id, 'admin', coins, 'coins', `Đền bù: ${reason}`);
+        await addTransaction(targetUser.id, 'admin', coins, 'coins', `Đền bù: ${reason}`).catch((error) => {
+          console.error('[COMPENSATE] Failed to record coin transaction:', error);
+        });
       }
       if (gold > 0) {
-        await addTransaction(targetUser.id, 'admin', gold, 'gold', `Đền bù: ${reason}`);
+        await addTransaction(targetUser.id, 'admin', gold, 'gold', `Đền bù: ${reason}`).catch((error) => {
+          console.error('[COMPENSATE] Failed to record gold transaction:', error);
+        });
       }
 
       // Get new balance
       const newUserData = await getUser(targetUser.id);
+      let vipRoleStatus = '';
+      if (gold > 0) {
+        try {
+          if (!interaction.guild) throw new Error('Lệnh cần được chạy trong server để đồng bộ role');
+          const member = await interaction.guild.members.fetch(targetUser.id);
+          const tier = await syncVipRolesForMember(member, newUserData.gold_balance);
+          vipRoleStatus = `${tier.icon} Đã đồng bộ role VIP: **${tier.name}**`;
+        } catch (error) {
+          console.error('[COMPENSATE] Failed to sync VIP roles:', error);
+          vipRoleStatus = '⚠️ Vé vàng đã được cấp nhưng role VIP chưa đồng bộ; kiểm tra quyền Manage Roles và thứ tự role bot.';
+        }
+      }
 
       // Confirmation embed
       const embed = new EmbedBuilder()
@@ -231,6 +248,9 @@ const compensateCommand = {
         )
         .setFooter({ text: `Admin: ${interaction.user.username}` })
         .setTimestamp();
+      if (vipRoleStatus) {
+        embed.addFields({ name: '👑 VIP', value: vipRoleStatus, inline: false });
+      }
 
       await interaction.reply({ embeds: [embed] });
 
@@ -410,6 +430,7 @@ const bulkCompensateCommand = {
 
       // Execute bulk compensation
       let success = 0;
+      const compensatedUsers: UserData[] = [];
       for (const user of users) {
         try {
           await db.execute({
@@ -418,17 +439,53 @@ const bulkCompensateCommand = {
                   WHERE user_id = ?`,
             args: [coins, gold, user.user_id]
           });
-          
+
+          success++;
+          compensatedUsers.push({ ...user, gold_balance: user.gold_balance + gold });
+
           if (coins > 0) {
-            await addTransaction(user.user_id, 'admin', coins, 'coins', `Đền bù hàng loạt: ${reason}`);
+            await addTransaction(user.user_id, 'admin', coins, 'coins', `Đền bù hàng loạt: ${reason}`).catch((error) => {
+              console.error(`[BULK-COMPENSATE] Failed to record coin transaction for ${user.user_id}:`, error);
+            });
           }
           if (gold > 0) {
-            await addTransaction(user.user_id, 'admin', gold, 'gold', `Đền bù hàng loạt: ${reason}`);
+            await addTransaction(user.user_id, 'admin', gold, 'gold', `Đền bù hàng loạt: ${reason}`).catch((error) => {
+              console.error(`[BULK-COMPENSATE] Failed to record gold transaction for ${user.user_id}:`, error);
+            });
           }
-          
-          success++;
+          compensatedUsers.push(user);
         } catch (err) {
           console.error(`[BULK-COMPENSATE] Failed for user ${user.user_id}:`, err);
+        }
+      }
+
+      let vipSyncFailures = 0;
+      if (gold > 0 && !interaction.guild) {
+        vipSyncFailures = success;
+        console.warn('[BULK-COMPENSATE] Cannot sync VIP roles outside a guild.');
+      }
+      if (gold > 0 && interaction.guild && compensatedUsers.length) {
+        for (let offset = 0; offset < compensatedUsers.length; offset += 100) {
+          const batch = compensatedUsers.slice(offset, offset + 100);
+          let members;
+          try {
+            members = await interaction.guild.members.fetch({ user: batch.map((user) => user.user_id) });
+          } catch (error) {
+            vipSyncFailures += batch.length;
+            console.error('[BULK-COMPENSATE] Failed to fetch guild members for VIP sync:', error);
+            continue;
+          }
+
+          for (const member of members.values()) {
+            const user = batch.find((candidate) => candidate.user_id === member.id);
+            if (!user) continue;
+            try {
+              await syncVipRolesForMember(member, user.gold_balance + gold);
+            } catch (error) {
+              vipSyncFailures++;
+              console.error(`[BULK-COMPENSATE] Failed to sync VIP role for ${member.id}:`, error);
+            }
+          }
         }
       }
 
@@ -448,6 +505,12 @@ const bulkCompensateCommand = {
         })
         .setFooter({ text: `Admin: ${interaction.user.username}` })
         .setTimestamp();
+      if (vipSyncFailures) {
+        resultEmbed.addFields({
+          name: '⚠️ VIP role sync',
+          value: `Không đồng bộ được role cho ${vipSyncFailures} user. Kiểm tra quyền Manage Roles, thứ tự role bot và log.`,
+        });
+      }
 
       await interaction.editReply({ embeds: [resultEmbed] });
 

@@ -4,7 +4,9 @@ import {
   Collection,
   Colors,
   ContainerBuilder,
+  GuildMember,
   MessageFlags,
+  PermissionFlagsBits,
   SectionBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
@@ -250,6 +252,50 @@ function getNextVIPTier(currentTier: number): VIPTier | null {
   return VIP_TIERS[currentTier + 1] ?? null;
 }
 
+export async function syncVipRolesForMember(member: GuildMember, goldTickets: number): Promise<VIPTier> {
+  const current = getVIPTier(goldTickets);
+  const botMember = member.guild.members.me;
+  if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    throw new Error('Bot thiếu quyền Manage Roles trong server');
+  }
+
+  const rolesToAdd = [];
+  const rolesToRemove = [];
+  for (const tier of VIP_TIERS.slice(1)) {
+    const roleName = `${tier.icon} ${tier.name}`;
+    let role = member.guild.roles.cache.find((candidate) => candidate.name === roleName);
+
+    if (tier.tier <= current.tier && !role) {
+      role = await member.guild.roles.create({
+        name: roleName,
+        color: tier.color,
+        hoist: true,
+        reason: `Tự động tạo role VIP tier ${tier.tier}`,
+      });
+    }
+
+    if (!role) continue;
+    if (!role.editable && (member.roles.cache.has(role.id) || tier.tier <= current.tier)) {
+      throw new Error(`Bot không thể quản lý role ${roleName}; hãy đặt role bot cao hơn role VIP`);
+    }
+
+    if (tier.tier <= current.tier && !member.roles.cache.has(role.id)) {
+      rolesToAdd.push(role);
+    } else if (tier.tier > current.tier && member.roles.cache.has(role.id)) {
+      rolesToRemove.push(role);
+    }
+  }
+
+  if (rolesToAdd.length) {
+    await member.roles.add(rolesToAdd, `Đồng bộ VIP ${current.name}`);
+  }
+  if (rolesToRemove.length) {
+    await member.roles.remove(rolesToRemove, `Gỡ role VIP không còn đạt tier`);
+  }
+
+  return current;
+}
+
 const formatNumber = (num: number) => num.toLocaleString('en-US');
 
 const formatRange = (t: VIPTier) =>
@@ -312,7 +358,7 @@ function fail(interaction: ChatInputCommandInteraction, label: string, error: un
 }
 
 // ==================== VIEWS ====================
-async function buildVipInfo(interaction: ChatInputCommandInteraction): Promise<ContainerBuilder> {
+async function buildVipInfo(interaction: ChatInputCommandInteraction, roleSyncNotice = ''): Promise<ContainerBuilder> {
   const { gold, coins } = await getWealth(interaction.user.id);
   const current = getVIPTier(gold);
   const next = getNextVIPTier(current.tier);
@@ -374,11 +420,12 @@ async function buildVipInfo(interaction: ChatInputCommandInteraction): Promise<C
   }
 
   blocks.push(divider(), text('-# Dùng /vip-tiers để xem tất cả hạng VIP • /shop để mua vé vàng'));
+  if (roleSyncNotice) blocks.push(divider(), text(roleSyncNotice));
 
   return box(current.color, blocks);
 }
 
-async function buildVipTiers(client: Client, userId: string): Promise<ContainerBuilder> {
+async function buildVipTiers(client: Client, userId: string, roleSyncNotice = ''): Promise<ContainerBuilder> {
   const mine = getVIPTier((await getWealth(userId)).gold).tier;
 
   const lines = VIP_TIERS.map((t) => {
@@ -398,7 +445,10 @@ async function buildVipTiers(client: Client, userId: string): Promise<ContainerB
     divider(),
     text(lines.join('\n')),
     divider(),
-    text('-# Dùng /vipinfo để xem chi tiết quyền lợi hạng của bạn • /shop để mua vé vàng'),
+    text([
+      '-# Dùng /vipinfo để xem chi tiết quyền lợi hạng của bạn • /shop để mua vé vàng',
+      roleSyncNotice,
+    ].filter(Boolean).join('\n')),
   ]);
 }
 
@@ -455,7 +505,17 @@ export default class VIPModule {
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await sendV2(interaction, await buildVipInfo(interaction));
+          let roleSyncNotice = '';
+          if (interaction.guild) {
+            try {
+              const gold = (await getWealth(interaction.user.id)).gold;
+              await syncVipRolesForMember(await interaction.guild.members.fetch(interaction.user.id), gold);
+            } catch (error) {
+              console.error('[VIPModule] Failed to sync roles from /vipinfo:', error);
+              roleSyncNotice = '⚠️ Không thể đồng bộ role VIP. Kiểm tra quyền Manage Roles và thứ tự role của bot.';
+            }
+          }
+          await sendV2(interaction, await buildVipInfo(interaction, roleSyncNotice));
         } catch (error) {
           await fail(interaction, 'xem VIP info', error);
         }
@@ -469,7 +529,17 @@ export default class VIPModule {
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
-          await sendV2(interaction, await buildVipTiers(this.client, interaction.user.id));
+          let roleSyncNotice = '';
+          if (interaction.guild) {
+            try {
+              const gold = (await getWealth(interaction.user.id)).gold;
+              await syncVipRolesForMember(await interaction.guild.members.fetch(interaction.user.id), gold);
+            } catch (error) {
+              console.error('[VIPModule] Failed to sync roles from /vip-tiers:', error);
+              roleSyncNotice = '⚠️ Không thể đồng bộ role VIP. Kiểm tra quyền Manage Roles và thứ tự role của bot.';
+            }
+          }
+          await sendV2(interaction, await buildVipTiers(this.client, interaction.user.id, roleSyncNotice));
         } catch (error) {
           await fail(interaction, 'xem VIP tiers', error);
         }

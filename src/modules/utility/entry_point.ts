@@ -20,6 +20,10 @@ export default class UtilityModule {
 
   client: Client;
   commands: Collection<string, any>;
+  private gitInfoCache?: {
+    expiresAt: number;
+    value: { repoUrl: string; branchInfo: string; commitsText: string };
+  };
 
   constructor(client: Client) {
     this.client = client;
@@ -357,58 +361,76 @@ export default class UtilityModule {
     const repoOwner = 'phuong79yc-afk';
     const repoName = 'banh-mi-bot';
     const repoUrl = `https://github.com/${repoOwner}/${repoName}`;
-    
-    // Railway commit SHA (auto-updated on each deploy)
+    if (this.gitInfoCache && this.gitInfoCache.expiresAt > Date.now()) {
+      return this.gitInfoCache.value;
+    }
+
     const railwayCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7);
     const railwayBranch = process.env.RAILWAY_GIT_BRANCH || 'main';
-    
     let branchInfo = `Branch: \`${railwayBranch}\``;
     if (railwayCommit) {
       branchInfo += ` • Commit \`${railwayCommit}\``;
     }
-    
-    let commitsText = `-# Latest commit  [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit})`;
 
-    // Fetch latest commits from GitHub API (real-time)
+    let commitsText = railwayCommit
+      ? `-# Latest commit [\`${railwayCommit}\`](${repoUrl}/commit/${railwayCommit})`
+      : '-# Chưa tải được thông tin commit mới nhất.';
     try {
-      const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/commits?per_page=5`);
-      if (response.ok) {
-        const commits = await response.json() as Array<{
+      const githubToken = process.env.GITHUB_TOKEN;
+      const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/commits?per_page=5`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'BanhCuonBot',
+          ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
+
+      const commits: unknown = await response.json();
+      if (!Array.isArray(commits)) throw new Error('GitHub API returned an invalid commit list');
+
+      const toVi = (date: string) => {
+        const diff = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 1000));
+        if (diff < 60) return `${diff} giây trước`;
+        if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+        if (diff < 2592000) return `${Math.floor(diff / 604800)} tuần trước`;
+        if (diff < 31536000) return `${Math.floor(diff / 2592000)} tháng trước`;
+        return `${Math.floor(diff / 31536000)} năm trước`;
+      };
+
+      const entries = commits
+        .filter((commit): commit is {
           sha: string;
-          commit: {
-            message: string;
-            author: {
-              date: string;
-            };
-          };
-        }>;
-        const toVi = (date: string) => {
-          const now = Date.now();
-          const then = new Date(date).getTime();
-          const diff = Math.floor((now - then) / 1000);
-          
-          if (diff < 60) return `${diff} giây trước`;
-          if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-          if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
-          if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
-          if (diff < 2592000) return `${Math.floor(diff / 604800)} tuần trước`;
-          if (diff < 31536000) return `${Math.floor(diff / 2592000)} tháng trước`;
-          return `${Math.floor(diff / 31536000)} năm trước`;
-        };
-        
-        commitsText = commits.map((c) => {
-          const hash = c.sha.slice(0, 7);
-          const msg = c.commit.message.split('\n')[0].slice(0, 60);
-          const time = toVi(c.commit.author.date);
-          return `-# ${time}  [\`${hash}\`](${repoUrl}/commit/${c.sha}) ${msg}`;
-        }).join('\n');
-      }
+          commit: { message: string; author: { date: string } };
+        } => Boolean(
+          commit &&
+          typeof commit === 'object' &&
+          'sha' in commit && typeof commit.sha === 'string' &&
+          'commit' in commit && commit.commit &&
+          typeof commit.commit === 'object' &&
+          'message' in commit.commit && typeof commit.commit.message === 'string' &&
+          'author' in commit.commit && commit.commit.author &&
+          typeof commit.commit.author === 'object' &&
+          'date' in commit.commit.author && typeof commit.commit.author.date === 'string'
+        ))
+        .slice(0, 5);
+
+      if (!entries.length) throw new Error('GitHub API returned no usable commits');
+      commitsText = entries.map((commit) => {
+        const hash = commit.sha.slice(0, 7);
+        const message = commit.commit.message.split('\n')[0].slice(0, 60);
+        return `-# ${toVi(commit.commit.author.date)} [\`${hash}\`](${repoUrl}/commit/${commit.sha}) ${message}`;
+      }).join('\n');
     } catch (error) {
-      // Fallback if GitHub API fails
-      console.log('[Git] GitHub API fetch failed, using Railway commit only');
+      console.warn('[Git] Failed to fetch latest commits from GitHub:', error);
     }
 
-    return { repoUrl, branchInfo, commitsText };
+    const value = { repoUrl, branchInfo, commitsText };
+    this.gitInfoCache = { expiresAt: Date.now() + 60_000, value };
+    return value;
   }
 
   private registerCommands() {
@@ -690,43 +712,7 @@ export default class UtilityModule {
         const memUsage = (mem.heapUsed / 1024 / 1024).toFixed(0);
         const memPercent = ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1);
 
-        // Bot info
-        const repoUrl = 'https://github.com/phuong79yc-afk/banh-mi-bot';
-        
-        // Read updates from UPDATES.md
-        let updatesText = '-# Đang tải...';
-        let branchInfo = 'Railway Deployment';
-        try {
-          const updatesPath = [
-            path.resolve(__dirname, '../../../UPDATES.md'),
-            path.resolve(__dirname, '../../../../UPDATES.md'),
-            path.resolve(process.cwd(), 'UPDATES.md'),
-          ].find((candidate) => fs.existsSync(candidate));
-          if (!updatesPath) throw new Error('UPDATES.md not found');
-
-          const updatesFile = fs.readFileSync(updatesPath, 'utf-8');
-          
-          // Extract version from first ## header
-          const versionMatch = updatesFile.match(/##\s+v([\d.]+)/);
-          if (versionMatch) {
-            branchInfo = `v${versionMatch[1]} • Railway Deployment`;
-          }
-          
-          // Extract first 5 bullet points from first version
-          const bullets = updatesFile
-            .split(/##\s+v[\d.]+/)[1] // Get first version section
-            ?.match(/^-\s+.+$/gm) // Find all bullet points
-            ?.slice(0, 5) // Take first 5
-            ?.map(line => `-# ${line.substring(2).trim()}`) // Format for Discord
-            ?.join('\n');
-          
-          if (bullets) {
-            updatesText = bullets;
-          }
-        } catch (error) {
-          console.error('[Info] Failed to read UPDATES.md:', error);
-          updatesText = '-# Chưa tải được thông tin cập nhật.';
-        }
+        const { repoUrl, branchInfo, commitsText } = await self.getGitInfo();
 
         let helpMention = '/help';
         try {
@@ -761,7 +747,7 @@ export default class UtilityModule {
             ),
           )
           .addSeparatorComponents(sep())
-          .addTextDisplayComponents(txt(`### ${emojis.refresh} Latest Updates\n${updatesText}`))
+          .addTextDisplayComponents(txt(`### ${emojis.refresh} Latest Git Updates\n${commitsText}`))
           .addSeparatorComponents(sep())
           .addActionRowComponents(
             new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1201,5 +1187,3 @@ export default class UtilityModule {
     console.log('🧹 Utility module cleanup');
   }
 }
-
-
