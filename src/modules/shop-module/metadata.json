@@ -22,11 +22,6 @@
       "permissions": []
     },
     {
-      "name": "balance",
-      "description": "Xem số coins",
-      "permissions": []
-    },
-    {
       "name": "revoke",
       "description": "Thu hồi role đã mua (Admin only)",
       "permissions": ["Administrator"]

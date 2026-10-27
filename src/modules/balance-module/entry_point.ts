@@ -3,7 +3,14 @@ import {
   Collection,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder
+  EmbedBuilder,
+  ContainerBuilder,
+  SectionBuilder,
+  ThumbnailBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  TextDisplayBuilder,
+  MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { getTursoDatabase } from '../../database/turso';
@@ -32,6 +39,7 @@ interface Transaction {
 
 // ==================== HELPER FUNCTIONS ====================
 const fmt = (n: number) => n.toLocaleString('vi-VN');
+const text = (content: string) => new TextDisplayBuilder().setContent(content);
 
 async function getUser(userId: string): Promise<UserData> {
   const db = getTursoDatabase();
@@ -467,13 +475,20 @@ const balanceCommand = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    try {
+      await interaction.deferReply();
+    } catch (error: any) {
+      if (error.code === 10062 || error.code === 40060) return;
+      throw error;
+    }
+
     const targetUser = interaction.options.getUser('user') || interaction.user;
     
     // Check if bot
     if (targetUser.bot) {
-      return interaction.reply({
-        content: 'Bot không có tài khoản xu.',
-        flags: 64
+      return interaction.editReply({
+        components: [new ContainerBuilder().addTextDisplayComponents(text(`${emojis.error} Bot không có tài khoản xu.`))],
+        flags: MessageFlags.IsComponentsV2,
       });
     }
 
@@ -481,15 +496,39 @@ const balanceCommand = {
     const name = (member as any)?.displayName ?? targetUser.username;
     const userData = await getUser(targetUser.id);
 
-    const embed = new EmbedBuilder()
-      .setColor(0x4e5058)
-      .setDescription(
-        `${emojis.coin} | **${name}** đang có **${fmt(userData.balance)}** ${emojis.coin} · **${fmt(userData.gold_balance)}** 💛\n` +
-        `🔥 **Streak:** ${userData.streak} ngày | 📊 **Check-ins:** ${userData.total_checkins} lần`
+    const card = new ContainerBuilder()
+      .setAccentColor(0x40b8a8)
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            text(`## ${emojis.coin} Ví của ${name}`),
+            text(`-# Số dư tài khoản${targetUser.id === interaction.user.id ? ' của bạn' : ''}`),
+          )
+          .setThumbnailAccessory(new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 256 }))),
       )
-      .setTimestamp();
+      .addSeparatorComponents(
+        new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large),
+      )
+      .addTextDisplayComponents(
+        text(
+          [
+            `### Số dư hiện tại`,
+            `${emojis.coin} **${fmt(userData.balance)}** Coin`,
+            `${emojis.gem} **${fmt(userData.gold_balance)}** Gem`,
+          ].join('\n'),
+        ),
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+      .addTextDisplayComponents(
+        text(`${emojis.fire} **Streak:** ${userData.streak} ngày  ·  ${emojis.chart} **Check-in:** ${fmt(userData.total_checkins)} lần`),
+        text(`-# Cập nhật lúc <t:${Math.floor(Date.now() / 1000)}:R>`),
+      );
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({
+      components: [card],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
+    });
   }
 };
 

@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { Client, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
 import { validateAdminAuth, validateUserId } from '../../utils/validation';
+import { getUserCoins, resetAllBalances, spendCoins } from '../../utils/currency';
+import { addTransaction } from '../../modules/balance-module/entry_point';
 
 // Helper function to get role color based on item
 function getColorForItem(itemId: string): number {
@@ -107,9 +109,20 @@ export function createShopRoutes(client: Client): Router {
       const fs = require('fs');
       const path = require('path');
       
-      // Reset coins
+      // Reset canonical Turso balances and legacy JSON stores.
+      const resetUsers = await resetAllBalances();
       const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
       fs.writeFileSync(coinsPath, JSON.stringify({}, null, 2));
+      const currenciesPath = path.join(process.cwd(), 'data', 'currencies.json');
+      if (fs.existsSync(currenciesPath)) {
+        const currencies = JSON.parse(fs.readFileSync(currenciesPath, 'utf8'));
+        for (const balance of Object.values(currencies) as any[]) {
+          if (!balance || typeof balance !== 'object') continue;
+          balance.cowoncy = 0;
+          balance.goldTicket = 0;
+        }
+        fs.writeFileSync(currenciesPath, JSON.stringify(currencies, null, 2));
+      }
       
       // Reset inventory
       const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
@@ -157,6 +170,7 @@ export function createShopRoutes(client: Client): Router {
       res.json({
         success: true,
         message: 'Shop data reset successfully',
+        resetUsers,
         deletedRoles: deletedRoles
       });
       
@@ -252,14 +266,7 @@ export function createShopRoutes(client: Client): Router {
         }
       }
       
-      // Load user coins
-      const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
-      let coinsData: any = {};
-      if (fs.existsSync(coinsPath)) {
-        coinsData = JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-      }
-      
-      const currentCoins = coinsData[userId] || 0;
+      const currentCoins = await getUserCoins(userId);
       console.log(`💰 User has ${currentCoins} coins, item costs ${item.price}`);
       
       // Check if user has enough coins
@@ -291,10 +298,18 @@ export function createShopRoutes(client: Client): Router {
         });
       }
       
-      // Deduct coins
-      coinsData[userId] = currentCoins - item.price;
-      fs.writeFileSync(coinsPath, JSON.stringify(coinsData, null, 2));
-      console.log(`💸 Deducted ${item.price} coins, new balance: ${coinsData[userId]}`);
+      // Deduct from the same Turso balance shown by /balance.
+      if (!(await spendCoins(userId, item.price))) {
+        return res.status(400).json({
+          success: false,
+          error: 'Not enough coins',
+          required: item.price,
+          current: await getUserCoins(userId),
+        });
+      }
+      await addTransaction(userId, 'spend', item.price, 'coins', `Dashboard shop purchase: ${item.name}`).catch((error) => {
+        console.error('Failed to record dashboard purchase transaction:', error);
+      });
       
       // Add to inventory (save with full ID)
       inventoryData[userId][fullItemId] = {
@@ -372,7 +387,7 @@ export function createShopRoutes(client: Client): Router {
           name: item.name,
           emoji: item.emoji
         },
-        newCoins: coinsData[userId],
+        newCoins: await getUserCoins(userId),
         roleAssigned: roleAssigned,
         roleCreated: roleCreated,
         roleError: roleError

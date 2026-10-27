@@ -21,6 +21,7 @@ import {
 } from 'discord.js';
 import { emojis, EMOJI_IDS } from '../../config/emojis';
 import { addTransaction } from '../balance-module/entry_point';
+import { addCoins, getCurrencyBalance, spendCoins } from '../../utils/currency';
 import fs from 'fs';
 import path from 'path';
 
@@ -109,7 +110,6 @@ const notice = (color: number, ...lines: string[]) => ({
 // ==================== DATABASE ====================
 const dataDir = path.join(process.cwd(), 'data');
 const questPath = path.join(dataDir, 'quest-users.json');
-const currPath = path.join(dataDir, 'currencies.json');
 
 fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(questPath)) fs.writeFileSync(questPath, '{}');
@@ -137,45 +137,8 @@ function saveUser(userId: string, data: UserData): void {
   saveDB(db);
 }
 
-// Currency integration với file currencies.json
-function addCoinsToUser(userId: string, amount: number): void {
-  try {
-    if (!fs.existsSync(currPath)) {
-      fs.writeFileSync(currPath, '{}');
-    }
-    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
-    const bal = curr[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-    bal.cowoncy += amount;
-    curr[userId] = bal;
-    fs.writeFileSync(currPath, JSON.stringify(curr, null, 2));
-  } catch (err) {
-    console.error('[Quest] Failed to add coins:', err);
-  }
-}
-
-function subtractCoinsFromUser(userId: string, amount: number): boolean {
-  try {
-    if (!fs.existsSync(currPath)) return false;
-    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
-    const bal = curr[userId] ?? { cowoncy: 0, blueTicket: 0, goldTicket: 0 };
-    if (bal.cowoncy < amount) return false;
-    bal.cowoncy -= amount;
-    curr[userId] = bal;
-    fs.writeFileSync(currPath, JSON.stringify(curr, null, 2));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getUserBalance(userId: string): number {
-  try {
-    if (!fs.existsSync(currPath)) return 0;
-    const curr = JSON.parse(fs.readFileSync(currPath, 'utf8'));
-    return curr[userId]?.cowoncy ?? 0;
-  } catch {
-    return 0;
-  }
+async function getUserBalance(userId: string): Promise<number> {
+  return (await getCurrencyBalance(userId)).coins;
 }
 
 // ==================== PERIOD LOGIC ====================
@@ -410,8 +373,10 @@ async function onComponent(i: MessageComponentInteraction | StringSelectMenuInte
     }
 
     s.earned += gained;
-    // Cộng coins vào Turso database thay vì JSON
-    await addTransaction(uid, 'earn', gained, 'coins', `Quest rewards: ${count} completed`);
+    await addCoins(uid, gained);
+    await addTransaction(uid, 'earn', gained, 'coins', `Quest rewards: ${count} completed`).catch((error) => {
+      console.error('[Quest] Failed to record reward transaction:', error);
+    });
     saveUser(uid, u);
 
     await i.editReply(buildQuest(i.client, i.user, period as Period));
@@ -440,22 +405,26 @@ async function onComponent(i: MessageComponentInteraction | StringSelectMenuInte
 
     if (u.book) return i.followUp(notice(OK, `✅ Bạn đã có Sổ Xịn rồi.`));
 
-    const balance = getUserBalance(uid);
+    const balance = await getUserBalance(uid);
     if (balance < BOOK_PRICE) {
       return i.followUp(notice(ERR, `❌ **Không đủ xu**`, `Cần **${fmt(BOOK_PRICE)}** ${COIN}, bạn đang có **${fmt(balance)}** ${COIN}.`));
     }
 
-    if (!subtractCoinsFromUser(uid, BOOK_PRICE)) {
+    if (!(await spendCoins(uid, BOOK_PRICE))) {
       return i.followUp(notice(ERR, `❌ **Không đủ xu**`));
     }
+    await addTransaction(uid, 'spend', BOOK_PRICE, 'coins', 'Quest book upgrade').catch((error) => {
+      console.error('[Quest] Failed to record book purchase transaction:', error);
+    });
 
     u.book = 1;
     saveUser(uid, u);
 
     await i.editReply(buildQuest(i.client, i.user, period as Period));
 
+    const newBalance = await getUserBalance(uid);
     return i.followUp(
-      notice(OK, '📗 **Đã nâng cấp Sổ Xịn!**', `📊 Giới hạn xu hằng ngày: **${fmt(QUEST_CAP_BOOK)}** ${COIN}`, `${COIN} Số dư: **${fmt(getUserBalance(uid))}**`),
+      notice(OK, '📗 **Đã nâng cấp Sổ Xịn!**', `📊 Giới hạn xu hằng ngày: **${fmt(QUEST_CAP_BOOK)}** ${COIN}`, `${COIN} Số dư: **${fmt(newBalance)}**`),
     );
   }
 }

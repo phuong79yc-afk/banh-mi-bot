@@ -21,7 +21,8 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
-import { getUser as getDailyUser } from '../balance-module/entry_point';
+import { addTransaction } from '../balance-module/entry_point';
+import { addCoins, getCurrencyBalance, spendCoins } from '../../utils/currency';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,7 +49,6 @@ const replyEph = (i: any, content: string, color?: number) =>
   i.reply({ components: [notice(content, color)], flags: V2_EPH });
 
 // Data paths
-const coinsPath = path.join(process.cwd(), 'data', 'coins.json');
 const inventoryPath = path.join(process.cwd(), 'data', 'inventory.json');
 const customRolesPath = path.join(process.cwd(), 'data', 'vip_custom_roles.json');
 
@@ -57,10 +57,6 @@ if (!fs.existsSync(path.join(process.cwd(), 'data'))) {
   fs.mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
 }
 
-// Initialize data files
-if (!fs.existsSync(coinsPath)) {
-  fs.writeFileSync(coinsPath, JSON.stringify({}));
-}
 if (!fs.existsSync(inventoryPath)) {
   fs.writeFileSync(inventoryPath, JSON.stringify({}));
 }
@@ -76,10 +72,6 @@ interface ShopItem {
   roleColor: number;
   isVIP?: boolean;
   stock?: number;
-}
-
-interface CoinsData {
-  [userId: string]: number;
 }
 
 interface CurrencyBalance {
@@ -258,47 +250,13 @@ const SHOP_ITEMS: ShopItem[] = [
   },
 ];
 
-// Legacy coins functions (kept for backwards compatibility with coins-module)
-function loadCoins(): CoinsData {
-  try {
-    return JSON.parse(fs.readFileSync(coinsPath, 'utf8'));
-  } catch {
-    return {};
-  }
+async function getUserBalance(userId: string): Promise<CurrencyBalance> {
+  const balance = await getCurrencyBalance(userId);
+  return { cowoncy: balance.coins };
 }
 
-function saveCoins(data: CoinsData): void {
-  fs.writeFileSync(coinsPath, JSON.stringify(data, null, 2));
-}
-
-function getUserCoins(userId: string): number {
-  const data = loadCoins();
-  return data[userId] || 0;
-}
-
-function addCoins(userId: string, amount: number): number {
-  const data = loadCoins();
-  data[userId] = (data[userId] || 0) + amount;
-  saveCoins(data);
-  return data[userId];
-}
-
-function removeCoins(userId: string, amount: number): boolean {
-  const data = loadCoins();
-  const current = data[userId] || 0;
-  if (current < amount) return false;
-  data[userId] = current - amount;
-  saveCoins(data);
-  return true;
-}
-
-// Currency functions
-function getUserBalance(userId: string): CurrencyBalance {
-  return { cowoncy: getUserCoins(userId) };
-}
-
-function deductCurrency(userId: string, price: number): boolean {
-  return removeCoins(userId, price);
+async function deductCurrency(userId: string, price: number): Promise<boolean> {
+  return spendCoins(userId, price);
 }
 
 function formatNumber(n: number): string {
@@ -501,9 +459,9 @@ function buildShop(client: Client, userId?: string, page: number = 1, disabled =
   return { components: [card], files, flags: V2 as any };
 }
 
-// Migration function - no longer needed, coins.json is the single currency source
+// Currency now uses Turso through utils/currency; inventory and stock remain local JSON.
 function migrateCoinsToCowoncy(): void {
-  console.log('[Shop] Migration not needed - coins.json is the single currency source');
+  console.log('[Shop] Currency source: Turso daily_users.balance');
 }
 
 // Busy users set for purchase protection
@@ -668,7 +626,7 @@ export default class ShopModule {
                 }
 
                 const totalPrice = targets.reduce((a, t) => a + t.price, 0);
-                const currentBal = getUserBalance(userId);
+                const currentBal = await getUserBalance(userId);
 
                 if (currentBal.cowoncy < totalPrice) {
                   await done('Bạn không đủ coin để mua!');
@@ -676,10 +634,13 @@ export default class ShopModule {
                 }
 
                 // Deduct FIRST, then assign roles
-                if (!deductCurrency(userId, totalPrice)) {
+                if (!(await deductCurrency(userId, totalPrice))) {
                   await done('Bạn không đủ coin để mua!');
                   return;
                 }
+                await addTransaction(userId, 'spend', totalPrice, 'coins', `Shop purchase: ${targets.map((item) => item.name).join(', ')}`).catch((error) => {
+                  console.error('[Shop] Failed to record purchase transaction:', error);
+                });
 
                 targets.forEach((t) => {
                   if (t.stock != null) incrementSold(t.id);
@@ -703,7 +664,10 @@ export default class ShopModule {
                 } catch (err) {
                   console.error('[Shop] Role assign error, rolling back:', err);
                   // Rollback currency and stock
-                  addCoins(userId, totalPrice);
+                  await addCoins(userId, totalPrice);
+                  await addTransaction(userId, 'admin', totalPrice, 'coins', 'Shop purchase refund after role assignment failure').catch((error) => {
+                    console.error('[Shop] Failed to record refund transaction:', error);
+                  });
                   targets.forEach((t) => {
                     if (t.stock != null) decrementSold(t.id);
                   });
@@ -720,7 +684,7 @@ export default class ShopModule {
                   return;
                 }
 
-                const newBal = getUserBalance(userId);
+                const newBal = await getUserBalance(userId);
 
                 await done(
                   `${emojis.success} Đã mua ${targets.map((t) => `${t.emoji} **${t.name}**`).join(', ')} thành công!\n` +
@@ -774,7 +738,7 @@ export default class ShopModule {
 
         const userId = interaction.user.id;
         const inventory = getUserInventory(userId);
-        const bal = getUserBalance(userId);
+        const bal = await getUserBalance(userId);
 
         const lines = Object.entries(inventory)
           .map(([itemId, quantity]) => {
@@ -802,65 +766,6 @@ export default class ShopModule {
           .addSeparatorComponents(sep())
           .addTextDisplayComponents(txt(lines.join('\n')))
           .addTextDisplayComponents(txt(`-# ${lines.length} loại vật phẩm • <t:${Math.floor(Date.now() / 1000)}:R>`));
-
-        await interaction.editReply({ components: [card], flags: V2 });
-      },
-    };
-
-    // /balance command
-    const balanceCommand = {
-      data: new SlashCommandBuilder()
-        .setName('balance')
-        .setDescription('Xem số xu, vé vàng và thống kê điểm danh')
-        .addUserOption((option) => option.setName('user').setDescription('� User cần xem').setRequired(false)),
-
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        if (!interaction.deferred && !interaction.replied) {
-          try {
-            await interaction.deferReply();
-          } catch (error: any) {
-            if (error.code === 10062 || error.code === 40060) return;
-            throw error;
-          }
-        }
-
-        const targetUser = interaction.options.getUser('user') || interaction.user;
-
-        // Check if bot
-        if (targetUser.bot) {
-          return interaction.editReply({
-            components: [notice('Bot không có tài khoản xu.', 0xfaa61a)],
-            flags: V2,
-          });
-        }
-
-        // Get member - handle both slash and prefix commands
-        let member: any = null;
-        try {
-          member = interaction.options?.getMember?.('user') || interaction.member;
-        } catch (e) {
-          // Prefix command - get member from guild
-          if (interaction.guild) {
-            member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-          }
-        }
-
-        const name = member?.displayName ?? targetUser.username;
-
-        // Get daily data from Turso (includes balance, gold, streak)
-        const dailyData = await getDailyUser(targetUser.id);
-
-        const card = new ContainerBuilder().addSectionComponents(
-            new SectionBuilder()
-              .addTextDisplayComponents(
-                txt(`### ${emojis.coin} ${name}`),
-                txt(
-                  `**${formatNumber(dailyData?.balance || 0)}** ${emojis.coin}  ·  **${dailyData?.gold_balance || 0}** ${emojis.gem}\n` +
-                    `${emojis.fire} Streak: **${dailyData?.streak || 0}** ngày  ·  ${emojis.chart} Check-ins: **${dailyData?.total_checkins || 0}** lần`,
-                ),
-              )
-              .setThumbnailAccessory(new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 128 }))),
-          );
 
         await interaction.editReply({ components: [card], flags: V2 });
       },
@@ -1145,7 +1050,6 @@ export default class ShopModule {
 
     this.commands.set('shop', shopCommand);
     this.commands.set('inventory', inventoryCommand);
-    this.commands.set('balance', balanceCommand);
     this.commands.set('revoke', revokeCommand);
   }
 
