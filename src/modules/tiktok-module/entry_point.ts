@@ -15,7 +15,6 @@ import {
   // ===== Components V2 =====
   ContainerBuilder,
   TextDisplayBuilder,
-  SectionBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
@@ -574,47 +573,34 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const authorLabel = data.authorUrl ? `[${data.authorName}](${data.authorUrl})` : data.authorName;
   const hasVideoFile = files.some((f) => f.name === 'tiktok-video.mp4');
 
-  // Khối 1: tác giả + caption (một dòng) + hashtag
-  const head: string[] = [`### ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`];
-  if (data.caption) head.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
-  if (data.tags.length) head.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
+  // Nội dung: tác giả + caption + hashtag, sau đó là thống kê và chân thẻ.
+  const lines: string[] = [`### ${data.isPhoto ? '📸' : '🎬'} ${authorLabel}`];
+  if (data.caption) lines.push(truncate(data.caption.replace(/\s*\n\s*/g, ' '), 120));
+  if (data.tags.length) lines.push(`-# ${data.tags.slice(0, 3).join(' ')}`);
 
-  // Khối 2: tim · bình luận · chia sẻ + chân thẻ
-  const tail: string[] = [];
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
-    tail.push(`${heartByLikes(st.likes)} **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
-  }
-
-  // Nút nằm cạnh nội dung (accessory của Section) thay vì một hàng riêng.
-  // Nếu không đính kèm được video thì nút dẫn tới bản có thể phát trực tiếp.
-  const usePlayable = !!PLAYABLE_HOST && !data.isPhoto && !hasVideoFile;
-  let buttonUrl = data.url;
-  let buttonLabel = 'Mở TikTok';
-  let buttonEmoji = '🎵';
-
-  if (usePlayable) {
-    const playable = new URL(data.url);
-    playable.hostname = PLAYABLE_HOST;
-    buttonUrl = playable.toString();
-    buttonLabel = 'Xem video';
-    buttonEmoji = '▶️';
+    lines.push(`${heartByLikes(st.likes)} **${compact(st.likes)}** · 💬 ${compact(st.comments)} · 🔁 ${compact(st.shares)}`);
   }
 
   const foot: string[] = [];
-  if (usePlayable) foot.push(`[TikTok](${data.url})`);
-  if (!hasVideoFile && !data.isPhoto && data.videoUrl) foot.push(`[⬇️ Tải video](${data.videoUrl})`);
   if (data.isPhoto && data.totalImages > files.length) foot.push(`📷 +${data.totalImages - files.length} ảnh`);
   if (videoNote) foot.push(videoNote);
   foot.push(`Chia sẻ bởi ${requester.username}`);
+  lines.push(`-# ${foot.join(' • ')}`);
+  container.addTextDisplayComponents(text(lines.join('\n')));
 
-  tail.push(`-# ${foot.join(' • ')}`);
-
-  container.addSectionComponents(
-    new SectionBuilder()
-      .addTextDisplayComponents(text(head.join('\n')), text(tail.join('\n')))
-      .setButtonAccessory(linkButton(buttonLabel, buttonUrl, buttonEmoji))
-  );
+  // Nút hành động chính đứng trước; nút video chỉ hiện khi chưa đính kèm video.
+  const buttons = [linkButton('Mở TikTok', data.url, '🎵')];
+  if (!data.isPhoto && !hasVideoFile) {
+    if (PLAYABLE_HOST) {
+      const playable = new URL(data.url);
+      playable.hostname = PLAYABLE_HOST;
+      buttons.push(linkButton('Xem video', playable.toString(), '▶️'));
+    }
+    if (data.videoUrl) buttons.push(linkButton('Tải video', data.videoUrl, '⬇️'));
+  }
+  container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
   return {
     components: [container],
@@ -628,7 +614,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
 export default class TikTokModule {
   name = 'tiktok-module';
   description = 'Tạo thẻ đẹp cho link TikTok';
-  version = '1.7.0';
+  version = '1.8.0';
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
