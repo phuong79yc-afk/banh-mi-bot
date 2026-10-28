@@ -373,19 +373,30 @@ export default class MinecraftModule {
       .map((line) => line.replace(/[ \t]+/g, ' ').trim())
       .join('\n');
 
+    const smallCapsMap: Record<string, string> = {
+      'ᴀ':'a','ᴁ':'a','ᴃ':'b','ʙ':'b','ᴄ':'c','ᴅ':'d','ᴇ':'e','ᴦ':'g','ʜ':'h','ɪ':'i','ᴉ':'i','ᴊ':'j','ᴋ':'k','ʟ':'l','ᴌ':'l','ᴍ':'m','ɴ':'n','ᴎ':'n','ᴏ':'o','ᴘ':'p','ǫ':'q','ᴿ':'r','ʀ':'r','ᴛ':'t','ᴜ':'u','ᴠ':'v','ᴡ':'w','ʏ':'y','ᴢ':'z',
+      'ꜱ':'s','ꜰ':'f','ꜻ':'2','ꜽ':'3','Ꜿ':'4','ꜿ':'6','Ꜹ':'um','ꜹ':'uo',
+    };
+    const normalizeSmallCaps = (text: string) => Array.from(text, (char) => smallCapsMap[char] ?? char).join('');
+
     const finalClean = cleanMotd
       .split('\n')
-      .map((line) =>
-        line
+      .map((line) => {
+        const normalized = normalizeSmallCaps(line)
+          .replace(/^[\s.*·]+|[\s.*·]+$/g, '')
           .replace(/[ \t]+x[ \t]+(\d+)[ \t]*/gi, ' §6$1x Rate§r ')
           .replace(/[ \t]+/g, ' ')
           .trim()
+          .replace(/^.*?[▸➤]\s*/, '');
+
+        return normalized
           .replace(/[ \t]*Hypixel[ \t]+Network/gi, '§fHYPIXEL §6NETWORK§r')
           .replace(/\[(\d+\.\d+)\/(\d+\.\d+)\]/g, '§8[§4$1/$2§8]§r')
           .replace(/\[(\d+\.\d+)x?[ \t]*-[ \t]*(\d+\.\d+)x?\]/gi, '§8[§6$1x §7- §6$2x§8]§r')
           .replace(/MEGACITY[ \t]+NETWORK/gi, '§cMEGACITY §6NETWORK§r')
-          .replace(/SB[ \t]+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r'),
-      );
+          .replace(/SB[ \t]+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r');
+      })
+      .filter((line) => line.length > 0);
     const motdLines = finalClean;
     const motdFont = (line: string) =>
       /[^\x00-\x7F]/.test(line.replace(/§[0-9a-fk-or]/gi, '')) ? 'sans-serif' : '"Minecraft", monospace';
