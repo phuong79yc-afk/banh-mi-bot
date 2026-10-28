@@ -214,7 +214,7 @@ function getEmbeddedFacebookImages(html: string, ogImage?: string, limit = 10): 
   const urls = new Set<string>();
   if (ogImage && !isLikelyFaviconUrl(ogImage)) urls.add(ogImage);
 
-  const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<> -]+/gi) ?? [];
+  const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
   for (const raw of escapedUrls) {
     let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
     url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),\]]+$/, '');
