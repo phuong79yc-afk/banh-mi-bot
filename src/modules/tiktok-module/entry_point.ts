@@ -503,9 +503,18 @@ async function compressVideo(input: Buffer, durationSec: number, maxBytes: numbe
 }
 
 async function extractTranscriptAudio(videoUrl: string): Promise<{ buffer?: Buffer; error?: string }> {
-  if (!(await hasFfmpeg())) return { error: 'Máy chủ chưa hỗ trợ trích xuất audio.' };
+  console.log('[TikTok Transcript] Bắt đầu trích audio', { videoUrl, sourceMaxBytes: TRANSCRIPT_SOURCE_MAX_BYTES });
+  if (!(await hasFfmpeg())) {
+    console.error('[TikTok Transcript] ffmpeg-static không khả dụng');
+    return { error: 'Máy chủ chưa hỗ trợ trích xuất audio.' };
+  }
 
   const downloaded = await downloadVideoBuffer(videoUrl, TRANSCRIPT_SOURCE_MAX_BYTES);
+  console.log('[TikTok Transcript] Kết quả tải video', {
+    downloaded: !!downloaded.buffer,
+    bytes: downloaded.buffer?.length ?? 0,
+    tooBig: !!downloaded.tooBig,
+  });
   if (!downloaded.buffer) return { error: downloaded.tooBig ? 'Video quá lớn để tạo transcript.' : 'Không tải được video TikTok.' };
 
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tiktok-transcript-'));
@@ -544,30 +553,49 @@ async function extractTranscriptAudio(videoUrl: string): Promise<{ buffer?: Buff
 
 async function transcribeTikTokVideo(videoUrl: string): Promise<{ text?: string; error?: string }> {
   const keyList = process.env.GROQ_API_KEYS?.split(',').map((key) => key.trim()).filter(Boolean) ?? [];
-  const apiKey = keyList[0] || process.env.GROQ_API_KEY;
-  if (!apiKey) return { error: 'Chưa cấu hình GROQ_API_KEYS hoặc GROQ_API_KEY.' };
+  const apiKeys = keyList.length ? keyList : (process.env.GROQ_API_KEY?.trim() ? [process.env.GROQ_API_KEY.trim()] : []);
+  if (!apiKeys.length) {
+    console.error('[TikTok Transcript] Thiếu GROQ API key');
+    return { error: 'Chưa cấu hình GROQ_API_KEYS hoặc GROQ_API_KEY.' };
+  }
 
   const extracted = await extractTranscriptAudio(videoUrl);
-  if (!extracted.buffer) return { error: extracted.error };
+  if (!extracted.buffer) {
+    console.error('[TikTok Transcript] Không trích được audio', { error: extracted.error });
+    return { error: extracted.error };
+  }
 
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tiktok-groq-'));
   const audioFile = path.join(dir, 'audio.mp3');
 
   try {
     await fsp.writeFile(audioFile, extracted.buffer);
-    const groq = new Groq({ apiKey });
-    const result: any = await groq.audio.transcriptions.create({
-      file: createReadStream(audioFile),
-      model: 'whisper-large-v3-turbo',
-      language: 'vi',
-      response_format: 'text',
-    } as any);
+    console.log('[TikTok Transcript] Audio đã trích', { bytes: extracted.buffer.length });
 
-    const text = (typeof result === 'string' ? result : String(result?.text ?? '')).trim();
-    return text ? { text } : { error: 'Dịch vụ không nhận được nội dung giọng nói.' };
-  } catch (error: any) {
-    const message = error?.message || 'Không thể tạo transcript.';
-    return { error: message.includes('401') ? 'GROQ API key không hợp lệ.' : message };
+    for (let index = 0; index < apiKeys.length; index++) {
+      const groq = new Groq({ apiKey: apiKeys[index] });
+      try {
+        const result: any = await groq.audio.transcriptions.create({
+          file: createReadStream(audioFile),
+          model: 'whisper-large-v3-turbo',
+          response_format: 'text',
+        } as any);
+
+        const text = (typeof result === 'string' ? result : String(result?.text ?? '')).trim();
+        if (!text) return { error: 'Dịch vụ không nhận được nội dung giọng nói.' };
+        console.log('[TikTok Transcript] Groq tạo transcript thành công', { bytes: text.length, keyIndex: index + 1 });
+        return { text };
+      } catch (error: any) {
+        const status = error?.status ?? error?.response?.status;
+        const message = error?.message || 'Không thể tạo transcript.';
+        console.error('[TikTok Transcript] Groq thất bại', { status, keyIndex: index + 1, message });
+        if ((status === 401 || status === 403) && index < apiKeys.length - 1) continue;
+        if (status === 429 && index < apiKeys.length - 1) continue;
+        if (status === 413) return { error: 'Audio quá lớn để gửi tới dịch vụ transcript.' };
+        return { error: status === 401 || status === 403 ? 'GROQ API key không hợp lệ.' : message };
+      }
+    }
+    return { error: 'Tất cả GROQ API key không hợp lệ hoặc không thể sử dụng.' };
   } finally {
     await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -761,6 +789,7 @@ export default class TikTokModule {
 
       if (action === 'transcript') {
         const { data } = context;
+        console.log('[TikTok Transcript] Nút Transcript được bấm', { isPhoto: data.isPhoto, hasVideoUrl: !!data.videoUrl });
         if (data.isPhoto || !data.videoUrl) {
           await interaction.reply({
             content: 'Bài này không có video để tạo transcript.',
@@ -788,8 +817,10 @@ export default class TikTokModule {
             await interaction.followUp({ content: chunk, ephemeral: true, allowedMentions: NO_PING });
           }
         } catch (error) {
+          const message = error instanceof Error ? error.message : 'Lỗi không xác định.';
+          console.error('[TikTok Transcript] Thất bại', { message });
           await interaction.editReply({
-            content: `${emojis.error || '❌'} Không thể tạo transcript: ${error instanceof Error ? error.message : 'Lỗi không xác định.'}`,
+            content: `${emojis.error || '❌'} Không thể tạo transcript: ${message}`,
           });
         }
         return;
