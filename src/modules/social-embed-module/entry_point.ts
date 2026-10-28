@@ -339,12 +339,10 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const html = String(response.data ?? '');
     const finalUrl = String((response.request as any)?.res?.responseUrl ?? (response.request as any)?.responseUrl ?? proxyUrl);
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
-    const blocked = /(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(finalUrl)
-      || /^(?:log in|login|facebook \u2013 log in)/i.test(titleTag ?? '')
+    const blocked = /^(?:log in|login|facebook \u2013 log in)/i.test(titleTag ?? '')
       || /<div[^>]+id=["']loginform["']/i.test(html);
     if (blocked) {
-      console.warn('[SocialEmbed] Blocked login metadata page', { requestedUrl: proxyUrl, finalUrl });
-      return { blocked: true };
+      console.warn('[SocialEmbed] Facebook login shell detected; trying public embed resolution', { requestedUrl: proxyUrl, finalUrl });
     }
     console.log('[SocialEmbed] Metadata response', {
       url: proxyUrl,
@@ -371,6 +369,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       images: isFacebookVideo ? [] : images,
       video: facebookVideoUrl,
       canonical,
+      blocked,
       isVideoPost: isFacebookVideo,
       videoId: facebookVideoId,
     };
@@ -780,7 +779,7 @@ export class SocialEmbedModule {
         let metadata = await fetchSocialMetadata(officialUrl);
         if (platform.name === 'Facebook' && metadata.canonical?.startsWith('https://')) {
           const canonicalMetadata = await fetchSocialMetadata(metadata.canonical);
-          if (!canonicalMetadata.blocked) {
+          if (!canonicalMetadata.blocked || canonicalMetadata.video) {
             metadata = {
               title: metadata.title?.startsWith('http') ? canonicalMetadata.title : metadata.title || canonicalMetadata.title,
               description: metadata.description || canonicalMetadata.description,
@@ -788,6 +787,7 @@ export class SocialEmbedModule {
               images: metadata.images?.length ? metadata.images : canonicalMetadata.images,
               video: metadata.video || canonicalMetadata.video,
               canonical: metadata.canonical,
+              blocked: metadata.blocked && canonicalMetadata.blocked,
               isVideoPost: metadata.isVideoPost || canonicalMetadata.isVideoPost,
               videoId: metadata.videoId || canonicalMetadata.videoId,
             };
