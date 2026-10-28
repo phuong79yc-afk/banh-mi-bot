@@ -25,9 +25,11 @@ import {
 import { emojis } from '../../config/emojis';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
-import { promises as fsp } from 'fs';
+import { createReadStream, promises as fsp } from 'fs';
 import os from 'os';
 import path from 'path';
+import Groq from 'groq-sdk';
+import ffmpegPath from 'ffmpeg-static';
 
 // ==================== CONFIG ====================
 /** Tự động tạo thẻ khi có người gửi link TikTok trong tin nhắn */
@@ -61,6 +63,8 @@ const VIDEO_TIMEOUT_MS = 30000;
 const COMPRESS_VIDEO = true;
 const MAX_COMPRESS_SOURCE_BYTES = 60 * 1024 * 1024; // chỉ nén video gốc tối đa 60MB
 const COMPRESS_TIMEOUT_MS = 60000;
+const TRANSCRIPT_TIMEOUT_MS = 120000;
+const TRANSCRIPT_SOURCE_MAX_BYTES = 60 * 1024 * 1024;
 /** Thời gian lưu cache kết quả (ms) */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
@@ -289,7 +293,7 @@ async function fetchApiData(url: string): Promise<Partial<TikTokData> | null> {
 }
 
 const cache = new Map<string, { at: number; data: TikTokData }>();
-const cardContexts = new Map<string, { expiresAt: number; data: TikTokData }>();
+const cardContexts = new Map<string, { expiresAt: number; data: TikTokData; transcript?: string }>();
 
 async function fetchTikTok(rawUrl: string): Promise<TikTokData> {
   const url = await resolveUrl(rawUrl);
@@ -417,12 +421,19 @@ let ffmpegAvailable: boolean | null = null;
 
 async function hasFfmpeg(): Promise<boolean> {
   if (ffmpegAvailable !== null) return ffmpegAvailable;
+  if (!ffmpegPath) {
+    ffmpegAvailable = false;
+    console.log('[TikTok] Không tìm thấy ffmpeg-static');
+    return false;
+  }
+
+  const resolvedFfmpegPath = ffmpegPath;
   ffmpegAvailable = await new Promise<boolean>((resolve) => {
-    const proc = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
+    const proc = spawn(resolvedFfmpegPath, ['-version'], { stdio: 'ignore' });
     proc.on('error', () => resolve(false));
     proc.on('close', (code) => resolve(code === 0));
   });
-  if (!ffmpegAvailable) console.log('[TikTok] Không tìm thấy ffmpeg, bỏ qua nén video');
+  if (!ffmpegAvailable) console.log('[TikTok] Không thể chạy ffmpeg-static, bỏ qua xử lý video/audio');
   return ffmpegAvailable;
 }
 
@@ -464,7 +475,7 @@ async function compressVideo(input: Buffer, durationSec: number, maxBytes: numbe
     ];
 
     await new Promise<void>((resolve, reject) => {
-      const proc = spawn('ffmpeg', args, { stdio: 'ignore' });
+      const proc = spawn(ffmpegPath || 'ffmpeg', args, { stdio: 'ignore' });
       const timer = setTimeout(() => {
         proc.kill('SIGKILL');
         reject(new Error('ffmpeg quá thời gian'));
@@ -489,6 +500,93 @@ async function compressVideo(input: Buffer, durationSec: number, maxBytes: numbe
   } finally {
     await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+async function extractTranscriptAudio(videoUrl: string): Promise<{ buffer?: Buffer; error?: string }> {
+  if (!(await hasFfmpeg())) return { error: 'Máy chủ chưa hỗ trợ trích xuất audio.' };
+
+  const downloaded = await downloadVideoBuffer(videoUrl, TRANSCRIPT_SOURCE_MAX_BYTES);
+  if (!downloaded.buffer) return { error: downloaded.tooBig ? 'Video quá lớn để tạo transcript.' : 'Không tải được video TikTok.' };
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tiktok-transcript-'));
+  const videoFile = path.join(dir, 'video.mp4');
+  const audioFile = path.join(dir, 'audio.mp3');
+
+  try {
+    await fsp.writeFile(videoFile, downloaded.buffer);
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(ffmpegPath || 'ffmpeg', [
+        '-y', '-i', videoFile,
+        '-vn', '-ac', '1', '-ar', '16000',
+        '-c:a', 'libmp3lame', '-b:a', '32k', audioFile,
+      ], { stdio: 'ignore' });
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        reject(new Error('Trích audio quá thời gian'));
+      }, TRANSCRIPT_TIMEOUT_MS);
+
+      proc.on('error', (error) => { clearTimeout(timer); reject(error); });
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        code === 0 ? resolve() : reject(new Error(`ffmpeg thoát với mã ${code}`));
+      });
+    });
+
+    const buffer = await fsp.readFile(audioFile);
+    if (buffer.length > 24 * 1024 * 1024) return { error: 'Audio vượt giới hạn 25MB của dịch vụ transcript.' };
+    return { buffer };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Không thể trích audio từ video.' };
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function transcribeTikTokVideo(videoUrl: string): Promise<{ text?: string; error?: string }> {
+  const keyList = process.env.GROQ_API_KEYS?.split(',').map((key) => key.trim()).filter(Boolean) ?? [];
+  const apiKey = keyList[0] || process.env.GROQ_API_KEY;
+  if (!apiKey) return { error: 'Chưa cấu hình GROQ_API_KEYS hoặc GROQ_API_KEY.' };
+
+  const extracted = await extractTranscriptAudio(videoUrl);
+  if (!extracted.buffer) return { error: extracted.error };
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tiktok-groq-'));
+  const audioFile = path.join(dir, 'audio.mp3');
+
+  try {
+    await fsp.writeFile(audioFile, extracted.buffer);
+    const groq = new Groq({ apiKey });
+    const result: any = await groq.audio.transcriptions.create({
+      file: createReadStream(audioFile),
+      model: 'whisper-large-v3-turbo',
+      language: 'vi',
+      response_format: 'text',
+    } as any);
+
+    const text = (typeof result === 'string' ? result : String(result?.text ?? '')).trim();
+    return text ? { text } : { error: 'Dịch vụ không nhận được nội dung giọng nói.' };
+  } catch (error: any) {
+    const message = error?.message || 'Không thể tạo transcript.';
+    return { error: message.includes('401') ? 'GROQ API key không hợp lệ.' : message };
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+function splitTranscript(text: string, maxLength = 1900): string[] {
+  const chunks: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > maxLength) {
+    let splitAt = remaining.lastIndexOf('。', maxLength);
+    if (splitAt < maxLength / 2) splitAt = remaining.lastIndexOf('. ', maxLength);
+    if (splitAt < maxLength / 2) splitAt = remaining.lastIndexOf('\n', maxLength);
+    if (splitAt < maxLength / 2) splitAt = remaining.lastIndexOf(' ', maxLength);
+    if (splitAt < 1) splitAt = maxLength;
+    chunks.push(remaining.slice(0, splitAt + 1).trim());
+    remaining = remaining.slice(splitAt + 1).trim();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
 }
 
 const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
@@ -581,7 +679,7 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const st = data.stats;
   if (st && (st.likes !== undefined || st.comments !== undefined || st.shares !== undefined)) {
     container.addTextDisplayComponents(
-      text(`${emojis.tt_like} **${compact(st.likes)}**  ${emojis.tt_comment} **${compact(st.comments)}**  ${emojis.tt_share} **${compact(st.shares)}$**`),
+      text(`${emojis.tt_like} **${compact(st.likes)}**  ${emojis.tt_comment} **${compact(st.comments)}**  ${emojis.tt_share} **${compact(st.shares)}**`),
     );
   }
 
@@ -662,10 +760,38 @@ export default class TikTokModule {
       }
 
       if (action === 'transcript') {
-        await interaction.reply({
-          content: 'Bot hiện chưa hỗ trợ tạo transcript cho video TikTok.',
-          ephemeral: true,
-        });
+        const { data } = context;
+        if (data.isPhoto || !data.videoUrl) {
+          await interaction.reply({
+            content: 'Bài này không có video để tạo transcript.',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          let transcript = context.transcript;
+          if (!transcript) {
+            const result = await transcribeTikTokVideo(data.videoUrl);
+            if (result.error) throw new Error(result.error);
+            transcript = result.text;
+            context.transcript = transcript;
+          }
+
+          const chunks = splitTranscript(`**Transcript tiếng Việt**\n\n${transcript}`);
+          await interaction.editReply({
+            content: chunks[0],
+            allowedMentions: NO_PING,
+          });
+          for (const chunk of chunks.slice(1)) {
+            await interaction.followUp({ content: chunk, ephemeral: true, allowedMentions: NO_PING });
+          }
+        } catch (error) {
+          await interaction.editReply({
+            content: `${emojis.error || '❌'} Không thể tạo transcript: ${error instanceof Error ? error.message : 'Lỗi không xác định.'}`,
+          });
+        }
         return;
       }
 
