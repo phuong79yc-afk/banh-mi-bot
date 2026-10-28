@@ -195,7 +195,7 @@ function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string
     let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
     url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),]+$/, '');
     if (!/^https?:\/\//i.test(url)) continue;
-    if (kind === 'video' && /(?:\.mp4|video_url|video\/|fbcdn\.net)/i.test(url)) return url;
+    if (kind === 'video' && /(?:\.mp4(?:[?&]|$)|[?&]video_url=|\/video(?:\/|_|\?|$))/i.test(url)) return url;
     if (kind === 'image' && /(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpg|\.jpeg|\.png|\.webp)/i.test(url)) return url;
   }
   return undefined;
@@ -439,6 +439,18 @@ async function downloadSocialVideo(url: string | undefined, limitBytes: number):
     });
     const source = Buffer.from(response.data);
     if (source.length === 0) return { file: null };
+
+    const contentType = String(response.headers['content-type'] ?? '').toLowerCase();
+    const isMp4 = source.subarray(4, 8).toString('ascii') === 'ftyp' || source.subarray(4, 12).toString('ascii').includes('ftyp');
+    const isWebm = source.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+    if (!isMp4 && !isWebm && !contentType.includes('video/')) {
+      console.warn('[SocialEmbed] Rejected non-video response as video', {
+        url,
+        contentType,
+        bytes: source.length,
+      });
+      return { file: null };
+    }
 
     // Vừa giới hạn upload của server: đính kèm thẳng, không cần ffmpeg
     if (source.length <= limitBytes) {
