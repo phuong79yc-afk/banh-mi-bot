@@ -188,7 +188,15 @@ function getCanonical(html: string): string | undefined {
 
 function getJsonMediaUrl(html: string, key: string): string | undefined {
   const value = getJsonString(html, key);
-  return value && /^https?:\/\//i.test(value) ? decodeHtml(value.replace(/\\\//g, '/')) : undefined;
+  if (!value) return undefined;
+  const normalized = decodeHtml(value
+    .replace(/\\\//g, '/')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\u00253D/gi, '=')
+    .replace(/\\u003D/gi, '=')
+    .replace(/\\([\\])/g, '$1'));
+  return /^https?:\/\//i.test(normalized) ? normalized : undefined;
 }
 
 function getFacebookVideoId(html: string, proxyUrl: string): string | undefined {
@@ -202,7 +210,10 @@ function getFacebookVideoId(html: string, proxyUrl: string): string | undefined 
 }
 
 function getFacebookVideoUrl(html: string): string | undefined {
-  const keys = ['playable_url_quality_hd', 'browser_native_hd_url', 'playable_url', 'browser_native_sd_url', 'video_url'];
+  const keys = [
+    'hd_src', 'playable_url_quality_hd', 'browser_native_hd_url',
+    'sd_src', 'playable_url', 'browser_native_sd_url', 'video_url',
+  ];
   for (const key of keys) {
     const url = getJsonMediaUrl(html, key);
     if (url && /^https?:\/\//i.test(url)) return url;
@@ -277,6 +288,43 @@ function isLikelyFaviconUrl(value?: string): boolean {
   }
 }
 
+async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<string | undefined> {
+  if (!videoId) return undefined;
+  const endpoints = [
+    `https://www.facebook.com/video/embed?video_id=${encodeURIComponent(videoId)}`,
+    `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fwatch%2F%3Fv%3D${encodeURIComponent(videoId)}&show_text=false`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await axios.get(endpoint, {
+        timeout: 10000,
+        maxContentLength: 2 * 1024 * 1024,
+        responseType: 'text',
+        headers: {
+          'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+          'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+          Referer: 'https://www.facebook.com/',
+        },
+      });
+      const html = String(response.data ?? '').replace(/\\u00253D/gi, '=');
+      const videoUrl = getFacebookVideoUrl(html);
+      if (videoUrl) {
+        console.log('[SocialEmbed] Resolved Facebook video URL from embed endpoint', { videoId, endpoint });
+        return videoUrl;
+      }
+    } catch (error: any) {
+      console.warn('[SocialEmbed] Facebook embed video lookup failed', {
+        videoId,
+        endpoint,
+        status: error?.response?.status,
+        message: error?.message,
+      });
+    }
+  }
+  return undefined;
+}
+
 async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
   try {
     const response = await axios.get(proxyUrl, {
@@ -312,12 +360,16 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const ogType = getMeta(html, 'og:type')?.toLowerCase();
     const isFacebookVideo = ogType?.includes('video') || /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl);
     const facebookVideoId = getFacebookVideoId(html, proxyUrl);
+    let facebookVideoUrl = getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getFacebookVideoUrl(html) || getJsonMediaUrl(html, 'video_url');
+    if (isFacebookVideo && !facebookVideoUrl && facebookVideoId) {
+      facebookVideoUrl = await fetchFacebookVideoUrl(facebookVideoId);
+    }
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: isFacebookVideo ? undefined : (isLikelyFaviconUrl(rawImage) ? undefined : rawImage),
       images: isFacebookVideo ? [] : images,
-      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getFacebookVideoUrl(html) || getJsonMediaUrl(html, 'video_url'),
+      video: facebookVideoUrl,
       canonical,
       isVideoPost: isFacebookVideo,
       videoId: facebookVideoId,
