@@ -9,8 +9,6 @@ import {
   MediaGalleryItemBuilder,
   Message,
   MessageFlags,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
   TextDisplayBuilder,
 } from 'discord.js';
 import axios from 'axios';
@@ -19,6 +17,17 @@ import { promises as fsp } from 'fs';
 import os from 'os';
 import path from 'path';
 import ffmpegPath from 'ffmpeg-static';
+
+// ==================== CONFIG ====================
+/** true = hiện thanh viền màu theo từng nền tảng; false = card không viền */
+const USE_ACCENT = false;
+/** Số link tối đa xử lý trong một tin nhắn */
+const MAX_LINKS_PER_MESSAGE = 4;
+/** Video gốc tối đa được tải về để nén */
+const MAX_VIDEO_SOURCE_BYTES = 60 * 1024 * 1024;
+const COMPRESS_TIMEOUT_MS = 60000;
+
+const V2 = MessageFlags.IsComponentsV2;
 
 interface SocialEmbedPlatform {
   name: string;
@@ -40,10 +49,7 @@ const PLATFORMS: SocialEmbedPlatform[] = [
   {
     name: 'Reddit',
     hosts: ['reddit.com', 'www.reddit.com', 'old.reddit.com', 'redd.it'],
-    rewrite: (url) => {
-      if (url.hostname === 'redd.it') return `https://rxddit.com${url.pathname}${url.search}`;
-      return `https://rxddit.com${url.pathname}${url.search}`;
-    },
+    rewrite: (url) => `https://rxddit.com${url.pathname}${url.search}`,
   },
   {
     name: 'Threads',
@@ -57,9 +63,18 @@ const PLATFORMS: SocialEmbedPlatform[] = [
   },
 ];
 
-const SOCIAL_URL_REGEX = /https?:\/\/[^\s<>()]+/gi;
+/** Biểu tượng + màu theo nền tảng */
+const PLATFORM_STYLE: Record<string, { icon: string; color: number }> = {
+  Instagram: { icon: '📸', color: 0xe1306c },
+  'Twitter / X': { icon: '🐦', color: 0x1da1f2 },
+  Reddit: { icon: '👽', color: 0xff4500 },
+  Threads: { icon: '🧵', color: 0x6c6c70 },
+  Facebook: { icon: '📘', color: 0x1877f2 },
+};
+
+// Bỏ qua link bọc trong <...> (người dùng cố ý tắt embed)
+const SOCIAL_URL_REGEX = /(?<!<)https?:\/\/[^\s<>()]+/gi;
 const TIKTOK_HOSTS = new Set(['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com']);
-const V2 = MessageFlags.IsComponentsV2;
 
 function detectSocialPlatform(hostname: string): SocialEmbedPlatform | undefined {
   const host = hostname.toLowerCase().replace(/^m\./, '').replace(/^mobile\./, '').replace(/^old\./, '');
@@ -74,6 +89,8 @@ function detectSocialPlatform(hostname: string): SocialEmbedPlatform | undefined
 
   return PLATFORMS.find((platform) => platform.hosts.includes(host));
 }
+
+// ==================== METADATA ====================
 
 interface SocialMetadata {
   title?: string;
@@ -231,6 +248,16 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
   }
 }
 
+// ==================== MEDIA ====================
+
+/** Giới hạn upload theo cấp boost của server (trừ chút dư địa) */
+function uploadLimitBytes(premiumTier: number | undefined): number {
+  const limitMb = (premiumTier ?? 0) >= 3 ? 100 : premiumTier === 2 ? 50 : 10;
+  return limitMb * 1024 * 1024 - 512 * 1024;
+}
+
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')}MB`;
+
 async function downloadMedia(url: string | undefined, maxBytes: number): Promise<AttachmentBuilder | null> {
   if (!url) return null;
   const isFacebookMedia = /(?:fbsbx\.com|fbcdn\.net)/i.test(url);
@@ -290,58 +317,148 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
   return null;
 }
 
-async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 1024 * 1024): Promise<AttachmentBuilder | null> {
-  if (!url || !ffmpegPath) return null;
-  const resolvedFfmpegPath: string = ffmpegPath;
+function randomFilename(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Đọc thời lượng video (giây) từ stderr của ffmpeg (ffmpeg-static không kèm ffprobe) */
+function probeDuration(ffmpeg: string, file: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    let stderr = '';
+    const proc = spawn(ffmpeg, ['-i', file], { stdio: ['ignore', 'ignore', 'pipe'] });
+    proc.stderr?.on('data', (chunk) => (stderr += chunk.toString()));
+    proc.on('error', () => resolve(null));
+    proc.on('close', () => {
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null);
+    });
+  });
+}
+
+// Chỉ nén từng video một để không làm nghẽn CPU
+let compressQueue: Promise<unknown> = Promise.resolve();
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = compressQueue.then(fn, fn);
+  compressQueue = run.catch(() => {});
+  return run;
+}
+
+/**
+ * Nén video xuống dưới `limitBytes` bằng bitrate tính theo thời lượng
+ * (bản cũ dùng `-fs` nên video quá dài sẽ bị cắt cụt thay vì nén).
+ */
+async function compressSocialVideo(source: Buffer, limitBytes: number): Promise<Buffer | null> {
+  if (!ffmpegPath) return null;
+  const ffmpeg: string = ffmpegPath;
+
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'social-video-'));
+  const input = path.join(dir, 'input.bin');
+  const output = path.join(dir, 'output.mp4');
+
   try {
+    await fsp.writeFile(input, source);
+
+    const duration = await probeDuration(ffmpeg, input);
+    const audioKbps = 96;
+    let rateArgs: string[];
+
+    if (duration && duration > 0) {
+      // Dư ~8% cho phần overhead của container
+      const videoKbps = Math.floor((limitBytes * 8 * 0.92) / duration / 1000) - audioKbps;
+      if (videoKbps < 250) return null; // quá dài, nén xuống sẽ quá mờ
+      rateArgs = ['-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${videoKbps * 2}k`];
+    } else {
+      // Không biết thời lượng: dùng CRF và kiểm tra dung lượng sau khi nén
+      rateArgs = ['-crf', '30'];
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(
+        ffmpeg,
+        [
+          '-y', '-i', input,
+          '-vf', "scale='min(720,iw)':-2",
+          '-c:v', 'libx264', '-preset', 'veryfast', ...rateArgs,
+          '-c:a', 'aac', '-b:a', `${audioKbps}k`,
+          '-movflags', '+faststart',
+          output,
+        ],
+        { stdio: 'ignore' },
+      );
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        reject(new Error('Video compression timeout'));
+      }, COMPRESS_TIMEOUT_MS);
+      proc.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}`));
+      });
+    });
+
+    const compressed = await fsp.readFile(output);
+    if (!compressed.length || compressed.length > limitBytes) {
+      console.warn('[SocialEmbed] Video compression produced no usable file', { compressedBytes: compressed.length, limitBytes });
+      return null;
+    }
+    return compressed;
+  } catch (error: any) {
+    console.error('[SocialEmbed] Video compression failed', { message: error?.message });
+    return null;
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+interface VideoResult {
+  file: AttachmentBuilder | null;
+  /** Ghi chú hiển thị ở chân thẻ (nén, quá nặng, ...) */
+  note?: string;
+}
+
+async function downloadSocialVideo(url: string | undefined, limitBytes: number): Promise<VideoResult> {
+  if (!url) return { file: null };
+
+  try {
+    const isFacebookMedia = /(?:fbsbx\.com|fbcdn\.net)/i.test(url);
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 30000,
-      maxContentLength: 60 * 1024 * 1024,
-      maxBodyLength: 60 * 1024 * 1024,
+      maxContentLength: MAX_VIDEO_SOURCE_BYTES,
+      maxBodyLength: MAX_VIDEO_SOURCE_BYTES,
       headers: {
-        'User-Agent': /(?:fbsbx\.com|fbcdn\.net)/i.test(url)
+        'User-Agent': isFacebookMedia
           ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
           : 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
-        Referer: /(?:fbsbx\.com|fbcdn\.net)/i.test(url) ? 'https://www.facebook.com/' : new URL(url).origin,
+        Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
         Accept: 'video/mp4,video/webm,video/*,*/*;q=0.8',
       },
     });
     const source = Buffer.from(response.data);
-    if (source.length === 0) return null;
+    if (source.length === 0) return { file: null };
+
+    // Vừa giới hạn upload của server: đính kèm thẳng, không cần ffmpeg
     if (source.length <= limitBytes) {
       const attachment = new AttachmentBuilder(source, { name: `social-video-${randomFilename()}.mp4` });
       console.log('[SocialEmbed] Video attached directly', { bytes: source.length, name: attachment.name });
-      return attachment;
+      return { file: attachment };
     }
 
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'social-video-'));
-    const input = path.join(dir, 'input.bin');
-    const output = path.join(dir, 'output.mp4');
-    try {
-      await fsp.writeFile(input, source);
-      await new Promise<void>((resolve, reject) => {
-        const proc: any = spawn(resolvedFfmpegPath, [
-          '-y', '-i', input,
-          '-vf', "scale='min(720,iw)':-2",
-          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26',
-          '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', '-fs', String(limitBytes), output,
-        ], { stdio: 'ignore' });
-        const timer = setTimeout(() => { proc.kill('SIGKILL'); reject(new Error('Video compression timeout')); }, 60000);
-        proc.on('error', (error: Error) => { clearTimeout(timer); reject(error); });
-        proc.on('close', (code: number | null) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}`)); });
-      });
-      const compressed = await fsp.readFile(output);
-      if (!compressed.length || compressed.length > limitBytes) {
-        console.warn('[SocialEmbed] Video compression produced no usable file', { compressedBytes: compressed.length, limitBytes });
-        return null;
-      }
-      const attachment = new AttachmentBuilder(compressed, { name: `social-video-${randomFilename()}.mp4` });
-      console.log('[SocialEmbed] Video compressed and attached', { originalBytes: source.length, compressedBytes: compressed.length, name: attachment.name });
-      return attachment;
-    } finally {
-      await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+    if (!ffmpegPath) {
+      return { file: null, note: `⚠️ Video ${mb(source.length)} vượt giới hạn upload ${mb(limitBytes)}` };
     }
+
+    const compressed = await enqueue(() => compressSocialVideo(source, limitBytes));
+    if (!compressed) {
+      return { file: null, note: `⚠️ Video ${mb(source.length)} quá nặng, không nén được` };
+    }
+
+    const attachment = new AttachmentBuilder(compressed, { name: `social-video-${randomFilename()}.mp4` });
+    console.log('[SocialEmbed] Video compressed and attached', { originalBytes: source.length, compressedBytes: compressed.length, name: attachment.name });
+    return { file: attachment, note: `🗜️ Đã nén ${mb(source.length)} → ${mb(compressed.length)}` };
   } catch (error: any) {
     console.error('[SocialEmbed] Video download or compression failed', {
       url,
@@ -349,13 +466,11 @@ async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 10
       message: error?.message,
       code: error?.code,
     });
-    return null;
+    return { file: null };
   }
 }
 
-function randomFilename(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+// ==================== UI ====================
 
 function text(value: string): TextDisplayBuilder {
   return new TextDisplayBuilder().setContent(value);
@@ -366,6 +481,73 @@ function linkButton(label: string, url: string, emoji?: string): ButtonBuilder {
   if (emoji) button.setEmoji(emoji);
   return button;
 }
+
+const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
+/**
+ * Instagram mô tả theo dạng: `1,234 likes, 56 comments - user on May 1, 2025: "caption"`.
+ * Tách số tim / bình luận ra khỏi caption để hiển thị gọn hơn (best-effort, sai định dạng thì giữ nguyên).
+ */
+function parseInstagramDescription(description?: string): { caption?: string; stats?: string } {
+  if (!description) return {};
+  const full = description.match(/^([\d.,]+[KMkm]?)\s+likes?,\s*([\d.,]+[KMkm]?)\s+comments?\s*-\s*.+?:\s*["“](.*)["”]\.?$/s);
+  if (full) return { stats: `❤️ **${full[1]}** · 💬 ${full[2]}`, caption: full[3].trim() || undefined };
+  const statsOnly = description.match(/^([\d.,]+[KMkm]?)\s+likes?,\s*([\d.,]+[KMkm]?)\s+comments?/i);
+  if (statsOnly) return { stats: `❤️ **${statsOnly[1]}** · 💬 ${statsOnly[2]}`, caption: description };
+  return { caption: description };
+}
+
+interface CardOptions {
+  platform: string;
+  title?: string;
+  description?: string;
+  mediaName?: string | null;
+  hasVideo: boolean;
+  inaccessible: boolean;
+  rawLink: string;
+  proxyUrl: string;
+  sharedBy: string;
+  notes: string[];
+}
+
+/** Card gọn: media ở trên, một khối chữ, hàng nút ở cuối */
+function buildSocialCard(o: CardOptions) {
+  const style = PLATFORM_STYLE[o.platform] ?? { icon: '🔗', color: 0x5865f2 };
+  const container = new ContainerBuilder();
+  if (USE_ACCENT) container.setAccentColor(style.color);
+
+  // Video / ảnh ở trên cùng
+  if (o.mediaName) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${o.mediaName}`)),
+    );
+  }
+
+  // Một khối chữ: nhãn nền tảng, tiêu đề, nội dung, thống kê, chân thẻ
+  let caption = o.description;
+  let stats: string | undefined;
+  if (o.platform === 'Instagram') {
+    const parsed = parseInstagramDescription(o.description);
+    caption = parsed.caption;
+    stats = parsed.stats;
+  }
+
+  const lines: string[] = [`-# ${style.icon} ${o.platform.toUpperCase()}`];
+  lines.push(`### ${o.inaccessible ? 'Bài đăng không tồn tại hoặc riêng tư' : truncate(o.title ?? o.platform, 100)}`);
+  if (caption && caption !== o.title) lines.push(truncate(caption, 220));
+  if (stats) lines.push(stats);
+  lines.push(`-# ${[...o.notes, `Chia sẻ bởi ${o.sharedBy}`].join(' • ')}`);
+  container.addTextDisplayComponents(text(lines.join('\n')));
+
+  // Hàng nút: link gốc trước; nút embed chỉ hiện khi video chưa nằm sẵn trong card
+  const buttons = [linkButton('Xem bài gốc', o.rawLink, '🔗')];
+  if (!o.hasVideo) buttons.push(linkButton('Mở embed', o.proxyUrl, '↗️'));
+  container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
+
+  return container;
+}
+
+// ==================== MODULE ====================
 
 export class SocialEmbedModule {
   private readonly client: Client;
@@ -384,17 +566,31 @@ export class SocialEmbedModule {
 
       if (matches.length === 0) return;
 
-      const seen = new Set<string>();
-
-      await message.suppressEmbeds(true).catch((error) => {
-        console.warn('[SocialEmbed] Could not suppress original embeds', { guildId: message.guildId, channelId: message.channelId, error: error?.message });
+      // Chỉ xử lý nếu có ít nhất một link của nền tảng được hỗ trợ.
+      // (Bản cũ ẩn embed của MỌI tin nhắn có link, kể cả YouTube hay trang web khác.)
+      const hasSupported = matches.some((link) => {
+        try {
+          const host = new URL(link).hostname.toLowerCase();
+          return !TIKTOK_HOSTS.has(host) && !host.endsWith('.tiktok.com') && !!detectSocialPlatform(host);
+        } catch {
+          return false;
+        }
       });
+      if (!hasSupported) return;
+
       if (!('send' in message.channel)) {
         console.warn('[SocialEmbed] Channel does not support send', { channelId: message.channelId });
         return;
       }
 
-      for (const rawLink of matches.slice(0, 4)) {
+      // Hiện "đang nhập..." trong lúc tải media
+      (message.channel as any).sendTyping?.().catch?.(() => {});
+
+      const seen = new Set<string>();
+      const uploadLimit = uploadLimitBytes(message.guild.premiumTier);
+      let posted = 0;
+
+      for (const rawLink of matches.slice(0, MAX_LINKS_PER_MESSAGE)) {
         let url: URL;
         try {
           url = new URL(rawLink);
@@ -445,8 +641,11 @@ export class SocialEmbedModule {
         const videoUrl = metadata.video && /^https?:\/\//i.test(metadata.video)
           ? new URL(metadata.video, proxyUrl).toString()
           : undefined;
-        const video = await downloadSocialVideo(videoUrl, 24 * 1024 * 1024);
-        const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, 24 * 1024 * 1024);
+
+        // Giới hạn dung lượng theo cấp boost của server (bản cũ cố định 24MB nên server thường không gửi được)
+        const videoResult = await downloadSocialVideo(videoUrl, uploadLimit);
+        const video = videoResult.file;
+        const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, uploadLimit);
         const media = video || image;
         console.log('[SocialEmbed] Media result', {
           platform: platform.name,
@@ -455,41 +654,37 @@ export class SocialEmbedModule {
           attachmentName: media?.name ?? null,
         });
 
-        const container = new ContainerBuilder();
         const title = cleanSocialText(metadata.title, platform.name);
-        const inaccessible = platform.name === 'Instagram' && !media && !title && !metadata.description;
-        container.addTextDisplayComponents(text(`## ${platform.name}\n${title ?? (inaccessible ? 'Bài đăng không tồn tại hoặc riêng tư' : platform.name)}`));
-
-        if (media) {
-          container.addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-              new MediaGalleryItemBuilder().setURL(`attachment://${media.name}`),
-            ),
-          );
-        }
-
         const description = cleanSocialText(metadata.description, platform.name);
-        if (description && description !== title) {
-          container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-          container.addTextDisplayComponents(text(description));
-        }
+        const inaccessible = platform.name === 'Instagram' && !media && !title && !metadata.description;
 
-        container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-        container.addActionRowComponents(
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            linkButton('Xem bài gốc', rawLink, '🔗'),
-            linkButton(video ? 'Mở video' : 'Mở embed', proxyUrl, video ? '🎬' : '↗️'),
-          ),
-        );
+        const cardFor = (attached: AttachmentBuilder | null) =>
+          buildSocialCard({
+            platform: platform.name,
+            title,
+            description,
+            mediaName: attached?.name ?? null,
+            hasVideo: !!video && attached === video,
+            inaccessible,
+            rawLink,
+            proxyUrl,
+            sharedBy: message.author.username,
+            notes: videoResult.note ? [videoResult.note] : [],
+          });
 
-        await message.channel.send({
-          components: [container],
-          flags: V2,
-          files: media ? [media] : [],
-          allowedMentions: { repliedUser: false, parse: [] },
-        }).then((sent) => {
+        const send = (attached: AttachmentBuilder | null) =>
+          (message.channel as any).send({
+            components: [cardFor(attached)],
+            flags: V2,
+            files: attached ? [attached] : [],
+            allowedMentions: { repliedUser: false, parse: [] },
+          });
+
+        try {
+          const sent = await send(media);
+          posted++;
           console.log('[SocialEmbed] Card sent', { platform: platform.name, messageId: sent.id, hasAttachment: !!media });
-        }).catch((error) => {
+        } catch (error: any) {
           console.error(`[SocialEmbed] Không thể gửi thẻ ${platform.name}`, {
             guildId: message.guildId,
             channelId: message.channelId,
@@ -497,6 +692,24 @@ export class SocialEmbedModule {
             status: error?.status,
             message: error?.message,
           });
+
+          // Gửi lỗi do file đính kèm (quá nặng...) thì thử lại không kèm file để người dùng vẫn có card
+          if (media) {
+            try {
+              await send(null);
+              posted++;
+              console.log('[SocialEmbed] Card sent without attachment', { platform: platform.name });
+            } catch (retryError: any) {
+              console.error('[SocialEmbed] Gửi lại không kèm file cũng thất bại', { message: retryError?.message });
+            }
+          }
+        }
+      }
+
+      // Chỉ ẩn embed gốc khi đã gửi được ít nhất một card (bản cũ ẩn trước nên lỗi là mất cả embed)
+      if (posted > 0) {
+        await message.suppressEmbeds(true).catch((error) => {
+          console.warn('[SocialEmbed] Could not suppress original embeds', { guildId: message.guildId, channelId: message.channelId, error: error?.message });
         });
       }
     };
