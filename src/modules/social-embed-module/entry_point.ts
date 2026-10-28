@@ -184,9 +184,37 @@ function getCanonical(html: string): string | undefined {
   }
 }
 
-function getJsonMediaUrl(html: string, key: 'display_url' | 'video_url'): string | undefined {
+function getJsonMediaUrl(html: string, key: string): string | undefined {
   const value = getJsonString(html, key);
   return value && /^https?:\/\//i.test(value) ? decodeHtml(value.replace(/\\\//g, '/')) : undefined;
+}
+
+function getFacebookVideoUrl(html: string): string | undefined {
+  const keys = ['playable_url_quality_hd', 'browser_native_hd_url', 'playable_url', 'browser_native_sd_url', 'video_url'];
+  for (const key of keys) {
+    const url = getJsonMediaUrl(html, key);
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+
+  const escapedMatches = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
+  for (const raw of escapedMatches) {
+    let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
+    url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),\]]+$/, '');
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (/\.mp4(?:$|[?&])/i.test(url) || /(?:video[^.]*\.fbcdn\.net|fbcdn\.net.*video)/i.test(url)) {
+      return url;
+    }
+  }
+
+  const encoded = html.match(/(?:playable_url[^:]*|video_url)[^"']*[:=][^"']{0,20}["'](https?:[^"']+)["']/gi) ?? [];
+  for (const match of encoded) {
+    const value = match.match(/https?:[^"']+/i)?.[0];
+    if (!value) continue;
+    const url = decodeHtml(value.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'))
+      .replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),\]]+$/, '');
+    if (/^https?:\/\//i.test(url)) return url;
+  }
+  return undefined;
 }
 
 function getJsonText(html: string, keys: string[]): string | undefined {
@@ -274,7 +302,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: isLikelyFaviconUrl(rawImage) ? undefined : rawImage,
       images,
-      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
+      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getFacebookVideoUrl(html) || getJsonMediaUrl(html, 'video_url'),
       canonical,
     };
     console.log('[SocialEmbed] Extracted metadata', {
