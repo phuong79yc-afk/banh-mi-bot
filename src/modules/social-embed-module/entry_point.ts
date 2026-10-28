@@ -209,14 +209,42 @@ function getFacebookVideoId(html: string, proxyUrl: string): string | undefined 
   return mediaId;
 }
 
+function decodeFacebookVideoUrl(value: string): string | undefined {
+  const decoded = value
+    .replace(/\\\//g, '/')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\u00253D/gi, '=')
+    .replace(/\\u003D/gi, '=')
+    .replace(/[),\]]+$/, '')
+    .trim();
+  if (!/^https?:\/\//i.test(decoded)) return undefined;
+  try {
+    const url = new URL(decoded);
+    if (!/(?:fbcdn\.net|fbsbx\.com)/i.test(url.hostname)) return undefined;
+    return /\.mp4(?:$|[?&])/i.test(url.pathname + url.search) ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getFacebookVideoUrl(html: string): string | undefined {
   const keys = [
-    'hd_src', 'playable_url_quality_hd', 'browser_native_hd_url',
-    'sd_src', 'playable_url', 'browser_native_sd_url', 'video_url',
+    'hd_src', 'playable_url_quality_hd', 'browser_native_hd_url', 'browser_native_hd_src',
+    'sd_src', 'playable_url_quality_sd', 'browser_native_sd_url', 'browser_native_sd_src',
+    'playable_url', 'progressive_url', 'video_url',
   ];
   for (const key of keys) {
+    const field = html.match(new RegExp(`["']${key}["']\\s*:\\s*["']([^"']+)`, 'i'));
+    if (field?.[1]) {
+      const url = decodeFacebookVideoUrl(field[1]);
+      if (url) return url;
+    }
     const url = getJsonMediaUrl(html, key);
-    if (url && /^https?:\/\//i.test(url)) return url;
+    if (url && /^https?:\/\//i.test(url)) {
+      const usable = decodeFacebookVideoUrl(url);
+      if (usable) return usable;
+    }
   }
 
   const escapedMatches = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
@@ -308,6 +336,8 @@ async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<strin
   const endpoints = [
     `https://www.facebook.com/video/embed?video_id=${encodeURIComponent(videoId)}`,
     `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fwatch%2F%3Fv%3D${encodeURIComponent(videoId)}&show_text=false`,
+    `https://m.facebook.com/video.php?v=${encodeURIComponent(videoId)}`,
+    `https://mbasic.facebook.com/video/video.php?v=${encodeURIComponent(videoId)}`,
   ];
 
   for (const endpoint of endpoints) {
@@ -595,11 +625,11 @@ async function downloadSocialVideo(url: string | undefined, limitBytes: number):
       maxContentLength: MAX_VIDEO_SOURCE_BYTES,
       maxBodyLength: MAX_VIDEO_SOURCE_BYTES,
       headers: {
-        'User-Agent': isFacebookMedia
-          ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
-          : 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
+        Origin: isFacebookMedia ? 'https://www.facebook.com' : undefined,
         Accept: 'video/mp4,video/webm,video/*,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
       },
     });
     const source = Buffer.from(response.data);
