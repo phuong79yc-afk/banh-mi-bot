@@ -96,6 +96,7 @@ interface SocialMetadata {
   title?: string;
   description?: string;
   image?: string;
+  images?: string[];
   video?: string;
   canonical?: string;
   blocked?: boolean;
@@ -209,6 +210,23 @@ function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string
   return undefined;
 }
 
+function getEmbeddedFacebookImages(html: string, ogImage?: string, limit = 10): string[] {
+  const urls = new Set<string>();
+  if (ogImage && !isLikelyFaviconUrl(ogImage)) urls.add(ogImage);
+
+  const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<> -]+/gi) ?? [];
+  for (const raw of escapedUrls) {
+    let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
+    url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),\]]+$/, '');
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (!/(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpe?g(?:$|[?&])|\.png(?:$|[?&])|\.webp(?:$|[?&]))/i.test(url)) continue;
+    if (isLikelyFaviconUrl(url) || /(?:\/static\/|\/images\/login|facebook_connect_logo)/i.test(url)) continue;
+    urls.add(url);
+    if (urls.size >= limit) break;
+  }
+  return Array.from(urls).slice(0, limit);
+}
+
 function isLikelyFaviconUrl(value?: string): boolean {
   if (!value) return true;
   try {
@@ -248,12 +266,14 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     });
     const cleanTitleTag = /^Instagram$/i.test(titleTag?.trim() ?? '') ? undefined : titleTag;
     const rawImage = getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image');
+    const images = getEmbeddedFacebookImages(html, rawImage && !isLikelyFaviconUrl(rawImage) ? rawImage : undefined);
     const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
     const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: isLikelyFaviconUrl(rawImage) ? undefined : rawImage,
+      images,
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
       canonical,
     };
@@ -262,6 +282,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       hasTitle: !!metadata.title,
       hasDescription: !!metadata.description,
       hasImage: !!metadata.image,
+      imageCount: metadata.images?.length ?? 0,
       hasVideo: !!metadata.video,
       mediaType: metadata.video ? 'video' : metadata.image ? 'image' : 'none',
     });
@@ -545,6 +566,7 @@ interface CardOptions {
   title?: string;
   description?: string;
   mediaName?: string | null;
+  mediaNames?: string[];
   hasVideo: boolean;
   inaccessible: boolean;
   rawLink: string;
@@ -560,10 +582,13 @@ function buildSocialCard(o: CardOptions) {
   if (USE_ACCENT) container.setAccentColor(style.color);
 
   // Video / ảnh ở trên cùng
-  if (o.mediaName) {
-    container.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${o.mediaName}`)),
-    );
+  const galleryNames = o.mediaNames?.length ? o.mediaNames : o.mediaName ? [o.mediaName] : [];
+  if (galleryNames.length) {
+    const gallery = new MediaGalleryBuilder();
+    for (const name of galleryNames.slice(0, 10)) {
+      gallery.addItems(new MediaGalleryItemBuilder().setURL(`attachment://${name}`));
+    }
+    container.addMediaGalleryComponents(gallery);
   }
 
   // Một khối chữ: nhãn nền tảng, tiêu đề, nội dung, thống kê, chân thẻ
@@ -663,6 +688,7 @@ export class SocialEmbedModule {
               title: metadata.title?.startsWith('http') ? canonicalMetadata.title : metadata.title || canonicalMetadata.title,
               description: metadata.description || canonicalMetadata.description,
               image: metadata.image || canonicalMetadata.image,
+              images: metadata.images?.length ? metadata.images : canonicalMetadata.images,
               video: metadata.video || canonicalMetadata.video,
               canonical: metadata.canonical,
             };
@@ -692,12 +718,22 @@ export class SocialEmbedModule {
         // Giới hạn dung lượng theo cấp boost của server (bản cũ cố định 24MB nên server thường không gửi được)
         const videoResult = await downloadSocialVideo(videoUrl, uploadLimit);
         const video = videoResult.file;
-        const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, uploadLimit);
-        const media = video || image;
+        const imageAttachments: AttachmentBuilder[] = [];
+        if (!video) {
+          const imageUrls = metadata.images?.length
+            ? metadata.images
+            : mediaUrl && mediaUrl !== metadata.video ? [mediaUrl] : [];
+          for (const imageUrl of imageUrls.slice(0, platform.name === 'Facebook' ? 10 : 1)) {
+            const attachment = await downloadMedia(imageUrl, uploadLimit);
+            if (attachment) imageAttachments.push(attachment);
+          }
+        }
+        const media = video || imageAttachments[0] || null;
         console.log('[SocialEmbed] Media result', {
           platform: platform.name,
           hasVideo: !!video,
-          hasImage: !!image,
+          hasImage: imageAttachments.length > 0,
+          imageCount: imageAttachments.length,
           attachmentName: media?.name ?? null,
         });
 
@@ -705,13 +741,13 @@ export class SocialEmbedModule {
         const description = cleanSocialText(metadata.description, platform.name);
         const inaccessible = platform.name === 'Instagram' && !media && !title && !metadata.description;
 
-        const cardFor = (attached: AttachmentBuilder | null) =>
+        const cardFor = (attached: AttachmentBuilder[]) =>
           buildSocialCard({
             platform: platform.name,
             title,
             description,
-            mediaName: attached?.name ?? null,
-            hasVideo: !!video && attached === video,
+            mediaNames: attached.map((file) => file.name).filter((name): name is string => !!name),
+            hasVideo: !!video && attached.includes(video),
             inaccessible,
             rawLink,
             proxyUrl,
@@ -719,16 +755,17 @@ export class SocialEmbedModule {
             notes: videoResult.note ? [videoResult.note] : [],
           });
 
-        const send = (attached: AttachmentBuilder | null) =>
+        const send = (attached: AttachmentBuilder[]) =>
           (message.channel as any).send({
             components: [cardFor(attached)],
             flags: V2,
-            files: attached ? [attached] : [],
+            files: attached,
             allowedMentions: { repliedUser: false, parse: [] },
           });
 
+        const attachedMedia = video ? [video] : imageAttachments;
         try {
-          const sent = await send(media);
+          const sent = await send(attachedMedia);
           posted++;
           console.log('[SocialEmbed] Card sent', { platform: platform.name, messageId: sent.id, hasAttachment: !!media });
         } catch (error: any) {
@@ -741,9 +778,9 @@ export class SocialEmbedModule {
           });
 
           // Gửi lỗi do file đính kèm (quá nặng...) thì thử lại không kèm file để người dùng vẫn có card
-          if (media) {
+          if (attachedMedia.length) {
             try {
-              await send(null);
+              await send([]);
               posted++;
               console.log('[SocialEmbed] Card sent without attachment', { platform: platform.name });
             } catch (retryError: any) {
