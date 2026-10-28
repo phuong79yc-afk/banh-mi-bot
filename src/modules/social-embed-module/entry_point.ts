@@ -75,6 +75,7 @@ interface SocialMetadata {
   description?: string;
   image?: string;
   video?: string;
+  canonical?: string;
 }
 
 function decodeHtml(value: string): string {
@@ -154,6 +155,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url'),
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
+      canonical: getMeta(html, 'og:url'),
     };
   } catch {
     return {};
@@ -240,6 +242,16 @@ export class SocialEmbedModule {
             ? url.toString()
             : proxyUrl;
         let metadata = await fetchSocialMetadata(officialUrl);
+        if (platform.name === 'Facebook' && metadata.canonical?.startsWith('https://')) {
+          const canonicalMetadata = await fetchSocialMetadata(metadata.canonical);
+          metadata = {
+            title: metadata.title?.startsWith('http') ? canonicalMetadata.title : metadata.title || canonicalMetadata.title,
+            description: metadata.description || canonicalMetadata.description,
+            image: metadata.image || canonicalMetadata.image,
+            video: metadata.video || canonicalMetadata.video,
+            canonical: metadata.canonical,
+          };
+        }
         if (platform.name === 'Instagram') {
           const embedMetadata = await fetchSocialMetadata(proxyUrl);
           metadata = {
