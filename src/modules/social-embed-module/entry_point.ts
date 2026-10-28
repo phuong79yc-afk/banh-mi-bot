@@ -98,6 +98,7 @@ interface SocialMetadata {
   image?: string;
   video?: string;
   canonical?: string;
+  blocked?: boolean;
 }
 
 function decodeHtml(value: string): string {
@@ -172,7 +173,14 @@ function getCanonical(html: string): string | undefined {
   const link = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["'][^>]*>/i)
     ?? html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["'][^>]*>/i);
   const value = link?.[1] ? decodeHtml(link[1]) : undefined;
-  return value && /^https?:\/\//i.test(value) ? value : undefined;
+  if (!value || !/^https?:\/\//i.test(value)) return undefined;
+  try {
+    const parsed = new URL(value);
+    if (/\/login(?:\/|$)|\/login\/|facebook\.com\/login/i.test(parsed.pathname + parsed.search)) return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function getJsonMediaUrl(html: string, key: 'display_url' | 'video_url'): string | undefined {
@@ -201,6 +209,16 @@ function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string
   return undefined;
 }
 
+function isLikelyFaviconUrl(value?: string): boolean {
+  if (!value) return true;
+  try {
+    const parsed = new URL(value);
+    return /favicon|\/icon(?:\.|\/)|\.(?:ico)(?:$|\?)/i.test(parsed.pathname + parsed.search);
+  } catch {
+    return false;
+  }
+}
+
 async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
   try {
     const response = await axios.get(proxyUrl, {
@@ -213,20 +231,31 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       responseType: 'text',
     });
     const html = String(response.data ?? '');
+    const finalUrl = String((response.request as any)?.res?.responseUrl ?? (response.request as any)?.responseUrl ?? proxyUrl);
+    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
+    const blocked = /(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(finalUrl)
+      || /^(?:log in|login|facebook \u2013 log in)/i.test(titleTag ?? '')
+      || /<div[^>]+id=["']loginform["']/i.test(html);
+    if (blocked) {
+      console.warn('[SocialEmbed] Blocked login metadata page', { requestedUrl: proxyUrl, finalUrl });
+      return { blocked: true };
+    }
     console.log('[SocialEmbed] Metadata response', {
       url: proxyUrl,
       status: response.status,
       contentType: response.headers['content-type'],
       htmlBytes: Buffer.byteLength(html, 'utf8'),
     });
-    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
     const cleanTitleTag = /^Instagram$/i.test(titleTag?.trim() ?? '') ? undefined : titleTag;
+    const rawImage = getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image');
+    const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
+    const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image'),
+      image: isLikelyFaviconUrl(rawImage) ? undefined : rawImage,
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
-      canonical: getMeta(html, 'og:url') || getCanonical(html),
+      canonical,
     };
     console.log('[SocialEmbed] Extracted metadata', {
       url: proxyUrl,
@@ -289,11 +318,13 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
       if (buffer.length === 0 || buffer.length > maxBytes) continue;
 
       const contentType = String(response.headers['content-type'] ?? '').toLowerCase();
-      if (contentType.includes('text/html') || contentType.includes('text/plain')) continue;
+      if (contentType.includes('text/html') || contentType.includes('text/plain') || contentType.includes('image/x-icon')) continue;
       const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
       const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
       const isGif = buffer.subarray(0, 6).toString('ascii').startsWith('GIF8');
       const isWebp = buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+      const isIco = buffer.length >= 4 && buffer[0] === 0 && buffer[1] === 0 && buffer[2] === 1 && buffer[3] === 0;
+      if (isIco) continue;
       if (!isPng && !isJpeg && !isGif && !isWebp && !contentType.includes('image/')) continue;
 
       const extension = isPng ? 'png'
@@ -627,13 +658,17 @@ export class SocialEmbedModule {
         let metadata = await fetchSocialMetadata(officialUrl);
         if (platform.name === 'Facebook' && metadata.canonical?.startsWith('https://')) {
           const canonicalMetadata = await fetchSocialMetadata(metadata.canonical);
-          metadata = {
-            title: metadata.title?.startsWith('http') ? canonicalMetadata.title : metadata.title || canonicalMetadata.title,
-            description: metadata.description || canonicalMetadata.description,
-            image: metadata.image || canonicalMetadata.image,
-            video: metadata.video || canonicalMetadata.video,
-            canonical: metadata.canonical,
-          };
+          if (!canonicalMetadata.blocked) {
+            metadata = {
+              title: metadata.title?.startsWith('http') ? canonicalMetadata.title : metadata.title || canonicalMetadata.title,
+              description: metadata.description || canonicalMetadata.description,
+              image: metadata.image || canonicalMetadata.image,
+              video: metadata.video || canonicalMetadata.video,
+              canonical: metadata.canonical,
+            };
+          } else {
+            metadata = { ...metadata, canonical: undefined };
+          }
         }
         if (platform.name === 'Instagram') {
           const embedMetadata = await fetchSocialMetadata(proxyUrl);
