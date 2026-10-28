@@ -14,6 +14,11 @@ import {
   TextDisplayBuilder,
 } from 'discord.js';
 import axios from 'axios';
+import { spawn } from 'child_process';
+import { promises as fsp } from 'fs';
+import os from 'os';
+import path from 'path';
+import ffmpegPath from 'ffmpeg-static';
 
 interface SocialEmbedPlatform {
   name: string;
@@ -170,7 +175,10 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
       timeout: 15000,
       maxContentLength: maxBytes,
       maxBodyLength: maxBytes,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
+        'Referer': url,
+      },
     });
     const buffer = Buffer.from(response.data);
     if (buffer.length === 0 || buffer.length > maxBytes) return null;
@@ -186,6 +194,57 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
   } catch {
     return null;
   }
+}
+
+async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 1024 * 1024): Promise<AttachmentBuilder | null> {
+  if (!url || !ffmpegPath) return null;
+  const resolvedFfmpegPath: string = ffmpegPath;
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 30000,
+      maxContentLength: 60 * 1024 * 1024,
+      maxBodyLength: 60 * 1024 * 1024,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
+        'Referer': url,
+      },
+    });
+    const source = Buffer.from(response.data);
+    if (source.length === 0) return null;
+    if (source.length <= limitBytes) {
+      return new AttachmentBuilder(source, { name: `social-video-${randomFilename()}.mp4` });
+    }
+
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'social-video-'));
+    const input = path.join(dir, 'input.bin');
+    const output = path.join(dir, 'output.mp4');
+    try {
+      await fsp.writeFile(input, source);
+      await new Promise<void>((resolve, reject) => {
+        const proc: any = spawn(resolvedFfmpegPath, [
+          '-y', '-i', input,
+          '-vf', "scale='min(720,iw)':-2",
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26',
+          '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', '-fs', String(limitBytes), output,
+        ], { stdio: 'ignore' });
+        const timer = setTimeout(() => { proc.kill('SIGKILL'); reject(new Error('Video compression timeout')); }, 60000);
+        proc.on('error', (error: Error) => { clearTimeout(timer); reject(error); });
+        proc.on('close', (code: number | null) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}`)); });
+      });
+      const compressed = await fsp.readFile(output);
+      if (!compressed.length || compressed.length > limitBytes) return null;
+      return new AttachmentBuilder(compressed, { name: `social-video-${randomFilename()}.mp4` });
+    } finally {
+      await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
+    }
+  } catch {
+    return null;
+  }
+}
+
+function randomFilename(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function text(value: string): TextDisplayBuilder {
@@ -267,9 +326,10 @@ export class SocialEmbedModule {
           try { mediaUrl = new URL(mediaUrl, proxyUrl).toString(); } catch { mediaUrl = undefined; }
         }
 
-        const video = await downloadMedia(metadata.video && /^https?:\/\//i.test(metadata.video)
+        const videoUrl = metadata.video && /^https?:\/\//i.test(metadata.video)
           ? new URL(metadata.video, proxyUrl).toString()
-          : undefined, 24 * 1024 * 1024);
+          : undefined;
+        const video = await downloadSocialVideo(videoUrl, 24 * 1024 * 1024);
         const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, 24 * 1024 * 1024);
         const media = video || image;
 
