@@ -392,8 +392,7 @@ export default class MinecraftModule {
           .replace(/^[\s.*·]+|[\s.*·]+$/g, '')
           .replace(/[ \t]+x[ \t]+(\d+)[ \t]*/gi, ' §6$1x Rate§r ')
           .replace(/[ \t]+/g, ' ')
-          .trim()
-          .replace(/^.*?[▸➤]\s*/, '');
+          .trim();
 
         return normalized
           .replace(/[ \t]*Hypixel[ \t]+Network/gi, '§fHYPIXEL §6NETWORK§r')
