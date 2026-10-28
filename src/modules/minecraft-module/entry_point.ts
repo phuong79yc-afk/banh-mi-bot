@@ -307,8 +307,9 @@ export default class MinecraftModule {
       y: number,
       fontSize: number,
       align: 'left' | 'center' | 'right' = 'left',
+      fontFamily = '"Minecraft", monospace',
     ) => {
-      ctx.font = `${fontSize}px "Minecraft", monospace`;
+      ctx.font = `${fontSize}px ${fontFamily}`;
       ctx.textBaseline = 'top';
 
       const segments = parseFormattedText(content);
@@ -386,6 +387,8 @@ export default class MinecraftModule {
           .replace(/SB[ \t]+(\d+\.\d+(?:\.\d+)?)/gi, '§7SB §f$1§r'),
       );
     const motdLines = finalClean;
+    const motdFont = (line: string) =>
+      /[^\x00-\x7F]/.test(line.replace(/§[0-9a-fk-or]/gi, '')) ? 'sans-serif' : '"Minecraft", monospace';
 
     // 1. Server Icon (16, 16, 64x64)
     if (status.favicon) {
@@ -408,10 +411,10 @@ export default class MinecraftModule {
     drawMinecraftText(`§6${serverName}`, 96, 16, 22, 'left');
 
     // 3. MOTD Line 1
-    if (motdLines[0]) drawMinecraftText(motdLines[0], finalWidth / 2, 40, 22, 'center');
+    if (motdLines[0]) drawMinecraftText(motdLines[0], finalWidth / 2, 40, 22, 'center', motdFont(motdLines[0]));
 
     // 4. MOTD Line 2
-    if (motdLines[1]) drawMinecraftText(motdLines[1], finalWidth / 2, 66, 19, 'center');
+    if (motdLines[1]) drawMinecraftText(motdLines[1], finalWidth / 2, 66, 19, 'center', motdFont(motdLines[1]));
 
     // 5. Player Count
     drawMinecraftText(`§7${status.players?.online || 0}/${status.players?.max || 0}`, 882, 16, 20, 'right');
