@@ -249,6 +249,22 @@ function getJsonText(html: string, keys: string[]): string | undefined {
   return undefined;
 }
 
+function isUsableFacebookImageUrl(value?: string): boolean {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (/^(?:static\.xx\.|connect\.facebook\.com$)/i.test(host)) return false;
+    if (/facebook\.com\/login/i.test(parsed.pathname)) return false;
+    if (isLikelyFaviconUrl(value)) return false;
+    if (/\/(?:static|rsrc)\b|facebook_connect_logo|\/images\/login/i.test(parsed.pathname + parsed.search)) return false;
+    return /(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpe?g(?:$|[?&])|\.png(?:$|[?&])|\.webp(?:$|[?&]))/i.test(value);
+  } catch {
+    return false;
+  }
+}
+
 function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string | undefined {
   const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
   for (const raw of escapedUrls) {
@@ -256,22 +272,21 @@ function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string
     url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),]+$/, '');
     if (!/^https?:\/\//i.test(url)) continue;
     if (kind === 'video') continue;
-    if (kind === 'image' && /(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpg|\.jpeg|\.png|\.webp)/i.test(url)) return url;
+    if (kind === 'image' && isUsableFacebookImageUrl(url)) return url;
   }
   return undefined;
 }
 
 function getEmbeddedFacebookImages(html: string, ogImage?: string, limit = 10): string[] {
   const urls = new Set<string>();
-  if (ogImage && !isLikelyFaviconUrl(ogImage)) urls.add(ogImage);
+  if (ogImage && isUsableFacebookImageUrl(ogImage)) urls.add(ogImage);
 
   const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
   for (const raw of escapedUrls) {
     let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
     url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),\]]+$/, '');
     if (!/^https?:\/\//i.test(url)) continue;
-    if (!/(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpe?g(?:$|[?&])|\.png(?:$|[?&])|\.webp(?:$|[?&]))/i.test(url)) continue;
-    if (isLikelyFaviconUrl(url) || /(?:\/static\/|\/images\/login|facebook_connect_logo)/i.test(url)) continue;
+    if (!isUsableFacebookImageUrl(url)) continue;
     urls.add(url);
     if (urls.size >= limit) break;
   }
@@ -365,7 +380,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: isFacebookVideo ? undefined : (isLikelyFaviconUrl(rawImage) ? undefined : rawImage),
+      image: isFacebookVideo ? undefined : (isUsableFacebookImageUrl(rawImage) ? rawImage : undefined),
       images: isFacebookVideo ? [] : images,
       video: facebookVideoUrl,
       canonical,
