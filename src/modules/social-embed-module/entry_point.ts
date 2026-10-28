@@ -47,7 +47,7 @@ const PLATFORMS: SocialEmbedPlatform[] = [
   },
   {
     name: 'Facebook',
-    hosts: ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'fb.watch'],
+    hosts: ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'mbasic.facebook.com', 'l.facebook.com', 'lm.facebook.com', 'fb.watch', 'www.fb.watch'],
     rewrite: (url) => url.toString(),
   },
 ];
@@ -55,6 +55,20 @@ const PLATFORMS: SocialEmbedPlatform[] = [
 const SOCIAL_URL_REGEX = /https?:\/\/[^\s<>()]+/gi;
 const TIKTOK_HOSTS = new Set(['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com']);
 const V2 = MessageFlags.IsComponentsV2;
+
+function detectSocialPlatform(hostname: string): SocialEmbedPlatform | undefined {
+  const host = hostname.toLowerCase().replace(/^m\./, '').replace(/^mobile\./, '').replace(/^old\./, '');
+
+  if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch' || host.endsWith('.fb.watch')) {
+    return PLATFORMS.find((platform) => platform.name === 'Facebook');
+  }
+  if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+    return PLATFORMS.find((platform) => platform.name === 'Instagram');
+  }
+  if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return undefined;
+
+  return PLATFORMS.find((platform) => platform.hosts.includes(host));
+}
 
 interface SocialMetadata {
   title?: string;
@@ -215,11 +229,7 @@ export class SocialEmbedModule {
         const hostname = url.hostname.toLowerCase();
         if (TIKTOK_HOSTS.has(hostname) || hostname.endsWith('.tiktok.com')) continue;
 
-        const platform = PLATFORMS.find((item) => item.hosts.includes(hostname)
-          || item.hosts.some((host) => host.startsWith('www.') && hostname === host.slice(4))
-          || hostname.endsWith('.instagram.com')
-          || hostname.endsWith('.facebook.com')
-          || hostname.endsWith('.threads.net'));
+        const platform = detectSocialPlatform(hostname);
         if (!platform || seen.has(rawLink)) continue;
         seen.add(rawLink);
 
