@@ -617,7 +617,6 @@ interface CardOptions {
   hasVideo: boolean;
   inaccessible: boolean;
   rawLink: string;
-  proxyUrl: string;
   sharedBy: string;
   notes: string[];
 }
@@ -656,7 +655,6 @@ function buildSocialCard(o: CardOptions) {
 
   // Hàng nút: link gốc trước; nút embed chỉ hiện khi video chưa nằm sẵn trong card
   const buttons = [linkButton('Xem bài gốc', o.rawLink, '🔗')];
-  if (!o.hasVideo) buttons.push(linkButton('Mở embed', o.proxyUrl, '↗️'));
   container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
 
   return container;
@@ -799,7 +797,6 @@ export class SocialEmbedModule {
             hasVideo: !!video && attached.includes(video),
             inaccessible,
             rawLink,
-            proxyUrl,
             sharedBy: message.author.username,
             notes: [
               ...(videoResult.note ? [videoResult.note] : []),
