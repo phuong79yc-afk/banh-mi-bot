@@ -100,6 +100,8 @@ interface SocialMetadata {
   video?: string;
   canonical?: string;
   blocked?: boolean;
+  isVideoPost?: boolean;
+  videoId?: string;
 }
 
 function decodeHtml(value: string): string {
@@ -187,6 +189,16 @@ function getCanonical(html: string): string | undefined {
 function getJsonMediaUrl(html: string, key: string): string | undefined {
   const value = getJsonString(html, key);
   return value && /^https?:\/\//i.test(value) ? decodeHtml(value.replace(/\\\//g, '/')) : undefined;
+}
+
+function getFacebookVideoId(html: string, proxyUrl: string): string | undefined {
+  const reel = proxyUrl.match(/\/reel[s]?\/(\d+)/i)?.[1];
+  if (reel) return reel;
+  const watch = proxyUrl.match(/[?&]v=(\d+)/i)?.[1];
+  if (watch) return watch;
+  const mediaId = html.match(/media_id=(\d+)/i)?.[1]
+    ?? html.match(/["'](?:video_id|videoId)["']\s*[:=]\s*["']?(\d+)/i)?.[1];
+  return mediaId;
 }
 
 function getFacebookVideoUrl(html: string): string | undefined {
@@ -297,13 +309,18 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const images = getEmbeddedFacebookImages(html, rawImage && !isLikelyFaviconUrl(rawImage) ? rawImage : undefined);
     const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
     const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
+    const ogType = getMeta(html, 'og:type')?.toLowerCase();
+    const isFacebookVideo = ogType?.includes('video') || /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl);
+    const facebookVideoId = getFacebookVideoId(html, proxyUrl);
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: isLikelyFaviconUrl(rawImage) ? undefined : rawImage,
-      images,
+      image: isFacebookVideo ? undefined : (isLikelyFaviconUrl(rawImage) ? undefined : rawImage),
+      images: isFacebookVideo ? [] : images,
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getFacebookVideoUrl(html) || getJsonMediaUrl(html, 'video_url'),
       canonical,
+      isVideoPost: isFacebookVideo,
+      videoId: facebookVideoId,
     };
     console.log('[SocialEmbed] Extracted metadata', {
       url: proxyUrl,
@@ -312,7 +329,9 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       hasImage: !!metadata.image,
       imageCount: metadata.images?.length ?? 0,
       hasVideo: !!metadata.video,
-      mediaType: metadata.video ? 'video' : metadata.image ? 'image' : 'none',
+      isVideoPost: !!metadata.isVideoPost,
+      videoId: metadata.videoId,
+      mediaType: metadata.video || metadata.isVideoPost ? 'video' : metadata.image ? 'image' : 'none',
     });
     return metadata;
   } catch (error: any) {
@@ -719,6 +738,8 @@ export class SocialEmbedModule {
               images: metadata.images?.length ? metadata.images : canonicalMetadata.images,
               video: metadata.video || canonicalMetadata.video,
               canonical: metadata.canonical,
+              isVideoPost: metadata.isVideoPost || canonicalMetadata.isVideoPost,
+              videoId: metadata.videoId || canonicalMetadata.videoId,
             };
           } else {
             metadata = { ...metadata, canonical: undefined };
@@ -780,7 +801,10 @@ export class SocialEmbedModule {
             rawLink,
             proxyUrl,
             sharedBy: message.author.username,
-            notes: videoResult.note ? [videoResult.note] : [],
+            notes: [
+              ...(videoResult.note ? [videoResult.note] : []),
+              ...(metadata.isVideoPost && !video ? ['🎬 Video Facebook'] : []),
+            ],
           });
 
         const send = (attached: AttachmentBuilder[]) =>
