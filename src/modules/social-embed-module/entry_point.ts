@@ -172,6 +172,18 @@ function getJsonText(html: string, keys: string[]): string | undefined {
   return undefined;
 }
 
+function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string | undefined {
+  const escapedUrls = html.match(/https?:\\?\/\\?\/[^"'<>\s]+/gi) ?? [];
+  for (const raw of escapedUrls) {
+    let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
+    url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),]+$/, '');
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (kind === 'video' && /(?:\.mp4|video_url|video\/|fbcdn\.net)/i.test(url)) return url;
+    if (kind === 'image' && /(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpg|\.jpeg|\.png|\.webp)/i.test(url)) return url;
+  }
+  return undefined;
+}
+
 async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
   try {
     const response = await axios.get(proxyUrl, {
@@ -195,8 +207,8 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url'),
-      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
+      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image'),
+      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url') || getEmbeddedFacebookMedia(html, 'video'),
       canonical: getMeta(html, 'og:url') || getCanonical(html),
     };
     console.log('[SocialEmbed] Extracted metadata', {
@@ -221,39 +233,61 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
 
 async function downloadMedia(url: string | undefined, maxBytes: number): Promise<AttachmentBuilder | null> {
   if (!url) return null;
-  try {
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 15000,
-      maxContentLength: maxBytes,
-      maxBodyLength: maxBytes,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
-        'Referer': url,
-      },
-    });
-    const buffer = Buffer.from(response.data);
-    if (buffer.length === 0 || buffer.length > maxBytes) return null;
+  const isFacebookMedia = /(?:fbsbx\.com|fbcdn\.net)/i.test(url);
+  const attempts = [
+    {
+      'User-Agent': isFacebookMedia
+        ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+        : 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
+      Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
+      Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    },
+    {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
+      Referer: 'https://www.facebook.com/',
+      Accept: 'image/avif,image/webp,image/apng,image/jpeg,image/png,*/*;q=0.8',
+    },
+  ];
 
-    const contentType = String(response.headers['content-type'] ?? '').toLowerCase();
-    const extension = contentType.includes('mp4') ? 'mp4'
-      : contentType.includes('webm') ? 'webm'
-      : contentType.includes('png') ? 'png'
-      : contentType.includes('gif') ? 'gif'
-      : contentType.includes('jpeg') ? 'jpg'
-      : 'jpg';
-    const attachment = new AttachmentBuilder(buffer, { name: `social-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}` });
-    console.log('[SocialEmbed] Image downloaded', { bytes: buffer.length, contentType, name: attachment.name });
-    return attachment;
-  } catch (error: any) {
-    console.error('[SocialEmbed] Image download failed', {
-      url,
-      status: error?.response?.status,
-      message: error?.message,
-      code: error?.code,
-    });
-    return null;
+  for (const headers of attempts) {
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        maxContentLength: maxBytes,
+        maxBodyLength: maxBytes,
+        headers,
+      });
+      const buffer = Buffer.from(response.data);
+      if (buffer.length === 0 || buffer.length > maxBytes) continue;
+
+      const contentType = String(response.headers['content-type'] ?? '').toLowerCase();
+      if (contentType.includes('text/html') || contentType.includes('text/plain')) continue;
+      const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+      const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+      const isGif = buffer.subarray(0, 6).toString('ascii').startsWith('GIF8');
+      const isWebp = buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+      if (!isPng && !isJpeg && !isGif && !isWebp && !contentType.includes('image/')) continue;
+
+      const extension = isPng ? 'png'
+        : isGif ? 'gif'
+        : isWebp ? 'webp'
+        : contentType.includes('webp') ? 'webp'
+        : 'jpg';
+      const attachment = new AttachmentBuilder(buffer, { name: `social-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}` });
+      console.log('[SocialEmbed] Image downloaded', { bytes: buffer.length, contentType, name: attachment.name, isFacebookMedia });
+      return attachment;
+    } catch (error: any) {
+      console.error('[SocialEmbed] Image download attempt failed', {
+        url,
+        status: error?.response?.status,
+        message: error?.message,
+        code: error?.code,
+        isFacebookMedia,
+      });
+    }
   }
+  return null;
 }
 
 async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 1024 * 1024): Promise<AttachmentBuilder | null> {
@@ -266,8 +300,11 @@ async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 10
       maxContentLength: 60 * 1024 * 1024,
       maxBodyLength: 60 * 1024 * 1024,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
-        'Referer': url,
+        'User-Agent': /(?:fbsbx\.com|fbcdn\.net)/i.test(url)
+          ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+          : 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
+        Referer: /(?:fbsbx\.com|fbcdn\.net)/i.test(url) ? 'https://www.facebook.com/' : new URL(url).origin,
+        Accept: 'video/mp4,video/webm,video/*,*/*;q=0.8',
       },
     });
     const source = Buffer.from(response.data);
