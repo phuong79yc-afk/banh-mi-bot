@@ -43,7 +43,7 @@ const PLATFORMS: SocialEmbedPlatform[] = [
   {
     name: 'Threads',
     hosts: ['threads.net', 'www.threads.net', 'threads.com', 'www.threads.com'],
-    rewrite: (url) => `https://vxthreads.net${url.pathname}${url.search}`,
+    rewrite: (url) => `https://www.threads.com${url.pathname}${url.search}`,
   },
   {
     name: 'Facebook',
@@ -234,7 +234,12 @@ export class SocialEmbedModule {
         seen.add(rawLink);
 
         const proxyUrl = platform.rewrite(url);
-        let metadata = await fetchSocialMetadata(platform.name === 'Instagram' ? url.toString() : proxyUrl);
+        const officialUrl = platform.name === 'Threads'
+          ? `https://www.threads.com${url.pathname}${url.search}`
+          : platform.name === 'Instagram'
+            ? url.toString()
+            : proxyUrl;
+        let metadata = await fetchSocialMetadata(officialUrl);
         if (platform.name === 'Instagram') {
           const embedMetadata = await fetchSocialMetadata(proxyUrl);
           metadata = {
