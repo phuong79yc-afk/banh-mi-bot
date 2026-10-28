@@ -195,7 +195,7 @@ function getEmbeddedFacebookMedia(html: string, kind: 'image' | 'video'): string
     let url = decodeHtml(raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&'));
     url = url.replace(/\\u002F/gi, '/').replace(/\\/g, '').replace(/[),]+$/, '');
     if (!/^https?:\/\//i.test(url)) continue;
-    if (kind === 'video' && /(?:\.mp4(?:[?&]|$)|[?&]video_url=|\/video(?:\/|_|\?|$))/i.test(url)) return url;
+    if (kind === 'video') continue;
     if (kind === 'image' && /(?:lookaside\.fbsbx\.com|scontent\.|fbcdn\.net|\.jpg|\.jpeg|\.png|\.webp)/i.test(url)) return url;
   }
   return undefined;
@@ -225,7 +225,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image'),
-      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url') || getEmbeddedFacebookMedia(html, 'video'),
+      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
       canonical: getMeta(html, 'og:url') || getCanonical(html),
     };
     console.log('[SocialEmbed] Extracted metadata', {
