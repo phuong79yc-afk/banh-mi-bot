@@ -117,26 +117,57 @@ function getMeta(html: string, property: string): string | undefined {
   return tag?.[1] ? decodeHtml(tag[1]) : undefined;
 }
 
-function getJsonMediaUrl(html: string, key: 'display_url' | 'video_url'): string | undefined {
-  const match = html.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\])*)"`, 'i'));
-  if (!match) return undefined;
-  try {
-    const parsed = JSON.parse(`"${match[1]}"`);
-    return typeof parsed === 'string' && /^https?:\/\//i.test(parsed) ? parsed : undefined;
-  } catch {
-    return match[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/\\\\/g, '\\');
+function getJsonString(html: string, key: string): string | undefined {
+  const keyIndex = html.toLowerCase().indexOf(`"${key.toLowerCase()}"`);
+  if (keyIndex < 0) return undefined;
+  const colonIndex = html.indexOf(':', keyIndex);
+  if (colonIndex < 0) return undefined;
+  let quoteIndex = colonIndex + 1;
+  while (quoteIndex < html.length && /\s/.test(html[quoteIndex])) quoteIndex++;
+  if (html[quoteIndex] !== '"') return undefined;
+
+  let escaped = false;
+  let value = '';
+  for (let i = quoteIndex + 1; i < html.length; i++) {
+    const char = html[i];
+    if (escaped) {
+      value += `\\${char}`;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') break;
+    value += char;
   }
+  if (escaped) return undefined;
+
+  try {
+    return JSON.parse(`"${value}"`);
+  } catch {
+    return value.replace(/\\u0026/gi, '&').replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+  }
+}
+
+function getCanonical(html: string): string | undefined {
+  const link = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["'][^>]*>/i)
+    ?? html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["'][^>]*>/i);
+  const value = link?.[1] ? decodeHtml(link[1]) : undefined;
+  return value && /^https?:\/\//i.test(value) ? value : undefined;
+}
+
+function getJsonMediaUrl(html: string, key: 'display_url' | 'video_url'): string | undefined {
+  const value = getJsonString(html, key);
+  return value && /^https?:\/\//i.test(value) ? decodeHtml(value.replace(/\\\//g, '/')) : undefined;
 }
 
 function getJsonText(html: string, keys: string[]): string | undefined {
   for (const key of keys) {
-    const match = html.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\])*)"`, 'i'));
-    if (!match) continue;
-    try {
-      const parsed = JSON.parse(`"${match[1]}"`);
-      const clean = typeof parsed === 'string' ? cleanSocialText(parsed, 'Instagram') : undefined;
-      if (clean) return clean;
-    } catch {}
+    const value = getJsonString(html, key);
+    const clean = typeof value === 'string' ? cleanSocialText(value, 'Instagram') : undefined;
+    if (clean) return clean;
   }
   return undefined;
 }
@@ -166,7 +197,7 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url'),
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
-      canonical: getMeta(html, 'og:url'),
+      canonical: getMeta(html, 'og:url') || getCanonical(html),
     };
     console.log('[SocialEmbed] Extracted metadata', {
       url: proxyUrl,
