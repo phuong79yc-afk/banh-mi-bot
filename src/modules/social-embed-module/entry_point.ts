@@ -153,16 +153,37 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       responseType: 'text',
     });
     const html = String(response.data ?? '');
+    console.log('[SocialEmbed] Metadata response', {
+      url: proxyUrl,
+      status: response.status,
+      contentType: response.headers['content-type'],
+      htmlBytes: Buffer.byteLength(html, 'utf8'),
+    });
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
     const cleanTitleTag = /^Instagram$/i.test(titleTag?.trim() ?? '') ? undefined : titleTag;
-    return {
+    const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
       image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url'),
       video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
       canonical: getMeta(html, 'og:url'),
     };
-  } catch {
+    console.log('[SocialEmbed] Extracted metadata', {
+      url: proxyUrl,
+      hasTitle: !!metadata.title,
+      hasDescription: !!metadata.description,
+      hasImage: !!metadata.image,
+      hasVideo: !!metadata.video,
+      mediaType: metadata.video ? 'video' : metadata.image ? 'image' : 'none',
+    });
+    return metadata;
+  } catch (error: any) {
+    console.error('[SocialEmbed] Metadata fetch failed', {
+      url: proxyUrl,
+      status: error?.response?.status,
+      message: error?.message,
+      code: error?.code,
+    });
     return {};
   }
 }
@@ -190,8 +211,16 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
       : contentType.includes('gif') ? 'gif'
       : contentType.includes('jpeg') ? 'jpg'
       : 'jpg';
-    return new AttachmentBuilder(buffer, { name: `social-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}` });
-  } catch {
+    const attachment = new AttachmentBuilder(buffer, { name: `social-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}` });
+    console.log('[SocialEmbed] Image downloaded', { bytes: buffer.length, contentType, name: attachment.name });
+    return attachment;
+  } catch (error: any) {
+    console.error('[SocialEmbed] Image download failed', {
+      url,
+      status: error?.response?.status,
+      message: error?.message,
+      code: error?.code,
+    });
     return null;
   }
 }
@@ -213,7 +242,9 @@ async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 10
     const source = Buffer.from(response.data);
     if (source.length === 0) return null;
     if (source.length <= limitBytes) {
-      return new AttachmentBuilder(source, { name: `social-video-${randomFilename()}.mp4` });
+      const attachment = new AttachmentBuilder(source, { name: `social-video-${randomFilename()}.mp4` });
+      console.log('[SocialEmbed] Video attached directly', { bytes: source.length, name: attachment.name });
+      return attachment;
     }
 
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'social-video-'));
@@ -233,12 +264,23 @@ async function downloadSocialVideo(url: string | undefined, limitBytes = 24 * 10
         proc.on('close', (code: number | null) => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}`)); });
       });
       const compressed = await fsp.readFile(output);
-      if (!compressed.length || compressed.length > limitBytes) return null;
-      return new AttachmentBuilder(compressed, { name: `social-video-${randomFilename()}.mp4` });
+      if (!compressed.length || compressed.length > limitBytes) {
+        console.warn('[SocialEmbed] Video compression produced no usable file', { compressedBytes: compressed.length, limitBytes });
+        return null;
+      }
+      const attachment = new AttachmentBuilder(compressed, { name: `social-video-${randomFilename()}.mp4` });
+      console.log('[SocialEmbed] Video compressed and attached', { originalBytes: source.length, compressedBytes: compressed.length, name: attachment.name });
+      return attachment;
     } finally {
       await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
-  } catch {
+  } catch (error: any) {
+    console.error('[SocialEmbed] Video download or compression failed', {
+      url,
+      status: error?.response?.status,
+      message: error?.message,
+      code: error?.code,
+    });
     return null;
   }
 }
@@ -276,8 +318,13 @@ export class SocialEmbedModule {
 
       const seen = new Set<string>();
 
-      await message.suppressEmbeds(true).catch(() => {});
-      if (!('send' in message.channel)) return;
+      await message.suppressEmbeds(true).catch((error) => {
+        console.warn('[SocialEmbed] Could not suppress original embeds', { guildId: message.guildId, channelId: message.channelId, error: error?.message });
+      });
+      if (!('send' in message.channel)) {
+        console.warn('[SocialEmbed] Channel does not support send', { channelId: message.channelId });
+        return;
+      }
 
       for (const rawLink of matches.slice(0, 4)) {
         let url: URL;
@@ -293,6 +340,7 @@ export class SocialEmbedModule {
         const platform = detectSocialPlatform(hostname);
         if (!platform || seen.has(rawLink)) continue;
         seen.add(rawLink);
+        console.log('[SocialEmbed] Processing link', { platform: platform.name, hostname, guildId: message.guildId, channelId: message.channelId });
 
         const proxyUrl = platform.rewrite(url);
         const officialUrl = platform.name === 'Threads'
@@ -332,6 +380,12 @@ export class SocialEmbedModule {
         const video = await downloadSocialVideo(videoUrl, 24 * 1024 * 1024);
         const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, 24 * 1024 * 1024);
         const media = video || image;
+        console.log('[SocialEmbed] Media result', {
+          platform: platform.name,
+          hasVideo: !!video,
+          hasImage: !!image,
+          attachmentName: media?.name ?? null,
+        });
 
         const container = new ContainerBuilder();
         const title = cleanSocialText(metadata.title, platform.name);
@@ -365,8 +419,16 @@ export class SocialEmbedModule {
           flags: V2,
           files: media ? [media] : [],
           allowedMentions: { repliedUser: false, parse: [] },
+        }).then((sent) => {
+          console.log('[SocialEmbed] Card sent', { platform: platform.name, messageId: sent.id, hasAttachment: !!media });
         }).catch((error) => {
-          console.error(`[SocialEmbed] Không thể gửi thẻ ${platform.name}:`, error);
+          console.error(`[SocialEmbed] Không thể gửi thẻ ${platform.name}`, {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            code: error?.code,
+            status: error?.status,
+            message: error?.message,
+          });
         });
       }
     };
