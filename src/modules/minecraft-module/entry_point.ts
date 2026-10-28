@@ -231,15 +231,21 @@ export default class MinecraftModule {
       try {
         if (GlobalFonts.registerFromPath(path.join(dir, file), 'Minecraft')) {
           console.log(`✅ Loaded ${file}`);
-          this.fontLoaded = true;
-          return;
+          break;
         }
       } catch {
         // thử font tiếp theo
       }
     }
 
-    console.log('⚠️ No Minecraft font found, using default');
+    try {
+      if (GlobalFonts.registerFromPath(path.join(dir, 'Monocraft.ttf'), 'PixelMinecraft')) {
+        console.log('✅ Loaded Monocraft pixel font');
+      }
+    } catch {
+      // dùng lại font mặc định nếu thiếu Monocraft
+    }
+
     this.fontLoaded = true;
   }
 
@@ -398,8 +404,7 @@ export default class MinecraftModule {
       })
       .filter((line) => line.length > 0);
     const motdLines = finalClean;
-    const motdFont = (line: string) =>
-      /[^\x00-\x7F]/.test(line.replace(/§[0-9a-fk-or]/gi, '')) ? 'sans-serif' : '"Minecraft", monospace';
+    const motdFont = () => '"PixelMinecraft", "Minecraft", monospace';
 
     // 1. Server Icon (16, 16, 64x64)
     if (status.favicon) {
@@ -422,10 +427,10 @@ export default class MinecraftModule {
     drawMinecraftText(`§6${serverName}`, 96, 16, 22, 'left');
 
     // 3. MOTD Line 1
-    if (motdLines[0]) drawMinecraftText(motdLines[0], finalWidth / 2, 40, 22, 'center', motdFont(motdLines[0]));
+    if (motdLines[0]) drawMinecraftText(motdLines[0], finalWidth / 2, 40, 22, 'center', motdFont());
 
     // 4. MOTD Line 2
-    if (motdLines[1]) drawMinecraftText(motdLines[1], finalWidth / 2, 66, 19, 'center', motdFont(motdLines[1]));
+    if (motdLines[1]) drawMinecraftText(motdLines[1], finalWidth / 2, 66, 19, 'center', motdFont());
 
     // 5. Player Count
     drawMinecraftText(`§7${status.players?.online || 0}/${status.players?.max || 0}`, 882, 16, 20, 'right');
