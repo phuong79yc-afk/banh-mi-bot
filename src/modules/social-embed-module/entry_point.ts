@@ -65,11 +65,29 @@ interface SocialMetadata {
 
 function decodeHtml(value: string): string {
   return value
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#([0-9]+);?/g, (_, decimal: string) => String.fromCodePoint(parseInt(decimal, 10)))
+    .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>');
+    .replace(/&gt;/gi, '>')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\u0000/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanSocialText(value: string | undefined, platformName: string): string | undefined {
+  if (!value) return undefined;
+  let text = decodeHtml(value).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+  if (!text || /^https?:\/\//i.test(text)) return undefined;
+  if (/&(#[xX]?[0-9a-f]+|[a-z]+);?/i.test(text)) return undefined;
+  if (text.includes('\uFFFD')) return undefined;
+  if (text.length > 500) text = `${text.slice(0, 497)}…`;
+  if (text.toLowerCase() === platformName.toLowerCase()) return undefined;
+  return text;
 }
 
 function getMeta(html: string, property: string): string | undefined {
@@ -84,15 +102,19 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const response = await axios.get(proxyUrl, {
       timeout: 8000,
       maxContentLength: 2 * 1024 * 1024,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)' },
+      headers: {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+      },
       responseType: 'text',
     });
     const html = String(response.data ?? '');
+    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
     return {
-      title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title'),
-      description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description'),
-      image: getMeta(html, 'og:image') || getMeta(html, 'twitter:image'),
-      video: getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream'),
+      title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || titleTag,
+      description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description'),
+      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src'),
+      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream'),
     };
   } catch {
     return {};
@@ -168,19 +190,30 @@ export class SocialEmbedModule {
         const hostname = url.hostname.toLowerCase();
         if (TIKTOK_HOSTS.has(hostname) || hostname.endsWith('.tiktok.com')) continue;
 
-        const platform = PLATFORMS.find((item) => item.hosts.includes(hostname));
+        const platform = PLATFORMS.find((item) => item.hosts.includes(hostname)
+          || item.hosts.some((host) => host.startsWith('www.') && hostname === host.slice(4))
+          || hostname.endsWith('.instagram.com')
+          || hostname.endsWith('.facebook.com')
+          || hostname.endsWith('.threads.net'));
         if (!platform || seen.has(rawLink)) continue;
         seen.add(rawLink);
 
         const proxyUrl = platform.rewrite(url);
         const metadata = await fetchSocialMetadata(proxyUrl);
 
-        const video = await downloadMedia(metadata.video, 24 * 1024 * 1024);
-        const image = video ? null : await downloadMedia(metadata.image, 24 * 1024 * 1024);
+        let mediaUrl = metadata.video || metadata.image;
+        if (mediaUrl && !/^https?:\/\//i.test(mediaUrl)) {
+          try { mediaUrl = new URL(mediaUrl, proxyUrl).toString(); } catch { mediaUrl = undefined; }
+        }
+
+        const video = await downloadMedia(metadata.video && /^https?:\/\//i.test(metadata.video)
+          ? new URL(metadata.video, proxyUrl).toString()
+          : undefined, 24 * 1024 * 1024);
+        const image = video ? null : await downloadMedia(mediaUrl && mediaUrl !== metadata.video ? mediaUrl : undefined, 24 * 1024 * 1024);
         const media = video || image;
 
         const container = new ContainerBuilder();
-        const title = metadata.title?.trim() ? metadata.title.trim().replace(/\s+/g, ' ') : platform.name;
+        const title = cleanSocialText(metadata.title, platform.name) ?? platform.name;
         container.addTextDisplayComponents(text(`## ${platform.name}\n${title}`));
 
         if (media) {
@@ -191,10 +224,10 @@ export class SocialEmbedModule {
           );
         }
 
-        const description = metadata.description?.trim().replace(/\s+/g, ' ');
-        if (description) {
+        const description = cleanSocialText(metadata.description, platform.name);
+        if (description && description !== title) {
           container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-          container.addTextDisplayComponents(text(description.length > 500 ? `${description.slice(0, 497)}…` : description));
+          container.addTextDisplayComponents(text(description));
         }
 
         container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
