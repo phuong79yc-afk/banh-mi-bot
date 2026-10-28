@@ -25,7 +25,7 @@ const PLATFORMS: SocialEmbedPlatform[] = [
   {
     name: 'Instagram',
     hosts: ['instagram.com', 'www.instagram.com'],
-    rewrite: (url) => `https://ddinstagram.com${url.pathname}${url.search}`,
+    rewrite: (url) => `https://www.instagram.com${url.pathname.replace(/\/$/, '')}/embed/captioned/`,
   },
   {
     name: 'Twitter / X',
@@ -97,6 +97,30 @@ function getMeta(html: string, property: string): string | undefined {
   return tag?.[1] ? decodeHtml(tag[1]) : undefined;
 }
 
+function getJsonMediaUrl(html: string, key: 'display_url' | 'video_url'): string | undefined {
+  const match = html.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\])*)"`, 'i'));
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(`"${match[1]}"`);
+    return typeof parsed === 'string' && /^https?:\/\//i.test(parsed) ? parsed : undefined;
+  } catch {
+    return match[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/\\\\/g, '\\');
+  }
+}
+
+function getJsonText(html: string, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const match = html.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\])*)"`, 'i'));
+    if (!match) continue;
+    try {
+      const parsed = JSON.parse(`"${match[1]}"`);
+      const clean = typeof parsed === 'string' ? cleanSocialText(parsed, 'Instagram') : undefined;
+      if (clean) return clean;
+    } catch {}
+  }
+  return undefined;
+}
+
 async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
   try {
     const response = await axios.get(proxyUrl, {
@@ -110,11 +134,12 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     });
     const html = String(response.data ?? '');
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+    const cleanTitleTag = /^Instagram$/i.test(titleTag?.trim() ?? '') ? undefined : titleTag;
     return {
-      title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || titleTag,
-      description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description'),
-      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src'),
-      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream'),
+      title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
+      description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
+      image: getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url'),
+      video: getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getJsonMediaUrl(html, 'video_url'),
     };
   } catch {
     return {};
@@ -199,7 +224,16 @@ export class SocialEmbedModule {
         seen.add(rawLink);
 
         const proxyUrl = platform.rewrite(url);
-        const metadata = await fetchSocialMetadata(proxyUrl);
+        let metadata = await fetchSocialMetadata(platform.name === 'Instagram' ? url.toString() : proxyUrl);
+        if (platform.name === 'Instagram') {
+          const embedMetadata = await fetchSocialMetadata(proxyUrl);
+          metadata = {
+            title: metadata.title || embedMetadata.title,
+            description: metadata.description || embedMetadata.description,
+            image: metadata.image || embedMetadata.image,
+            video: metadata.video || embedMetadata.video,
+          };
+        }
 
         let mediaUrl = metadata.video || metadata.image;
         if (mediaUrl && !/^https?:\/\//i.test(mediaUrl)) {
@@ -213,8 +247,9 @@ export class SocialEmbedModule {
         const media = video || image;
 
         const container = new ContainerBuilder();
-        const title = cleanSocialText(metadata.title, platform.name) ?? platform.name;
-        container.addTextDisplayComponents(text(`## ${platform.name}\n${title}`));
+        const title = cleanSocialText(metadata.title, platform.name);
+        const inaccessible = platform.name === 'Instagram' && !media && !title && !metadata.description;
+        container.addTextDisplayComponents(text(`## ${platform.name}\n${title ?? (inaccessible ? 'Bài đăng không tồn tại hoặc riêng tư' : platform.name)}`));
 
         if (media) {
           container.addMediaGalleryComponents(
