@@ -333,6 +333,41 @@ function isLikelyFaviconUrl(value?: string): boolean {
   }
 }
 
+async function fetchFacebookEmbedImages(proxyUrl: string): Promise<string[]> {
+  const endpoint = proxyUrl.includes('/reel/')
+    ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(proxyUrl)}&show_text=false`
+    : `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(proxyUrl)}&show_text=false`;
+  try {
+    const response = await axios.get(endpoint, {
+      timeout: 10000,
+      maxContentLength: 2 * 1024 * 1024,
+      responseType: 'text',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131 Safari/537.36',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+        Accept: 'text/html,application/xhtml+xml,image/webp,*/*;q=0.8',
+        Referer: 'https://www.facebook.com/',
+      },
+    });
+    const html = String(response.data ?? '');
+    const images = getEmbeddedFacebookImages(html, getMeta(html, 'og:image'));
+    if (images.length) {
+      console.log('[SocialEmbed] Resolved Facebook images from embed endpoint', {
+        proxyUrl,
+        imageCount: images.length,
+      });
+    }
+    return images;
+  } catch (error: any) {
+    console.warn('[SocialEmbed] Facebook embed image lookup failed', {
+      proxyUrl,
+      status: error?.response?.status,
+      message: error?.message,
+    });
+    return [];
+  }
+}
+
 async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<string | undefined> {
   if (!videoId) return undefined;
   const endpoints = [
@@ -419,21 +454,30 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       htmlBytes: Buffer.byteLength(html, 'utf8'),
     });
     const cleanTitleTag = /^Instagram$/i.test(titleTag ?? '') ? undefined : titleTag;
-    const ogImage = getMeta(html, 'og:image:secure_url')
+    const rawOgImage = getMeta(html, 'og:image:secure_url')
       || getMeta(html, 'og:image')
       || getMeta(html, 'og:image:url')
       || getMeta(html, 'twitter:image')
       || getMeta(html, 'twitter:image:src')
       || getJsonMediaUrl(html, 'display_url')
+      || getJsonMediaUrl(html, 'thumbnail_url')
+      || getJsonMediaUrl(html, 'preferred_thumbnail')
+      || getJsonMediaUrl(html, 'thumbnail_uri')
+      || getJsonMediaUrl(html, 'image_uri')
+      || getJsonMediaUrl(html, 'preview_image_uri')
       || (facebook ? getEmbeddedFacebookMedia(html, 'image') : undefined);
-    const images = facebook
-      ? getEmbeddedFacebookImages(html, ogImage)
-      : isUsableImageUrl(ogImage, false) ? [ogImage] : [];
     const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
     const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
     const ogType = getMeta(html, 'og:type')?.toLowerCase();
     const isVideoPost = !!ogType?.includes('video') || (facebook && /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl));
-    const hideImage = facebook && isVideoPost;
+    const ogImage = rawOgImage && isUsableImageUrl(rawOgImage, facebook) ? rawOgImage : undefined;
+    let images = facebook
+      ? getEmbeddedFacebookImages(html, ogImage)
+      : isUsableImageUrl(ogImage, false) ? [ogImage] : [];
+    if (facebook && !images.length) {
+      const embedImages = await fetchFacebookEmbedImages(proxyUrl);
+      images = embedImages;
+    }
     const videoId = facebook ? getFacebookVideoId(html, proxyUrl) : undefined;
     let video = getMeta(html, 'og:video:secure_url')
       || getMeta(html, 'og:video')
@@ -447,8 +491,12 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: hideImage ? undefined : (isUsableImageUrl(ogImage, facebook) ? ogImage : undefined),
-      images: hideImage ? [] : images,
+      image: isUsableImageUrl(ogImage, facebook)
+        ? ogImage
+        : isUsableImageUrl(images[0], facebook)
+          ? images[0]
+          : undefined,
+      images,
       video,
       canonical,
       blocked,
