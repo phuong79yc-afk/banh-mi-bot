@@ -492,12 +492,12 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
         ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
         : 'Mozilla/5.0 (compatible; DiscordSocialEmbed/1.0)',
       Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
-      Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.5',
     },
     {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36',
       Referer: 'https://www.facebook.com/',
-      Accept: 'image/avif,image/webp,image/apng,image/jpeg,image/png,*/*;q=0.8',
+      Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.5',
     },
   ];
 
@@ -519,15 +519,11 @@ async function downloadMedia(url: string | undefined, maxBytes: number): Promise
       const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
       const isGif = buffer.subarray(0, 6).toString('ascii').startsWith('GIF8');
       const isWebp = buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
-      const isIco = buffer.length >= 4 && buffer[0] === 0 && buffer[1] === 0 && buffer[2] === 1 && buffer[3] === 0;
-      if (isIco) continue;
-      if (!isPng && !isJpeg && !isGif && !isWebp && !contentType.includes('image/')) continue;
-
-      const extension = isPng ? 'png'
-        : isGif ? 'gif'
-        : isWebp ? 'webp'
-        : contentType.includes('webp') ? 'webp'
-        : 'jpg';
+      const extension = isPng ? 'png' : isGif ? 'gif' : isWebp ? 'webp' : isJpeg ? 'jpg' : null;
+      if (!extension) {
+        console.warn('[SocialEmbed] Unsupported image format', { url, contentType, bytes: buffer.length });
+        continue;
+      }
       const attachment = new AttachmentBuilder(buffer, { name: `social-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}` });
       console.log('[SocialEmbed] Image downloaded', { bytes: buffer.length, contentType, name: attachment.name, isFacebookMedia });
       return attachment;
@@ -745,6 +741,7 @@ interface CardOptions {
   description?: string;
   mediaName?: string | null;
   mediaNames?: string[];
+  remoteImages?: string[];
   hasVideo: boolean;
   inaccessible: boolean;
   rawLink: string;
@@ -760,10 +757,14 @@ function buildSocialCard(o: CardOptions) {
 
   // Video / ảnh ở trên cùng
   const galleryNames = o.mediaNames?.length ? o.mediaNames : o.mediaName ? [o.mediaName] : [];
-  if (galleryNames.length) {
+  const galleryItems = [
+    ...galleryNames.map((name) => `attachment://${name}`),
+    ...(o.remoteImages ?? []),
+  ].slice(0, 10);
+  if (galleryItems.length) {
     const gallery = new MediaGalleryBuilder();
-    for (const name of galleryNames.slice(0, 10)) {
-      gallery.addItems(new MediaGalleryItemBuilder().setURL(`attachment://${name}`));
+    for (const url of galleryItems) {
+      gallery.addItems(new MediaGalleryItemBuilder().setURL(url));
     }
     container.addMediaGalleryComponents(gallery);
   }
@@ -885,11 +886,6 @@ export class SocialEmbedModule {
           };
         }
 
-        let mediaUrl = metadata.video || metadata.image;
-        if (mediaUrl && !/^https?:\/\//i.test(mediaUrl)) {
-          try { mediaUrl = new URL(mediaUrl, proxyUrl).toString(); } catch { mediaUrl = undefined; }
-        }
-
         const videoUrl = metadata.video && /^https?:\/\//i.test(metadata.video)
           ? new URL(metadata.video, proxyUrl).toString()
           : undefined;
@@ -897,14 +893,17 @@ export class SocialEmbedModule {
         // Giới hạn dung lượng theo cấp boost của server (bản cũ cố định 24MB nên server thường không gửi được)
         const videoResult = await downloadSocialVideo(videoUrl, uploadLimit);
         const video = videoResult.file;
+        const imageUrls = (metadata.images?.length ? metadata.images : metadata.image ? [metadata.image] : [])
+          .filter((imageUrl) => /^https?:\/\//i.test(imageUrl))
+          .slice(0, platform.name === 'Facebook' ? 10 : 1);
         const imageAttachments: AttachmentBuilder[] = [];
+        const remoteImages: string[] = [];
         if (!video) {
-          const imageUrls = metadata.images?.length
-            ? metadata.images
-            : mediaUrl && mediaUrl !== metadata.video ? [mediaUrl] : [];
-          for (const imageUrl of imageUrls.slice(0, platform.name === 'Facebook' ? 10 : 1)) {
+          console.log('[SocialEmbed] Image candidates', { platform: platform.name, imageUrls });
+          for (const imageUrl of imageUrls) {
             const attachment = await downloadMedia(imageUrl, uploadLimit);
             if (attachment) imageAttachments.push(attachment);
+            else remoteImages.push(imageUrl);
           }
         }
         const media = video || imageAttachments[0] || null;
@@ -920,12 +919,13 @@ export class SocialEmbedModule {
         const description = cleanSocialText(metadata.description, platform.name);
         const inaccessible = platform.name === 'Instagram' && !media && !title && !metadata.description;
 
-        const cardFor = (attached: AttachmentBuilder[]) =>
+        const cardFor = (attached: AttachmentBuilder[], remote: string[]) =>
           buildSocialCard({
             platform: platform.name,
             title,
             description,
             mediaNames: attached.map((file) => file.name).filter((name): name is string => !!name),
+            remoteImages: remote,
             hasVideo: !!video && attached.includes(video),
             inaccessible,
             rawLink,
@@ -936,9 +936,9 @@ export class SocialEmbedModule {
             ],
           });
 
-        const send = (attached: AttachmentBuilder[]) =>
+        const send = (attached: AttachmentBuilder[], remote: string[] = []) =>
           (message.channel as any).send({
-            components: [cardFor(attached)],
+            components: [cardFor(attached, remote)],
             flags: V2,
             files: attached,
             allowedMentions: { repliedUser: false, parse: [] },
@@ -946,7 +946,7 @@ export class SocialEmbedModule {
 
         const attachedMedia = video ? [video] : imageAttachments;
         try {
-          const sent = await send(attachedMedia);
+          const sent = await send(attachedMedia, remoteImages);
           posted++;
           console.log('[SocialEmbed] Card sent', { platform: platform.name, messageId: sent.id, hasAttachment: !!media });
         } catch (error: any) {
@@ -958,14 +958,15 @@ export class SocialEmbedModule {
             message: error?.message,
           });
 
-          // Gửi lỗi do file đính kèm (quá nặng...) thì thử lại không kèm file để người dùng vẫn có card
-          if (attachedMedia.length) {
+          // Lỗi file đính kèm: thử ảnh remote, sau đó gửi card text-only.
+          for (const fallbackImages of [video ? [] : imageUrls, []]) {
             try {
-              await send([]);
+              await send([], fallbackImages);
               posted++;
-              console.log('[SocialEmbed] Card sent without attachment', { platform: platform.name });
+              console.log('[SocialEmbed] Card sent via fallback', { platform: platform.name, remoteImages: fallbackImages.length });
+              break;
             } catch (retryError: any) {
-              console.error('[SocialEmbed] Gửi lại không kèm file cũng thất bại', { message: retryError?.message });
+              console.error('[SocialEmbed] Gửi lại thất bại', { message: retryError?.message });
             }
           }
         }
