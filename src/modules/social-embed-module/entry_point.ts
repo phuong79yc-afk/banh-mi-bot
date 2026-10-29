@@ -10,6 +10,8 @@ import {
   Message,
   MessageFlags,
   TextDisplayBuilder,
+  GatewayIntentBits,
+  IntentsBitField,
 } from 'discord.js';
 import axios from 'axios';
 import { spawn } from 'child_process';
@@ -370,7 +372,23 @@ async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<strin
   return undefined;
 }
 
+const FACEBOOK_HOST_RE = /(?:^|\.)(?:facebook\.com|fb\.watch)$/i;
+
+function isFacebookUrl(value: string): boolean {
+  try {
+    return FACEBOOK_HOST_RE.test(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isUsableImageUrl(value: string | undefined, facebook: boolean): value is string {
+  if (!value) return false;
+  return facebook ? isUsableFacebookImageUrl(value) : !isLikelyFaviconUrl(value);
+}
+
 async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
+  const facebook = isFacebookUrl(proxyUrl);
   try {
     const response = await axios.get(proxyUrl, {
       timeout: 8000,
@@ -395,28 +413,42 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       contentType: response.headers['content-type'],
       htmlBytes: Buffer.byteLength(html, 'utf8'),
     });
-    const cleanTitleTag = /^Instagram$/i.test(titleTag?.trim() ?? '') ? undefined : titleTag;
-    const rawImage = getMeta(html, 'og:image:secure_url') || getMeta(html, 'og:image') || getMeta(html, 'og:image:url') || getMeta(html, 'twitter:image') || getMeta(html, 'twitter:image:src') || getJsonMediaUrl(html, 'display_url') || getEmbeddedFacebookMedia(html, 'image');
-    const images = getEmbeddedFacebookImages(html, rawImage && !isLikelyFaviconUrl(rawImage) ? rawImage : undefined);
+    const cleanTitleTag = /^Instagram$/i.test(titleTag ?? '') ? undefined : titleTag;
+    const ogImage = getMeta(html, 'og:image:secure_url')
+      || getMeta(html, 'og:image')
+      || getMeta(html, 'og:image:url')
+      || getMeta(html, 'twitter:image')
+      || getMeta(html, 'twitter:image:src')
+      || getJsonMediaUrl(html, 'display_url')
+      || (facebook ? getEmbeddedFacebookMedia(html, 'image') : undefined);
+    const images = facebook
+      ? getEmbeddedFacebookImages(html, ogImage)
+      : isUsableImageUrl(ogImage, false) ? [ogImage] : [];
     const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
     const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
     const ogType = getMeta(html, 'og:type')?.toLowerCase();
-    const isFacebookVideo = ogType?.includes('video') || /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl);
-    const facebookVideoId = getFacebookVideoId(html, proxyUrl);
-    let facebookVideoUrl = getMeta(html, 'og:video:secure_url') || getMeta(html, 'og:video') || getMeta(html, 'og:video:url') || getMeta(html, 'twitter:player:stream') || getFacebookVideoUrl(html) || getJsonMediaUrl(html, 'video_url');
-    if (isFacebookVideo && !facebookVideoUrl && facebookVideoId) {
-      facebookVideoUrl = await fetchFacebookVideoUrl(facebookVideoId);
+    const isVideoPost = !!ogType?.includes('video') || (facebook && /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl));
+    const hideImage = facebook && isVideoPost;
+    const videoId = facebook ? getFacebookVideoId(html, proxyUrl) : undefined;
+    let video = getMeta(html, 'og:video:secure_url')
+      || getMeta(html, 'og:video')
+      || getMeta(html, 'og:video:url')
+      || getMeta(html, 'twitter:player:stream')
+      || (facebook ? getFacebookVideoUrl(html) : undefined)
+      || getJsonMediaUrl(html, 'video_url');
+    if (facebook && isVideoPost && !video && videoId) {
+      video = await fetchFacebookVideoUrl(videoId);
     }
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
       description: getMeta(html, 'og:description') || getMeta(html, 'twitter:description') || getMeta(html, 'description') || getJsonText(html, ['caption_text', 'accessibility_caption']),
-      image: isFacebookVideo ? undefined : (isUsableFacebookImageUrl(rawImage) ? rawImage : undefined),
-      images: isFacebookVideo ? [] : images,
-      video: facebookVideoUrl,
+      image: hideImage ? undefined : (isUsableImageUrl(ogImage, facebook) ? ogImage : undefined),
+      images: hideImage ? [] : images,
+      video,
       canonical,
       blocked,
-      isVideoPost: isFacebookVideo,
-      videoId: facebookVideoId,
+      isVideoPost,
+      videoId,
     };
     console.log('[SocialEmbed] Extracted metadata', {
       url: proxyUrl,
@@ -624,13 +656,16 @@ async function downloadSocialVideo(url: string | undefined, limitBytes: number):
       timeout: 30000,
       maxContentLength: MAX_VIDEO_SOURCE_BYTES,
       maxBodyLength: MAX_VIDEO_SOURCE_BYTES,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
-        Origin: isFacebookMedia ? 'https://www.facebook.com' : undefined,
-        Accept: 'video/mp4,video/webm,video/*,*/*;q=0.8',
-        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
-      },
+      headers: (() => {
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Referer: isFacebookMedia ? 'https://www.facebook.com/' : new URL(url).origin,
+          Accept: 'video/mp4,video/webm,video/*,*/*;q=0.8',
+          'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+        };
+        if (isFacebookMedia) headers.Origin = 'https://www.facebook.com';
+        return headers;
+      })(),
     });
     const source = Buffer.from(response.data);
     if (source.length === 0) return { file: null };
@@ -822,7 +857,7 @@ export class SocialEmbedModule {
             ? url.toString()
             : proxyUrl;
         let metadata = await fetchSocialMetadata(officialUrl);
-        if (platform.name === 'Facebook' && metadata.canonical?.startsWith('https://')) {
+        if (platform.name === 'Facebook' && metadata.canonical?.startsWith('https://') && metadata.canonical !== officialUrl) {
           const canonicalMetadata = await fetchSocialMetadata(metadata.canonical);
           if (!canonicalMetadata.blocked || canonicalMetadata.video) {
             metadata = {
@@ -897,7 +932,7 @@ export class SocialEmbedModule {
             sharedBy: message.author.username,
             notes: [
               ...(videoResult.note ? [videoResult.note] : []),
-              ...(metadata.isVideoPost && !video ? ['🎬 Video Facebook'] : []),
+              ...(metadata.isVideoPost && !video ? [`🎬 Video ${platform.name}, xem ở bài gốc`] : []),
             ],
           });
 
@@ -941,6 +976,20 @@ export class SocialEmbedModule {
         await message.suppressEmbeds(true).catch((error) => {
           console.warn('[SocialEmbed] Could not suppress original embeds', { guildId: message.guildId, channelId: message.channelId, error: error?.message });
         });
+      }
+    };
+
+    const intents = new IntentsBitField(this.client.options.intents);
+    if (!intents.has(GatewayIntentBits.MessageContent)) {
+      console.warn('[SocialEmbed] ⚠️ Client thiếu intent MessageContent: bot sẽ KHÔNG đọc được link trong tin nhắn. Thêm GatewayIntentBits.MessageContent và bật Message Content Intent trong Discord Developer Portal.');
+    }
+
+    const innerHandler = this.messageHandler;
+    this.messageHandler = async (message: Message) => {
+      try {
+        await innerHandler(message);
+      } catch (error: any) {
+        console.error('[SocialEmbed] Unhandled error in message handler', { message: error?.message, code: error?.code });
       }
     };
 
