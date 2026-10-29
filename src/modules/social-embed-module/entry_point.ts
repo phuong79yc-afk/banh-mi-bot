@@ -338,6 +338,8 @@ async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<strin
   const endpoints = [
     `https://www.facebook.com/video/embed?video_id=${encodeURIComponent(videoId)}`,
     `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fwatch%2F%3Fv%3D${encodeURIComponent(videoId)}&show_text=false`,
+    `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F${encodeURIComponent(videoId)}%2F&show_text=false`,
+    `https://www.facebook.com/reel/${encodeURIComponent(videoId)}/`,
     `https://m.facebook.com/video.php?v=${encodeURIComponent(videoId)}`,
     `https://mbasic.facebook.com/video/video.php?v=${encodeURIComponent(videoId)}`,
   ];
@@ -349,9 +351,12 @@ async function fetchFacebookVideoUrl(videoId: string | undefined): Promise<strin
         maxContentLength: 2 * 1024 * 1024,
         responseType: 'text',
         headers: {
-          'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
           'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           Referer: 'https://www.facebook.com/',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
         },
       });
       const html = String(response.data ?? '').replace(/\\u00253D/gi, '=');
