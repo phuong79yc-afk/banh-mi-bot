@@ -952,11 +952,13 @@ export class SocialEmbedModule {
           .slice(0, platform.name === 'Facebook' ? 10 : 1);
         const imageAttachments: AttachmentBuilder[] = [];
         const remoteImages: string[] = [];
-        console.log('[SocialEmbed] Image candidates', { platform: platform.name, imageUrls, hasVideo: !!video });
-        for (const imageUrl of imageUrls) {
-          const attachment = await downloadMedia(imageUrl, uploadLimit);
-          if (attachment) imageAttachments.push(attachment);
-          else remoteImages.push(imageUrl);
+        if (!video) {
+          console.log('[SocialEmbed] Image candidates', { platform: platform.name, imageUrls });
+          for (const imageUrl of imageUrls) {
+            const attachment = await downloadMedia(imageUrl, uploadLimit);
+            if (attachment) imageAttachments.push(attachment);
+            else remoteImages.push(imageUrl);
+          }
         }
         const media = video || imageAttachments[0] || null;
         console.log('[SocialEmbed] Media result', {
@@ -976,7 +978,7 @@ export class SocialEmbedModule {
             platform: platform.name,
             title,
             description,
-            mediaNames: imageAttachments.map((file) => file.name).filter((name): name is string => !!name),
+            mediaNames: attached.map((file) => file.name).filter((name): name is string => !!name),
             remoteImages: remote,
             hasVideo: !!video && attached.includes(video),
             inaccessible,
@@ -996,7 +998,7 @@ export class SocialEmbedModule {
             allowedMentions: { repliedUser: false, parse: [] },
           });
 
-        const attachedMedia = video ? [video, ...imageAttachments] : imageAttachments;
+        const attachedMedia = video ? [video] : imageAttachments;
         try {
           const sent = await send(attachedMedia, remoteImages);
           posted++;
