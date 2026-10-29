@@ -469,7 +469,8 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
     const rawCanonical = getMeta(html, 'og:url') || getCanonical(html);
     const canonical = rawCanonical && !/(?:\/login(?:\/|$)|facebook\.com\/login)/i.test(rawCanonical) ? rawCanonical : undefined;
     const ogType = getMeta(html, 'og:type')?.toLowerCase();
-    const isVideoPost = !!ogType?.includes('video') || (facebook && /\/reel(?:s)?\/|[?&]v=\d+/i.test(proxyUrl));
+    const facebookVideoUrlHint = facebook && /\/reel(?:s)?\/|(?:^|[?&])v=\d+/i.test(proxyUrl);
+    let isVideoPost = !!ogType?.includes('video') || facebookVideoUrlHint;
     const ogImage = rawOgImage && isUsableImageUrl(rawOgImage, facebook) ? rawOgImage : undefined;
     let images = facebook
       ? getEmbeddedFacebookImages(html, ogImage)
@@ -487,6 +488,9 @@ async function fetchSocialMetadata(proxyUrl: string): Promise<SocialMetadata> {
       || getJsonMediaUrl(html, 'video_url');
     if (facebook && isVideoPost && !video && videoId) {
       video = await fetchFacebookVideoUrl(videoId);
+    }
+    if (facebook && !facebookVideoUrlHint) {
+      isVideoPost = !!video;
     }
     const metadata: SocialMetadata = {
       title: getMeta(html, 'og:title') || getMeta(html, 'twitter:title') || getJsonText(html, ['caption', 'text']) || cleanTitleTag,
