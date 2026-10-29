@@ -948,16 +948,15 @@ export class SocialEmbedModule {
         const video = videoResult.file;
         const imageUrls = (metadata.images?.length ? metadata.images : metadata.image ? [metadata.image] : [])
           .filter((imageUrl) => /^https?:\/\//i.test(imageUrl))
+          .filter((imageUrl, index, urls) => urls.indexOf(imageUrl) === index)
           .slice(0, platform.name === 'Facebook' ? 10 : 1);
         const imageAttachments: AttachmentBuilder[] = [];
         const remoteImages: string[] = [];
-        if (!video) {
-          console.log('[SocialEmbed] Image candidates', { platform: platform.name, imageUrls });
-          for (const imageUrl of imageUrls) {
-            const attachment = await downloadMedia(imageUrl, uploadLimit);
-            if (attachment) imageAttachments.push(attachment);
-            else remoteImages.push(imageUrl);
-          }
+        console.log('[SocialEmbed] Image candidates', { platform: platform.name, imageUrls, hasVideo: !!video });
+        for (const imageUrl of imageUrls) {
+          const attachment = await downloadMedia(imageUrl, uploadLimit);
+          if (attachment) imageAttachments.push(attachment);
+          else remoteImages.push(imageUrl);
         }
         const media = video || imageAttachments[0] || null;
         console.log('[SocialEmbed] Media result', {
@@ -977,7 +976,7 @@ export class SocialEmbedModule {
             platform: platform.name,
             title,
             description,
-            mediaNames: attached.map((file) => file.name).filter((name): name is string => !!name),
+            mediaNames: imageAttachments.map((file) => file.name).filter((name): name is string => !!name),
             remoteImages: remote,
             hasVideo: !!video && attached.includes(video),
             inaccessible,
@@ -997,7 +996,7 @@ export class SocialEmbedModule {
             allowedMentions: { repliedUser: false, parse: [] },
           });
 
-        const attachedMedia = video ? [video] : imageAttachments;
+        const attachedMedia = video ? [video, ...imageAttachments] : imageAttachments;
         try {
           const sent = await send(attachedMedia, remoteImages);
           posted++;
@@ -1012,7 +1011,7 @@ export class SocialEmbedModule {
           });
 
           // Lỗi file đính kèm: thử ảnh remote, sau đó gửi card text-only.
-          for (const fallbackImages of [video ? [] : imageUrls, []]) {
+          for (const fallbackImages of [imageUrls, []]) {
             try {
               await send([], fallbackImages);
               posted++;
