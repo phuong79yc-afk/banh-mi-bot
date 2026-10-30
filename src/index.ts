@@ -11,6 +11,12 @@ import { setupPrefixCommands } from './handlers/prefixCommandHandler';
 import { ModuleLoader } from './core/ModuleLoader';
 import { memoryOptimizer } from './utils/memoryOptimizer';
 import { initializeDatabase } from './database/init';
+import {
+  auditSlashCommands,
+  replyCommandError,
+  runCommandWithTimeout,
+  sanitizeCommandJson,
+} from './utils/commandUx';
 
 const execAsync = promisify(exec);
 
@@ -221,9 +227,10 @@ client.once('clientReady' as any, async () => {
     console.log('🚀 Deploying commands to Discord...');
     
     const commands = [];
+    auditSlashCommands(client.commands);
     for (const [name, command] of client.commands) {
       if (command.data) {
-        commands.push(command.data.toJSON());
+        commands.push(sanitizeCommandJson(command.data.toJSON()));
       }
     }
     
@@ -313,7 +320,7 @@ client.on('interactionCreate', async (interaction) => {
 
       // ⚡ EXECUTE IMMEDIATELY - Let command handle its own defer
       try {
-        await command.execute(interaction);
+        await runCommandWithTimeout(interaction.commandName, interaction, command.execute(interaction));
         
         const totalTime = Date.now() - startTime;
         if (totalTime > 2000) {
@@ -327,26 +334,14 @@ client.on('interactionCreate', async (interaction) => {
           console.warn(`⚠️ Interaction expired for command: ${interaction.commandName}`);
           return;
         }
-        
-        // Send error message if possible
-        const { emojis } = require('./config/emojis');
-        const errorMessage = error.message === 'Command timeout' 
-          ? `${emojis.error} Lệnh này mất quá nhiều thời gian để thực thi!`
-          : `${emojis.error} Có lỗi xảy ra khi thực hiện lệnh này!`;
-        
-        const reply = { content: errorMessage, flags: 64 };
-        
-        try {
-          if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(reply);
-          } else {
-            await interaction.reply(reply);
-          }
-        } catch (replyError: any) {
-          if (replyError.code !== 10062) {
-            console.error('Failed to send error reply:', replyError);
-          }
-        }
+
+        const isTimeout = error.code === 'COMMAND_TIMEOUT' || error.message === 'Command timeout';
+        await replyCommandError(
+          interaction,
+          isTimeout
+            ? 'Lệnh mất quá nhiều thời gian để xử lý. Vui lòng thử lại sau.'
+            : 'Có lỗi xảy ra khi thực hiện lệnh. Hệ thống đã ghi log để kiểm tra.',
+        );
       }
     }
     
