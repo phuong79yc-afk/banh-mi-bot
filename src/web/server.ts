@@ -4,6 +4,7 @@ import { Client } from 'discord.js';
 import { createDashboardRoutes } from './api/dashboardRoutes';
 import { createShopRoutes } from './api/shopRoutes';
 import rateLimit from 'express-rate-limit';
+import { createManagementRoutes } from './api/managementRoutes';
 
 export function startWebServer(client: Client, port: number = 3000) {
   // Check for required security credentials before starting
@@ -24,7 +25,7 @@ export function startWebServer(client: Client, port: number = 3000) {
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Admin-Password');
     
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
@@ -73,6 +74,14 @@ export function startWebServer(client: Client, port: number = 3000) {
     console.log('✅ Dashboard routes mounted successfully');
   } catch (error) {
     console.error('❌ Error mounting dashboard routes:', error);
+  }
+
+  try {
+    const managementRouter = createManagementRoutes(client);
+    app.use('/api', managementRouter);
+    console.log('✅ Management routes mounted successfully');
+  } catch (error) {
+    console.error('❌ Error mounting management routes:', error);
   }
 
   // Auth Routes (Discord OAuth)
