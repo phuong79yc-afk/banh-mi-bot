@@ -501,7 +501,7 @@ export default class VIPModule {
     const vipInfoCommand = {
       data: new SlashCommandBuilder()
         .setName('vipinfo')
-        .setDescription('Xem hạng VIP và quyền lợi của bạn'),
+        .setDescription('Xem hạng VIP hiện tại và các quyền lợi của bạn'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
@@ -525,7 +525,7 @@ export default class VIPModule {
     const vipTiersCommand = {
       data: new SlashCommandBuilder()
         .setName('vip-tiers')
-        .setDescription('Xem tất cả hạng VIP và quyền lợi từng tier'),
+        .setDescription('Xem các hạng VIP và điều kiện, quyền lợi tương ứng'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
@@ -549,7 +549,7 @@ export default class VIPModule {
     const vipBonusCommand = {
       data: new SlashCommandBuilder()
         .setName('vip-bonus')
-        .setDescription('Nhận weekly bonus xu (VIP Gold trở lên)'),
+        .setDescription('Nhận thưởng xu hằng tuần nếu bạn đủ điều kiện VIP'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {

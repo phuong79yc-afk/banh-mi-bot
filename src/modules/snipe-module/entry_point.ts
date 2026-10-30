@@ -214,11 +214,11 @@ export default class SnipeModule {
     const snipeCommand = {
       data: new SlashCommandBuilder()
         .setName('snipe')
-        .setDescription('Xem tin nhắn đã xóa gần đây')
+        .setDescription('Xem lại các tin nhắn vừa bị xóa')
         .addIntegerOption((option) =>
           option
             .setName('page')
-            .setDescription('� Số trang (1-10)')
+            .setDescription('Số trang cần xem (1–10)')
             .setRequired(false)
             .setMinValue(1)
             .setMaxValue(10)
@@ -226,7 +226,7 @@ export default class SnipeModule {
         .addChannelOption((option) =>
           option
             .setName('channel')
-            .setDescription('� Chọn kênh')
+            .setDescription('Kênh cần xem (mặc định là kênh hiện tại)')
             .setRequired(false)
         ),
       execute: (interaction: ChatInputCommandInteraction) => runSnipe(interaction, 'delete'),
@@ -236,11 +236,11 @@ export default class SnipeModule {
     const editsnipeCommand = {
       data: new SlashCommandBuilder()
         .setName('editsnipe')
-        .setDescription('Xem tin nhắn đã chỉnh sửa gần đây')
+        .setDescription('Xem lại nội dung tin nhắn vừa được chỉnh sửa')
         .addIntegerOption((option) =>
           option
             .setName('page')
-            .setDescription('� Số trang (1-10)')
+            .setDescription('Số trang cần xem (1–10)')
             .setRequired(false)
             .setMinValue(1)
             .setMaxValue(10)
@@ -248,7 +248,7 @@ export default class SnipeModule {
         .addChannelOption((option) =>
           option
             .setName('channel')
-            .setDescription('� Chọn kênh')
+            .setDescription('Kênh cần xem (mặc định là kênh hiện tại)')
             .setRequired(false)
         ),
       execute: (interaction: ChatInputCommandInteraction) => runSnipe(interaction, 'edit'),
@@ -308,4 +308,3 @@ export default class SnipeModule {
     console.log('🧹 Snipe module cleanup');
   }
 }
-

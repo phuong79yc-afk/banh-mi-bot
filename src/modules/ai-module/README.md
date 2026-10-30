@@ -19,6 +19,17 @@ Enhanced AI chat system with:
 
 ## 🎯 Commands
 
+### `/image` - Tạo ảnh bằng AI
+
+Tạo ảnh từ mô tả bằng Gemini Nano Banana Flash. Bot cần Gemini API key có quyền truy cập model `gemini-2.5-flash-image`.
+
+**Tùy chọn:**
+- `prompt` (bắt buộc) - Mô tả ảnh cần tạo
+
+```text
+/image prompt:Một tiệm bánh cuốn Việt Nam phong cách tranh màu nước
+```
+
 ### 1. `/ai` - Chat with AI
 
 **Main chat command with full features**

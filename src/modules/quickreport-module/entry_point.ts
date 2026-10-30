@@ -117,11 +117,11 @@ export default class QuickReportModule {
     const enableCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-enable')
-        .setDescription('Bật hệ thống báo cáo nhanh')
+        .setDescription('Bật báo cáo nhanh và chọn kênh nhận báo cáo')
         .addChannelOption(option =>
           option
             .setName('channel')
-            .setDescription('Kênh để gửi báo cáo')
+            .setDescription('Kênh văn bản nhận các báo cáo mới')
             .setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
@@ -144,7 +144,7 @@ export default class QuickReportModule {
     const disableCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-disable')
-        .setDescription('Tắt hệ thống báo cáo nhanh')
+        .setDescription('Tắt tính năng gửi báo cáo nhanh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         reportManager.updateConfig(interaction.guildId!, { enabled: false });
@@ -160,41 +160,41 @@ export default class QuickReportModule {
     const configCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-config')
-        .setDescription('Cấu hình báo cáo nhanh')
+        .setDescription('Quản lý quyền và kênh dùng cho báo cáo nhanh')
         .addSubcommand(sub =>
           sub
             .setName('add-manager')
-            .setDescription('Thêm role quản lý')
+            .setDescription('Cho phép một role quản lý báo cáo')
             .addRoleOption(option =>
-              option.setName('role').setDescription('Role quản lý').setRequired(true)
+              option.setName('role').setDescription('Role được cấp quyền quản lý báo cáo').setRequired(true)
             )
         )
         .addSubcommand(sub =>
           sub
             .setName('remove-manager')
-            .setDescription('Xóa role quản lý')
+            .setDescription('Thu hồi quyền quản lý báo cáo của một role')
             .addRoleOption(option =>
-              option.setName('role').setDescription('Role quản lý').setRequired(true)
+              option.setName('role').setDescription('Role cần thu hồi quyền quản lý báo cáo').setRequired(true)
             )
         )
         .addSubcommand(sub =>
           sub
             .setName('blacklist-channel')
-            .setDescription('Chặn kênh khỏi báo cáo')
+            .setDescription('Không cho gửi báo cáo từ một kênh')
             .addChannelOption(option =>
-              option.setName('channel').setDescription('Kênh').setRequired(true)
+              option.setName('channel').setDescription('Kênh cần chặn gửi báo cáo').setRequired(true)
             )
         )
         .addSubcommand(sub =>
           sub
             .setName('whitelist-channel')
-            .setDescription('Cho phép kênh báo cáo')
+            .setDescription('Cho phép gửi báo cáo trong một kênh')
             .addChannelOption(option =>
-              option.setName('channel').setDescription('Kênh').setRequired(true)
+              option.setName('channel').setDescription('Kênh được phép gửi báo cáo').setRequired(true)
             )
         )
         .addSubcommand(sub =>
-          sub.setName('view').setDescription('Xem cấu hình hiện tại')
+          sub.setName('view').setDescription('Xem cấu hình báo cáo nhanh hiện tại')
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -294,17 +294,17 @@ export default class QuickReportModule {
     const updateCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-update')
-        .setDescription('Cập nhật trạng thái báo cáo')
+        .setDescription('Đổi trạng thái xử lý của một báo cáo')
         .addStringOption(option =>
           option
             .setName('report-id')
-            .setDescription('UUID báo cáo')
+            .setDescription('Mã định danh của báo cáo cần cập nhật')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('status')
-            .setDescription('Trạng thái mới')
+            .setDescription('Trạng thái xử lý mới')
             .setRequired(true)
             .addChoices(
               { name: 'Đang chờ', value: 'pending' },
@@ -346,11 +346,11 @@ export default class QuickReportModule {
     const recentCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-recent')
-        .setDescription('Xem báo cáo gần đây')
+        .setDescription('Liệt kê các báo cáo mới nhất trong máy chủ')
         .addIntegerOption(option =>
           option
             .setName('limit')
-            .setDescription('Số báo cáo hiển thị')
+            .setDescription('Số báo cáo muốn xem (1–25)')
             .setMinValue(1)
             .setMaxValue(25)
         ),
@@ -386,11 +386,11 @@ export default class QuickReportModule {
     const checkCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-check')
-        .setDescription('Kiểm tra báo cáo cụ thể')
+        .setDescription('Xem chi tiết một báo cáo theo mã')
         .addStringOption(option =>
           option
             .setName('report-id')
-            .setDescription('UUID báo cáo')
+            .setDescription('Mã định danh của báo cáo cần xem')
             .setRequired(true)
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {

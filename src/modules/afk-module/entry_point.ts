@@ -89,13 +89,13 @@ export default class AFKModule {
     const afkCommand = {
       data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Đặt trạng thái AFK với lý do (tùy chọn)')
+        .setDescription('Bật trạng thái vắng mặt và thông báo lý do')
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o =>
-          o.setName('reason').setDescription('� Lý do AFK').setMaxLength(100).setRequired(false),
+          o.setName('reason').setDescription('Lý do vắng mặt (tối đa 100 ký tự)').setMaxLength(100).setRequired(false),
         )
         .addBooleanOption(o =>
-          o.setName('silent').setDescription('� Thực hiện lệnh này trong chế độ im lặng').setRequired(false),
+          o.setName('silent').setDescription('Chỉ hiển thị phản hồi cho bạn').setRequired(false),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const reason = (interaction.options.getString('reason') || 'AFK').trim() || 'AFK';
@@ -153,7 +153,7 @@ export default class AFKModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-remove')
-        .setDescription('Xóa trạng thái AFK của bạn')
+        .setDescription('Tắt trạng thái vắng mặt của bạn')
         .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const afkUser = afkManager.removeAFK(interaction.guildId!, interaction.user.id);
@@ -188,7 +188,7 @@ export default class AFKModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-list')
-        .setDescription('Xem danh sách user AFK trong server')
+        .setDescription('Liệt kê các thành viên đang bật trạng thái vắng mặt')
         .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const guildAFK = afkManager
@@ -375,4 +375,3 @@ export default class AFKModule {
     console.log('🧹 AFK module cleanup');
   }
 }
-

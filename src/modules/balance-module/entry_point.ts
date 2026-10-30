@@ -120,30 +120,30 @@ export { addTransaction, getUser };
 const compensateCommand = {
   data: new SlashCommandBuilder()
     .setName('compensate')
-    .setDescription('[[Admin]] Đền bù xu hoặc vé vàng cho user')
+    .setDescription('Cộng xu hoặc vé vàng vào tài khoản một thành viên (quản trị viên)')
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('User nhận đền bù')
+        .setDescription('Thành viên nhận khoản đền bù')
         .setRequired(true)
     )
     .addStringOption(option =>
       option
         .setName('reason')
-        .setDescription('Lý do đền bù')
+        .setDescription('Lý do cộng xu hoặc vé vàng')
         .setRequired(true)
     )
     .addIntegerOption(option =>
       option
         .setName('coins')
-        .setDescription('Số xu đền bù')
+        .setDescription('Số xu cần cộng (để trống nếu không cộng xu)')
         .setRequired(false)
         .setMinValue(1)
     )
     .addIntegerOption(option =>
       option
         .setName('gold')
-        .setDescription('Số vé vàng đền bù')
+        .setDescription('Số vé vàng cần cộng (để trống nếu không cộng vé)')
         .setRequired(false)
         .setMinValue(1)
     )
@@ -271,17 +271,17 @@ const compensateCommand = {
 const bulkCompensateCommand = {
   data: new SlashCommandBuilder()
     .setName('bulk-compensate')
-    .setDescription('[[Admin]] Đền bù hàng loạt cho nhiều users')
+    .setDescription('Cộng xu hoặc vé vàng cho nhiều thành viên cùng lúc (quản trị viên)')
     .addStringOption(option =>
       option
         .setName('reason')
-        .setDescription('Lý do đền bù')
+        .setDescription('Lý do cộng xu hoặc vé vàng')
         .setRequired(true)
     )
     .addStringOption(option =>
       option
         .setName('filter')
-        .setDescription('Lọc users cần đền bù')
+        .setDescription('Chọn nhóm thành viên sẽ nhận khoản đền bù')
         .setRequired(true)
         .addChoices(
           { name: 'Tất cả users', value: 'all' },
@@ -292,14 +292,14 @@ const bulkCompensateCommand = {
     .addIntegerOption(option =>
       option
         .setName('coins')
-        .setDescription('Số xu đền bù mỗi người')
+        .setDescription('Số xu cộng cho mỗi thành viên')
         .setRequired(false)
         .setMinValue(1)
     )
     .addIntegerOption(option =>
       option
         .setName('gold')
-        .setDescription('Số vé vàng đền bù mỗi người')
+        .setDescription('Số vé vàng cộng cho mỗi thành viên')
         .setRequired(false)
         .setMinValue(1)
     )
@@ -529,11 +529,11 @@ const bulkCompensateCommand = {
 const balanceCommand = {
   data: new SlashCommandBuilder()
     .setName('balance')
-    .setDescription('Kiểm tra số xu và vé vàng')
+    .setDescription('Xem số dư xu và vé vàng của bạn hoặc thành viên khác')
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('User cần xem (để trống để xem của bạn)')
+        .setDescription('Thành viên cần xem (để trống để xem số dư của bạn)')
         .setRequired(false)
     ),
 
@@ -599,17 +599,17 @@ const balanceCommand = {
 const transactionHistoryCommand = {
   data: new SlashCommandBuilder()
     .setName('transaction-history')
-    .setDescription('Xem lịch sử giao dịch xu và vé vàng')
+    .setDescription('Xem lịch sử giao dịch xu và vé vàng của thành viên')
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('User cần xem (để trống để xem của bạn)')
+        .setDescription('Thành viên cần xem (để trống để xem lịch sử của bạn)')
         .setRequired(false)
     )
     .addIntegerOption(option =>
       option
         .setName('limit')
-        .setDescription('Số lượng giao dịch hiển thị')
+        .setDescription('Số giao dịch muốn hiển thị')
         .setRequired(false)
         .setMinValue(1)
         .setMaxValue(50)

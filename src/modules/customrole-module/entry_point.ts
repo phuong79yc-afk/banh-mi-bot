@@ -43,11 +43,11 @@ export default class CustomRoleModule {
     const enableCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-enable')
-        .setDescription('Bật hệ thống role tùy chỉnh')
+        .setDescription('Bật tính năng tạo role cá nhân cho thành viên')
         .addIntegerOption(option =>
           option
             .setName('max-roles')
-            .setDescription('Số role tối đa mỗi người (mặc định: 1)')
+            .setDescription('Số role cá nhân tối đa mỗi thành viên (mặc định: 1)')
             .setRequired(false)
             .setMinValue(1)
             .setMaxValue(5)
@@ -72,7 +72,7 @@ export default class CustomRoleModule {
     const disableCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-disable')
-        .setDescription('Tắt hệ thống role tùy chỉnh')
+        .setDescription('Tắt tính năng tạo role cá nhân')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
       execute: async (interaction: ChatInputCommandInteraction) => {
         customRoleManager.updateConfig(interaction.guildId!, { enabled: false });
@@ -88,11 +88,11 @@ export default class CustomRoleModule {
     const colorPaletteCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-color-palette')
-        .setDescription(`${emojis.art} Đặt màu role cho phép (để trống = tất cả)`)
+        .setDescription(`${emojis.art} Giới hạn các màu được phép dùng cho role cá nhân`)
         .addStringOption(option =>
           option
             .setName('colors')
-            .setDescription('Màu hex phân cách bằng dấu phẩy (vd: #ff0000,#00ff00,#0000ff)')
+            .setDescription('Danh sách mã màu HEX, phân cách bằng dấu phẩy; để trống để cho phép mọi màu')
             .setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -132,23 +132,23 @@ export default class CustomRoleModule {
     const adminCreateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-create')
-        .setDescription('Tạo role tùy chỉnh cho user ([[Admin]])')
+        .setDescription('Tạo role cá nhân và gán cho một thành viên')
         .addUserOption(option =>
           option
             .setName('user')
-            .setDescription('User để tạo role')
+            .setDescription('Thành viên sẽ nhận role')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('name')
-            .setDescription('Tên role')
+            .setDescription('Tên role cần tạo')
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('color')
-            .setDescription('Màu role (hex, vd: #ff0000)')
+            .setDescription('Mã màu HEX của role, ví dụ #ff0000')
             .setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -194,20 +194,20 @@ export default class CustomRoleModule {
     const manageCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-manage')
-        .setDescription('Quản lý role tùy chỉnh')
+        .setDescription('Xem hoặc xóa role cá nhân của thành viên')
         .addSubcommand(sub =>
           sub
             .setName('list')
-            .setDescription('Xem danh sách tất cả role tùy chỉnh')
+            .setDescription('Liệt kê các role cá nhân trong máy chủ')
         )
         .addSubcommand(sub =>
           sub
             .setName('delete')
-            .setDescription('Xóa role tùy chỉnh của user')
+            .setDescription('Xóa role cá nhân của một thành viên')
             .addUserOption(option =>
               option
                 .setName('user')
-                .setDescription('User')
+                .setDescription('Thành viên cần xóa role')
                 .setRequired(true)
             )
         )
@@ -273,11 +273,11 @@ export default class CustomRoleModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-migrate')
-        .setDescription(`${emojis.refresh} Chuyển role tùy chỉnh sang server khác`)
+        .setDescription(`${emojis.refresh} Chuyển dữ liệu role cá nhân sang máy chủ khác`)
         .addStringOption(option =>
           option
             .setName('target-guild-id')
-            .setDescription('ID server đích')
+            .setDescription('ID của máy chủ nhận dữ liệu')
             .setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -324,7 +324,7 @@ export default class CustomRoleModule {
     const terminateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-terminate')
-        .setDescription(`${emojis.warning} Xóa TẤT CẢ role tùy chỉnh và tắt hệ thống`)
+        .setDescription(`${emojis.warning} Xóa toàn bộ role cá nhân và tắt tính năng`)
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await interaction.deferReply({ flags: 64 });

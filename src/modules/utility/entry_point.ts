@@ -439,9 +439,9 @@ export default class UtilityModule {
     // ───────── POLL ─────────
     const pollCommand = {
       data: new SlashCommandBuilder()
-        .setName('poll').setDescription('Tạo bình chọn')
-        .addStringOption(o => o.setName('question').setDescription('❓ Câu hỏi bình chọn').setRequired(true))
-        .addStringOption(o => o.setName('options').setDescription('Các lựa chọn (phân cách bằng dấu phẩy, tối đa 10)').setRequired(true)),
+        .setName('poll').setDescription('Tạo bình chọn để thành viên chọn một phương án')
+        .addStringOption(o => o.setName('question').setDescription('Câu hỏi cần bình chọn').setRequired(true))
+        .addStringOption(o => o.setName('options').setDescription('Từ 2 đến 10 lựa chọn, phân cách bằng dấu phẩy').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const question = interaction.options.getString('question', true);
@@ -470,8 +470,8 @@ export default class UtilityModule {
     // ───────── CALC ─────────
     const calcCommand = {
       data: new SlashCommandBuilder()
-        .setName('calc').setDescription('� Tính toán biểu thức')
-        .addStringOption(o => o.setName('expression').setDescription('� Biểu thức toán học (vd: 2+2, 5*10)').setRequired(true)),
+        .setName('calc').setDescription('Tính giá trị của một biểu thức số học')
+        .addStringOption(o => o.setName('expression').setDescription('Biểu thức gồm số và phép tính, ví dụ 2+2 hoặc 5*10').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const expression = interaction.options.getString('expression', true);
@@ -497,9 +497,9 @@ export default class UtilityModule {
     // ───────── RANDOM ─────────
     const randomCommand = {
       data: new SlashCommandBuilder()
-        .setName('random').setDescription('� Tạo số ngẫu nhiên')
-        .addIntegerOption(o => o.setName('min').setDescription('� Giá trị tối thiểu').setRequired(false))
-        .addIntegerOption(o => o.setName('max').setDescription('� Giá trị tối đa').setRequired(false)),
+        .setName('random').setDescription('Tạo một số nguyên ngẫu nhiên trong khoảng đã chọn')
+        .addIntegerOption(o => o.setName('min').setDescription('Giá trị nhỏ nhất (mặc định: 1)').setRequired(false))
+        .addIntegerOption(o => o.setName('max').setDescription('Giá trị lớn nhất (mặc định: 100)').setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const min = interaction.options.getInteger('min') ?? 1;
@@ -522,8 +522,8 @@ export default class UtilityModule {
     // ───────── CHOOSE ─────────
     const chooseCommand = {
       data: new SlashCommandBuilder()
-        .setName('choose').setDescription('Chọn giữa các lựa chọn với hiệu ứng')
-        .addStringOption(o => o.setName('options').setDescription('Các lựa chọn (phân cách bằng dấu phẩy, vd: pizza, burger, sushi)').setRequired(true)),
+        .setName('choose').setDescription('Chọn ngẫu nhiên một phương án từ danh sách')
+        .addStringOption(o => o.setName('options').setDescription('Ít nhất 2 lựa chọn, phân cách bằng dấu phẩy').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const options = interaction.options.getString('options', true).split(',').map(o => o.trim()).filter(Boolean);
@@ -566,7 +566,7 @@ export default class UtilityModule {
 
     // ───────── HELP ─────────
     const helpCommand = {
-      data: new SlashCommandBuilder().setName('help').setDescription('� Menu Trợ Giúp - Xem tất cả lệnh'),
+      data: new SlashCommandBuilder().setName('help').setDescription('Xem danh sách lệnh và hướng dẫn sử dụng bot'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply(); }
@@ -693,7 +693,7 @@ export default class UtilityModule {
 
     // ───────── INFORMATION ─────────
     const infoCommand = {
-      data: new SlashCommandBuilder().setName('information').setDescription('ℹ️ Thông tin về bot'),
+      data: new SlashCommandBuilder().setName('information').setDescription('Xem thông tin phiên bản và hoạt động của bot'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply(); }
@@ -766,7 +766,7 @@ export default class UtilityModule {
 
     // ───────── RULE ─────────
     const ruleCommand = {
-      data: new SlashCommandBuilder().setName('rule').setDescription('Xem luật server'),
+      data: new SlashCommandBuilder().setName('rule').setDescription('Xem nội quy của máy chủ'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); }
@@ -791,9 +791,9 @@ export default class UtilityModule {
     // ───────── RULE SETUP ─────────
     const ruleSetupCommand = {
       data: new SlashCommandBuilder()
-        .setName('rule-setup').setDescription('Tạo danh mục và kênh rules riêng')
+        .setName('rule-setup').setDescription('Tạo danh mục và kênh nội quy cho máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addBooleanOption(o => o.setName('force').setDescription('Buộc tạo lại từ đầu (xóa rules cũ)').setRequired(false)),
+        .addBooleanOption(o => o.setName('force').setDescription('Tạo lại kênh và nội dung nội quy hiện có').setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply(); }
@@ -963,10 +963,10 @@ export default class UtilityModule {
     const eventTestCommand = {
       data: new SlashCommandBuilder()
         .setName('event-test')
-        .setDescription('� Test event embeds (welcome, goodbye, giveaway-end, level-up)')
+        .setDescription('Kiểm tra trước nội dung thông báo của một sự kiện')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(o => o.setName('event')
-          .setDescription('Event type to test')
+          .setDescription('Chọn loại thông báo cần kiểm tra')
           .setRequired(true)
           .addChoices(
             { name: 'Welcome', value: 'welcome' },
@@ -975,7 +975,7 @@ export default class UtilityModule {
             { name: 'Level Up', value: 'level-up' }
           ))
         .addUserOption(o => o.setName('user')
-          .setDescription('Target user (defaults to you)')
+          .setDescription('Thành viên dùng làm dữ liệu thử (mặc định là bạn)')
           .setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {

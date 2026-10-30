@@ -832,11 +832,11 @@ export default class MinecraftModule {
     const minecraftServerCommand = {
       data: new SlashCommandBuilder()
         .setName('minecraft-server')
-        .setDescription('Kiểm tra trạng thái Minecraft server')
+        .setDescription('Kiểm tra máy chủ Minecraft đang hoạt động hay ngoại tuyến')
         .addStringOption((option) =>
           option
             .setName('address')
-            .setDescription('Địa chỉ server (vd: play.hypixel.net hoặc 1.1.1.1:25565)')
+            .setDescription('Địa chỉ máy chủ, có thể kèm cổng (ví dụ play.hypixel.net:25565)')
             .setRequired(true),
         ),
 
@@ -917,14 +917,14 @@ export default class MinecraftModule {
     const customBannerCommand = {
       data: new SlashCommandBuilder()
         .setName('minecraft-custom-server-banner')
-        .setDescription('Tạo banner Minecraft server tùy chỉnh với nhiều style và hiệu ứng')
+        .setDescription('Tạo banner tùy chỉnh hiển thị thông tin máy chủ Minecraft')
         .addStringOption((option) =>
-          option.setName('address').setDescription('Địa chỉ server (vd: play.hypixel.net)').setRequired(true),
+          option.setName('address').setDescription('Địa chỉ máy chủ, có thể kèm cổng (ví dụ play.hypixel.net:25565)').setRequired(true),
         )
         .addStringOption((option) =>
           option
             .setName('style')
-            .setDescription('Style background')
+            .setDescription('Chọn giao diện nền cho banner')
             .setRequired(false)
             .addChoices(
               { name: '🌙 End Stone', value: 'end_stone' },
@@ -940,7 +940,7 @@ export default class MinecraftModule {
         .addStringOption((option) =>
           option
             .setName('layout')
-            .setDescription('Bố cục banner')
+            .setDescription('Chọn cách sắp xếp thông tin trên banner')
             .setRequired(false)
             .addChoices(
               { name: '📐 Default - Classic', value: 'default' },
@@ -953,7 +953,7 @@ export default class MinecraftModule {
         .addStringOption((option) =>
           option
             .setName('text-effect')
-            .setDescription('Hiệu ứng chữ')
+            .setDescription('Chọn hiệu ứng hiển thị chữ')
             .setRequired(false)
             .addChoices(
               { name: '✨ None - Clean', value: 'none' },
@@ -966,13 +966,13 @@ export default class MinecraftModule {
         .addBooleanOption((option) =>
           option
             .setName('animated')
-            .setDescription('Tạo GIF động với player count animation')
+            .setDescription('Tạo banner GIF với hiệu ứng số người chơi')
             .setRequired(false),
         )
         .addStringOption((option) =>
           option
             .setName('border')
-            .setDescription('Viền banner')
+            .setDescription('Chọn kiểu đường viền cho banner')
             .setRequired(false)
             .addChoices(
               { name: '🚫 None', value: 'none' },
@@ -984,7 +984,7 @@ export default class MinecraftModule {
         .addStringOption((option) =>
           option
             .setName('text-color')
-            .setDescription('Màu chữ chính')
+            .setDescription('Chọn màu chữ chính trên banner')
             .setRequired(false)
             .addChoices(
               { name: '⚪ White', value: '#FFFFFF' },
@@ -1004,13 +1004,13 @@ export default class MinecraftModule {
         .addStringOption((option) =>
           option
             .setName('custom-color')
-            .setDescription('Màu tùy chỉnh (HEX: #RRGGBB, vd: #4287f5)')
+            .setDescription('Mã màu HEX tùy chỉnh (định dạng #RRGGBB)')
             .setRequired(false),
         )
         .addStringOption((option) =>
           option
             .setName('accent-color')
-            .setDescription('Màu phụ cho player count/version')
+            .setDescription('Chọn màu phụ cho số người chơi và phiên bản')
             .setRequired(false)
             .addChoices(
               { name: '🟢 Green (Default)', value: '#55FF55' },
@@ -1025,19 +1025,19 @@ export default class MinecraftModule {
         .addStringOption((option) =>
           option
             .setName('title')
-            .setDescription('Tiêu đề tùy chỉnh (thay vì tên server)')
+            .setDescription('Tiêu đề thay thế tên máy chủ trên banner')
             .setRequired(false),
         )
         .addStringOption((option) =>
           option
             .setName('footer-text')
-            .setDescription('Text cho footer (mặc định: server info)')
+            .setDescription('Nội dung chân banner (mặc định là thông tin máy chủ)')
             .setRequired(false),
         )
         .addStringOption((option) =>
           option
             .setName('description')
-            .setDescription('Mô tả thêm hiển thị dưới MOTD')
+            .setDescription('Dòng mô tả bổ sung hiển thị bên dưới MOTD')
             .setRequired(false),
         ),
 

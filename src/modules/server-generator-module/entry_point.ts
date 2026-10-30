@@ -1254,11 +1254,11 @@ export default class ServerGeneratorModule {
     this.commands.set('generator', {
       data: new SlashCommandBuilder()
         .setName('generator')
-        .setDescription('✨ Tạo cấu trúc server bằng AI: kênh, category, welcome/goodbye tự động 🎨')
+        .setDescription('Tạo cấu trúc máy chủ bằng AI hoặc quản lý tính năng máy chủ')
         .addStringOption((option) =>
           option
             .setName('mode')
-            .setDescription('Chọn tạo server bằng AI hoặc quản lý tính năng')
+            .setDescription('Chọn tạo cấu trúc mới hoặc quản lý tính năng máy chủ')
             .addChoices(
               { name: 'Tạo server bằng AI', value: 'create' },
               { name: 'Quản lý tính năng server', value: 'features' }

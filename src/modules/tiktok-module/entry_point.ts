@@ -857,8 +857,8 @@ export default class TikTokModule {
     const tiktokCommand = {
       data: new SlashCommandBuilder()
         .setName('tiktok')
-        .setDescription(`${emojis.tt_music} Tạo thẻ đẹp từ link TikTok`)
-        .addStringOption((o) => o.setName('link').setDescription('Link video hoặc bài đăng TikTok').setRequired(true)),
+        .setDescription(`${emojis.tt_music} Tạo thẻ xem trước từ liên kết TikTok`)
+        .addStringOption((o) => o.setName('link').setDescription('Liên kết video hoặc bài đăng TikTok').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {

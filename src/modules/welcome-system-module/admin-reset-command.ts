@@ -4,11 +4,11 @@ import { getTursoDatabase } from '../../database/turso';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-reset-daily')
-  .setDescription('[Admin] Reset daily của user để test')
+  .setDescription('Đặt lại lượt điểm danh trong ngày của một thành viên')
   .addUserOption(option =>
     option
       .setName('user')
-      .setDescription('User cần reset daily')
+      .setDescription('Thành viên cần đặt lại lượt điểm danh')
       .setRequired(true)
   )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);

@@ -252,10 +252,10 @@ export default class ModerationModule {
     const kickCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-kick')
-        .setDescription('Đuổi user ra khỏi server')
+        .setDescription('Mời một thành viên rời khỏi máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
-        .addUserOption((o) => o.setName('user').setDescription('User để kick').setRequired(true))
-        .addStringOption((o) => o.setName('reason').setDescription('Lý do kick').setRequired(false)),
+        .addUserOption((o) => o.setName('user').setDescription('Thành viên cần mời khỏi máy chủ').setRequired(true))
+        .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const target = interaction.options.getMember('user') as GuildMember | null;
@@ -300,14 +300,14 @@ export default class ModerationModule {
     const banCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-ban')
-        .setDescription('Cấm vĩnh viễn user khỏi server')
+        .setDescription('Cấm một thành viên khỏi máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-        .addUserOption((o) => o.setName('user').setDescription('User để ban').setRequired(true))
-        .addStringOption((o) => o.setName('reason').setDescription('Lý do ban').setRequired(false))
+        .addUserOption((o) => o.setName('user').setDescription('Thành viên cần cấm khỏi máy chủ').setRequired(true))
+        .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false))
         .addIntegerOption((o) =>
           o
             .setName('delete-days')
-            .setDescription('Xóa tin nhắn (số ngày)')
+            .setDescription('Số ngày tin nhắn cần xóa (0–7 ngày)')
             .setMinValue(0)
             .setMaxValue(7)
             .setRequired(false)
@@ -384,13 +384,13 @@ export default class ModerationModule {
     const timeoutCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-timeout')
-        .setDescription('Cấm user chat tạm thời ()')
+        .setDescription('Tạm thời hạn chế một thành viên gửi tin nhắn')
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-        .addUserOption((o) => o.setName('user').setDescription('User để timeout').setRequired(true))
+        .addUserOption((o) => o.setName('user').setDescription('Thành viên cần hạn chế gửi tin nhắn').setRequired(true))
         .addIntegerOption((o) =>
-          o.setName('duration').setDescription('Thời gian (phút)').setMinValue(1).setMaxValue(40320).setRequired(true)
+          o.setName('duration').setDescription('Thời lượng tính bằng phút (1–40320)').setMinValue(1).setMaxValue(40320).setRequired(true)
         )
-        .addStringOption((o) => o.setName('reason').setDescription('Lý do timeout').setRequired(false)),
+        .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const target = interaction.options.getMember('user') as GuildMember | null;
@@ -462,10 +462,10 @@ export default class ModerationModule {
     const clearCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-clear')
-        .setDescription('Xóa hàng loạt tin nhắn trong kênh ()')
+        .setDescription('Xóa nhiều tin nhắn gần đây trong một kênh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addIntegerOption((o) =>
-          o.setName('amount').setDescription('Số tin nhắn để xóa (1-100)').setMinValue(1).setMaxValue(100).setRequired(true)
+          o.setName('amount').setDescription('Số tin nhắn cần xóa (1–100)').setMinValue(1).setMaxValue(100).setRequired(true)
         ),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -520,16 +520,16 @@ export default class ModerationModule {
     const lockCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-lock')
-        .setDescription('Khóa kênh để ngăn gửi tin nhắn')
+        .setDescription('Ngăn thành viên gửi tin nhắn trong một kênh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o
             .setName('channel')
-            .setDescription('Kênh để khóa (mặc định kênh hiện tại)')
+            .setDescription('Kênh cần khóa (mặc định là kênh hiện tại)')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(false)
         )
-        .addStringOption((o) => o.setName('reason').setDescription('Lý do khóa').setRequired(false)),
+        .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const targetChannel = (interaction.options.getChannel('channel') || interaction.channel) as TextChannel;
@@ -585,12 +585,12 @@ export default class ModerationModule {
     const unlockCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-unlock')
-        .setDescription('Mở khóa kênh')
+        .setDescription('Cho phép thành viên gửi tin nhắn trở lại trong kênh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o
             .setName('channel')
-            .setDescription('Kênh để mở khóa (mặc định kênh hiện tại)')
+            .setDescription('Kênh cần mở khóa (mặc định là kênh hiện tại)')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(false)
         ),
@@ -633,4 +633,3 @@ export default class ModerationModule {
     console.log('🧹 Moderation module cleanup');
   }
 }
-

@@ -313,7 +313,7 @@ export default class DailyModule {
   private registerCommands() {
     // ==================== /daily ====================
     const dailyCommand = {
-      data: new SlashCommandBuilder().setName('daily').setDescription('Điểm danh hàng ngày để nhận xu'),
+      data: new SlashCommandBuilder().setName('daily').setDescription('Điểm danh hôm nay để nhận xu và duy trì chuỗi ngày'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           await interaction.deferReply();
@@ -483,7 +483,7 @@ export default class DailyModule {
 
     // ==================== /daily-stats ====================
     const statsCommand = {
-      data: new SlashCommandBuilder().setName('daily-stats').setDescription('Xem thống kê điểm danh của bạn'),
+      data: new SlashCommandBuilder().setName('daily-stats').setDescription('Xem thống kê và chuỗi điểm danh của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           await interaction.deferReply();
@@ -544,7 +544,7 @@ export default class DailyModule {
 
     // ==================== /daily-leaderboard ====================
     const leaderboardCommand = {
-      data: new SlashCommandBuilder().setName('daily-leaderboard').setDescription('Xem bảng xếp hạng điểm danh'),
+      data: new SlashCommandBuilder().setName('daily-leaderboard').setDescription('Xem bảng xếp hạng điểm danh trong máy chủ'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
           await interaction.deferReply();

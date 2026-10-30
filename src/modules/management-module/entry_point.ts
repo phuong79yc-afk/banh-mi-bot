@@ -9,8 +9,12 @@ import {
   PermissionFlagsBits,
   PermissionsBitField,
   GuildMember,
+  ChannelType,
 } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 import { getModuleLoader } from '../../index';
+import { setGuildFeature } from '../../utils/serverFeatures';
 import {
   addAuditEntry,
   createBackup,
@@ -55,36 +59,53 @@ export class ManagementModule {
   private registerCommands() {
     const data = new SlashCommandBuilder()
       .setName('manage')
-      .setDescription('Quản lý bot, module, guild và dữ liệu vận hành')
-      .addSubcommand((sub) => sub.setName('status').setDescription('Xem trạng thái bot và server'))
-      .addSubcommand((sub) => sub.setName('health').setDescription('Xem sức khỏe, RAM và uptime'))
-      .addSubcommand((sub) => sub.setName('modules').setDescription('Danh sách module đang hoạt động'))
+      .setDescription('Quản trị bot, tính năng và dữ liệu của máy chủ')
+      .addSubcommand((sub) => sub.setName('status').setDescription('Xem trạng thái bot và thông tin máy chủ'))
+      .addSubcommand((sub) => sub.setName('health').setDescription('Kiểm tra ping, thời gian hoạt động và bộ nhớ bot'))
+      .addSubcommand((sub) => sub.setName('modules').setDescription('Xem các module đang được tải'))
       .addSubcommand((sub) => sub
         .setName('module')
-        .setDescription('Tải, tải lại hoặc tắt module')
-        .addStringOption((opt) => opt.setName('action').setDescription('Hành động').setRequired(true).addChoices(
+        .setDescription('Tải, tải lại hoặc tắt một module')
+        .addStringOption((opt) => opt.setName('action').setDescription('Chọn thao tác cần thực hiện').setRequired(true).addChoices(
           { name: 'Tải lại', value: 'reload' },
           { name: 'Tắt', value: 'unload' },
           { name: 'Mở lại', value: 'load' },
         ))
-        .addStringOption((opt) => opt.setName('name').setDescription('Tên module').setRequired(true)))
-      .addSubcommand((sub) => sub.setName('commands').setDescription('Kiểm tra và liệt kê slash command'))
+        .addStringOption((opt) => opt.setName('name').setDescription('Tên module cần thao tác').setRequired(true)))
+      .addSubcommand((sub) => sub.setName('commands').setDescription('Liệt kê các lệnh slash đã đăng ký'))
+      .addSubcommand((sub) => sub
+        .setName('welcome')
+        .setDescription('Cài đặt kênh, lời chào và role mặc định cho thành viên mới')
+        .addBooleanOption((opt) => opt.setName('enabled').setDescription('Bật hoặc tắt lời chào thành viên mới').setRequired(false))
+        .addChannelOption((opt) => opt.setName('channel').setDescription('Chọn kênh văn bản để gửi lời chào').setRequired(false))
+        .addBooleanOption((opt) => opt.setName('auto-create').setDescription('Tạo kênh mới nếu chưa chọn kênh').setRequired(false))
+        .addStringOption((opt) => opt.setName('channel-name').setDescription('Tên kênh sẽ tạo nếu chưa tồn tại').setRequired(false))
+        .addStringOption((opt) => opt.setName('message').setDescription('Nội dung chào; hỗ trợ {user}, {username}, {server}, {memberCount}').setRequired(false))
+        .addRoleOption((opt) => opt.setName('autorole').setDescription('Role muốn gán cho thành viên mới').setRequired(false)))
+      .addSubcommand((sub) => sub
+        .setName('goodbye')
+        .setDescription('Cài đặt kênh và lời nhắn khi thành viên rời máy chủ')
+        .addBooleanOption((opt) => opt.setName('enabled').setDescription('Bật hoặc tắt lời nhắn khi thành viên rời đi').setRequired(false))
+        .addChannelOption((opt) => opt.setName('channel').setDescription('Chọn kênh văn bản để gửi lời nhắn').setRequired(false))
+        .addBooleanOption((opt) => opt.setName('auto-create').setDescription('Tạo kênh mới nếu chưa chọn kênh').setRequired(false))
+        .addStringOption((opt) => opt.setName('channel-name').setDescription('Tên kênh sẽ tạo nếu chưa tồn tại').setRequired(false))
+        .addStringOption((opt) => opt.setName('message').setDescription('Nội dung lời nhắn; hỗ trợ {user}, {username}, {server}, {memberCount}').setRequired(false)))
       .addSubcommand((sub) => sub
         .setName('setting')
-        .setDescription('Cài đặt cấu hình riêng cho guild')
-        .addStringOption((opt) => opt.setName('key').setDescription('Tên cấu hình').setRequired(true))
-        .addStringOption((opt) => opt.setName('value').setDescription('Giá trị cấu hình').setRequired(true)))
-      .addSubcommand((sub) => sub.setName('audit').setDescription('Xem nhật ký quản trị gần nhất'))
-      .addSubcommand((sub) => sub.setName('backup').setDescription('Tạo backup dữ liệu bot'))
-      .addSubcommand((sub) => sub.setName('backups').setDescription('Liệt kê các backup'))
+        .setDescription('Lưu một giá trị cài đặt riêng cho máy chủ')
+        .addStringOption((opt) => opt.setName('key').setDescription('Tên khóa cài đặt cần lưu').setRequired(true))
+        .addStringOption((opt) => opt.setName('value').setDescription('Giá trị mới của cài đặt').setRequired(true)))
+      .addSubcommand((sub) => sub.setName('audit').setDescription('Xem các thao tác quản trị gần đây'))
+      .addSubcommand((sub) => sub.setName('backup').setDescription('Sao lưu dữ liệu bot ngay'))
+      .addSubcommand((sub) => sub.setName('backups').setDescription('Xem các bản sao lưu hiện có'))
       .addSubcommand((sub) => sub
         .setName('schedule')
-        .setDescription('Tạo tác vụ định kỳ')
-        .addStringOption((opt) => opt.setName('action').setDescription('Hành động').setRequired(true).addChoices(
+        .setDescription('Lên lịch sao lưu hoặc kiểm tra sức khỏe bot')
+        .addStringOption((opt) => opt.setName('action').setDescription('Chọn loại tác vụ định kỳ').setRequired(true).addChoices(
           { name: 'Bật backup định kỳ', value: 'backup' },
           { name: 'Bật health check', value: 'health-check' },
         ))
-        .addIntegerOption((opt) => opt.setName('minutes').setDescription('Chu kỳ phút, tối thiểu 1').setRequired(true).setMinValue(1).setMaxValue(10080)));
+        .addIntegerOption((opt) => opt.setName('minutes').setDescription('Khoảng lặp tính bằng phút (1–10080)').setRequired(true).setMinValue(1).setMaxValue(10080)));
 
     this.commands.set('manage', {
       data,
@@ -105,6 +126,102 @@ export class ManagementModule {
 
     const subcommand = interaction.options.getSubcommand();
     if (!subcommand) return;
+
+    if (subcommand === 'welcome' || subcommand === 'goodbye') {
+      const isWelcome = subcommand === 'welcome';
+      const enabled = interaction.options.getBoolean('enabled');
+      const selectedChannel = interaction.options.getChannel('channel');
+      const autoCreate = interaction.options.getBoolean('auto-create') ?? true;
+      const customName = interaction.options.getString('channel-name')?.trim();
+      const message = interaction.options.getString('message')?.trim();
+      const autorole = isWelcome ? interaction.options.getRole('autorole') : null;
+
+      let channelId = selectedChannel && selectedChannel.type === ChannelType.GuildText
+        ? selectedChannel.id
+        : undefined;
+
+      if (!channelId && autoCreate) {
+        const requestedName = customName?.replace(/[^a-zA-Z0-9-_. ]/g, '').trim().slice(0, 80)
+          || (isWelcome ? 'welcome' : 'goodbye');
+        const existing = interaction.guild.channels.cache.find((channel) =>
+          channel.isTextBased()
+          && !channel.isDMBased()
+          && channel.type === ChannelType.GuildText
+          && channel.name.toLowerCase().replace(/[^a-z0-9]/g, '') === requestedName.toLowerCase().replace(/[^a-z0-9]/g, '')
+        );
+        if (existing) {
+          channelId = existing.id;
+        } else {
+          if (!interaction.guild.members.me?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+            await interaction.reply({
+              components: [card('Không đủ quyền', 'Bot cần quyền **Manage Channels** để tự tạo kênh.')],
+              flags: V2_EPHEMERAL,
+            });
+            return;
+          }
+          const created = await interaction.guild.channels.create({
+            name: requestedName,
+            type: ChannelType.GuildText,
+            reason: `${isWelcome ? 'Welcome' : 'Goodbye'} channel configured by ${interaction.user.tag}`,
+          });
+          channelId = created.id;
+        }
+      }
+
+      if (!channelId) {
+        await interaction.reply({
+          components: [card('Thiếu kênh', `Bật \`auto-create\` hoặc chọn một kênh cho hệ thống **${subcommand}**.`)],
+          flags: V2_EPHEMERAL,
+        });
+        return;
+      }
+
+      const fileName = isWelcome ? 'welcome-config.json' : 'goodbye-config.json';
+      const filePath = path.join(process.cwd(), 'data', fileName);
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      let data: Record<string, any> = {};
+      try {
+        if (fs.existsSync(filePath)) data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {
+        data = {};
+      }
+
+      const old = data[interaction.guildId!] ?? {};
+      const newConfig = {
+        ...old,
+        ...(isWelcome ? { guildId: interaction.guildId! } : {}),
+        channelId,
+        enabled: enabled ?? old.enabled ?? true,
+        embedEnabled: old.embedEnabled ?? true,
+        message: message ?? old.message ?? (isWelcome ? 'Welcome {user}!' : '{user} has left the server. Goodbye!'),
+        ...(autorole ? { autoRole: autorole.id } : {}),
+      };
+      data[interaction.guildId!] = newConfig;
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      setGuildFeature(interaction.guildId!, isWelcome ? 'welcome_system' : 'goodbye_system', newConfig.enabled);
+
+      addAuditEntry({
+        guildId: interaction.guildId ?? undefined,
+        userId: interaction.user.id,
+        action: isWelcome ? 'welcome.config.updated' : 'goodbye.config.updated',
+        details: { channelId, enabled: newConfig.enabled, autoCreated: autoCreate, autoroleId: autorole?.id },
+        source: 'discord',
+      });
+
+      await interaction.reply({
+        components: [card(
+          `${isWelcome ? 'Welcome' : 'Goodbye'} đã cấu hình`,
+          [
+            `**Kênh:** <#${channelId}>`,
+            `**Trạng thái:** ${newConfig.enabled ? '🟢 Đang bật' : '🔴 Đã tắt'}`,
+            autorole ? `**Auto role:** <@&${autorole.id}>` : null,
+            message ? `**Tin nhắn:** ${message}` : null,
+          ].filter(Boolean).join('\n'),
+        )],
+        flags: V2_EPHEMERAL,
+      });
+      return;
+    }
 
     if (subcommand === 'status' || subcommand === 'health') {
       const health = getServerHealth(this.client);

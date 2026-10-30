@@ -80,26 +80,26 @@ export default class GiveawayModule {
     const createCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-create')
-        .setDescription('Tạo giveaway với phần thưởng và thời gian')
+        .setDescription('Tạo chương trình tặng quà với thời hạn và số người thắng')
         .addStringOption((option) =>
-          option.setName('prize').setDescription('Phần thưởng').setRequired(true)
+          option.setName('prize').setDescription('Tên hoặc nội dung phần thưởng').setRequired(true)
         )
         .addIntegerOption((option) =>
           option
             .setName('duration')
-            .setDescription('Thời gian (phút)')
+            .setDescription('Thời hạn chương trình tính bằng phút')
             .setRequired(true)
             .setMinValue(1)
         )
         .addIntegerOption((option) =>
           option
             .setName('winners')
-            .setDescription('Số người thắng')
+            .setDescription('Số người nhận phần thưởng')
             .setRequired(true)
             .setMinValue(1)
         )
         .addChannelOption((option) =>
-          option.setName('channel').setDescription('� Kênh đăng giveaway').setRequired(false)
+          option.setName('channel').setDescription('Kênh đăng chương trình (mặc định là kênh hiện tại)').setRequired(false)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -194,9 +194,9 @@ export default class GiveawayModule {
     const endCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-end')
-        .setDescription('� Kết thúc giveaway sớm')
+        .setDescription('Kết thúc một chương trình tặng quà trước thời hạn')
         .addStringOption((option) =>
-          option.setName('giveaway-id').setDescription('� ID của giveaway').setRequired(true)
+          option.setName('giveaway-id').setDescription('Mã chương trình cần kết thúc').setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -240,9 +240,9 @@ export default class GiveawayModule {
     const rerollCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-reroll')
-        .setDescription('Chọn lại người thắng ngẫu nhiên')
+        .setDescription('Chọn lại người thắng cho chương trình đã kết thúc')
         .addStringOption((option) =>
-          option.setName('giveaway-id').setDescription('� ID của giveaway').setRequired(true)
+          option.setName('giveaway-id').setDescription('Mã chương trình cần chọn lại người thắng').setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -320,7 +320,7 @@ export default class GiveawayModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-list')
-        .setDescription('Xem tất cả giveaways đang chạy')
+        .setDescription('Liệt kê các chương trình tặng quà đang diễn ra')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const giveaways = giveawayManager.getAllGuild(interaction.guildId!);
@@ -380,9 +380,9 @@ export default class GiveawayModule {
     const deleteCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-delete')
-        .setDescription('Xóa giveaway và hủy hoàn toàn')
+        .setDescription('Xóa chương trình tặng quà và hủy chương trình')
         .addStringOption((option) =>
-          option.setName('giveaway-id').setDescription('� ID của giveaway').setRequired(true)
+          option.setName('giveaway-id').setDescription('Mã chương trình cần xóa').setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -424,11 +424,11 @@ export default class GiveawayModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('giveaway-migrate')
-        .setDescription('Chuyển giveaway sang server khác')
+        .setDescription('Chuyển dữ liệu chương trình tặng quà sang máy chủ khác')
         .addStringOption((option) =>
           option
             .setName('target-guild-id')
-            .setDescription('� ID server đích')
+            .setDescription('ID của máy chủ nhận dữ liệu')
             .setRequired(true)
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -645,4 +645,3 @@ export default class GiveawayModule {
     console.log('🧹 Giveaway module cleanup...');
   }
 }
-

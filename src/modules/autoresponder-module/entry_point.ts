@@ -101,18 +101,18 @@ export default class AutoresponderModule {
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-add')
-        .setDescription('Thêm autoresponder')
+        .setDescription('Tạo câu trả lời tự động theo từ khóa')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true))
-        .addStringOption(o => o.setName('response').setDescription('� Nội dung trả lời').setRequired(true))
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa hoặc cụm từ kích hoạt phản hồi').setRequired(true))
+        .addStringOption(o => o.setName('response').setDescription('Nội dung bot sẽ gửi khi khớp từ khóa').setRequired(true))
         .addStringOption(o =>
-          o.setName('mode').setDescription('Chế độ khớp').setRequired(false).addChoices(...modeChoices),
+          o.setName('mode').setDescription('Cách so khớp từ khóa với tin nhắn').setRequired(false).addChoices(...modeChoices),
         )
         .addBooleanOption(o =>
-          o.setName('ignorecase').setDescription('� Bỏ qua chữ hoa/thường').setRequired(false),
+          o.setName('ignorecase').setDescription('Không phân biệt chữ hoa và chữ thường').setRequired(false),
         )
-        .addIntegerOption(o => o.setName('cooldown').setDescription('Cooldown mỗi user theo giây (0-3600)').setMinValue(0).setMaxValue(3600).setRequired(false)),
+        .addIntegerOption(o => o.setName('cooldown').setDescription('Thời gian chờ mỗi người dùng, tính bằng giây (0–3600)').setMinValue(0).setMaxValue(3600).setRequired(false)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const response = interaction.options.getString('response', true);
@@ -142,15 +142,15 @@ export default class AutoresponderModule {
     const editCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-edit')
-        .setDescription('Chỉnh sửa autoresponder')
+        .setDescription('Cập nhật từ khóa, phản hồi hoặc cách khớp')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('Trigger hiện tại').setRequired(true))
-        .addStringOption(o => o.setName('new-trigger').setDescription('Trigger mới'))
-        .addStringOption(o => o.setName('response').setDescription('Phản hồi mới'))
-        .addStringOption(o => o.setName('mode').setDescription('Chế độ khớp mới').addChoices(...modeChoices))
-        .addBooleanOption(o => o.setName('ignorecase').setDescription('Phân biệt hoa/thường'))
-        .addIntegerOption(o => o.setName('cooldown').setDescription('Cooldown theo giây (0-3600)').setMinValue(0).setMaxValue(3600)),
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa hiện tại cần chỉnh sửa').setRequired(true))
+        .addStringOption(o => o.setName('new-trigger').setDescription('Từ khóa kích hoạt mới'))
+        .addStringOption(o => o.setName('response').setDescription('Nội dung phản hồi mới'))
+        .addStringOption(o => o.setName('mode').setDescription('Cách so khớp từ khóa mới').addChoices(...modeChoices))
+        .addBooleanOption(o => o.setName('ignorecase').setDescription('Có phân biệt chữ hoa và chữ thường không'))
+        .addIntegerOption(o => o.setName('cooldown').setDescription('Thời gian chờ mỗi người dùng, tính bằng giây (0–3600)').setMinValue(0).setMaxValue(3600)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const updates: Parameters<typeof autoresponderManager.edit>[2] = {};
@@ -183,11 +183,11 @@ export default class AutoresponderModule {
     const toggleCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-toggle')
-        .setDescription('Bật hoặc tắt một autoresponder')
+        .setDescription('Bật hoặc tắt phản hồi tự động theo từ khóa')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('Trigger cần đổi trạng thái').setRequired(true))
-        .addBooleanOption(o => o.setName('enabled').setDescription('Bật hay tắt').setRequired(true)),
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần đổi trạng thái').setRequired(true))
+        .addBooleanOption(o => o.setName('enabled').setDescription('Bật phản hồi nếu chọn Có, tắt nếu chọn Không').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const enabled = interaction.options.getBoolean('enabled', true);
@@ -207,10 +207,10 @@ export default class AutoresponderModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-remove')
-        .setDescription('Xóa autoresponder')
+        .setDescription('Xóa phản hồi tự động theo từ khóa')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true)),
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần xóa').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const result = autoresponderManager.remove(interaction.guildId!, trigger);
@@ -231,7 +231,7 @@ export default class AutoresponderModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-list')
-        .setDescription('Xem danh sách autoresponder')
+        .setDescription('Liệt kê các phản hồi tự động trong máy chủ')
         .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const list = autoresponderManager.getAll(interaction.guildId!);
@@ -297,9 +297,9 @@ export default class AutoresponderModule {
     const viewCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-view')
-        .setDescription('Xem chi tiết autoresponder')
+        .setDescription('Xem cấu hình của một phản hồi tự động')
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('� Từ khóa kích hoạt').setRequired(true)),
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần xem').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const ar = autoresponderManager.get(interaction.guildId!, trigger);
@@ -324,12 +324,12 @@ export default class AutoresponderModule {
     const matchmodeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-matchmode')
-        .setDescription('Chỉnh sửa chế độ khớp')
+        .setDescription('Thay đổi cách so khớp từ khóa')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
-        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa kích hoạt').setRequired(true))
+        .addStringOption(o => o.setName('trigger').setDescription('Từ khóa cần đổi cách so khớp').setRequired(true))
         .addStringOption(o =>
-          o.setName('mode').setDescription('Chọn chế độ khớp').setRequired(true).addChoices(...modeChoices),
+          o.setName('mode').setDescription('Chọn cách so khớp mới').setRequired(true).addChoices(...modeChoices),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
@@ -356,7 +356,7 @@ export default class AutoresponderModule {
     const placeholdersCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-placeholders')
-        .setDescription('Hiện các biến có sẵn'),
+        .setDescription('Xem các biến có thể dùng trong nội dung phản hồi'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const group = (title: string, items: [string, string][]) =>
           txt(`### ${title}\n` + items.map(([k, v]) => `${code(k)} — ${v}`).join('\n'));

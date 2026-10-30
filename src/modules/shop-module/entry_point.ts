@@ -495,7 +495,7 @@ export default class ShopModule {
   private registerCommands() {
     // /shop command
     const shopCommand = {
-      data: new SlashCommandBuilder().setName('shop').setDescription('� Xem shop và mua bot roles'),
+      data: new SlashCommandBuilder().setName('shop').setDescription('Xem cửa hàng và mua vật phẩm bằng xu'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try {
@@ -748,7 +748,7 @@ export default class ShopModule {
 
     // /inventory command
     const inventoryCommand = {
-      data: new SlashCommandBuilder().setName('inventory').setDescription('Xem roles và items đã mua'),
+      data: new SlashCommandBuilder().setName('inventory').setDescription('Xem vật phẩm và role bạn đã mua'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         if (!interaction.deferred && !interaction.replied) {
@@ -799,8 +799,8 @@ export default class ShopModule {
     const revokeCommand = {
       data: new SlashCommandBuilder()
         .setName('revoke')
-        .setDescription('Thu hồi role đã mua ([[Admin]])')
-        .addUserOption((option) => option.setName('user').setDescription('� User cần thu hồi role').setRequired(true))
+        .setDescription('Thu hồi role cửa hàng của một thành viên (quản trị viên)')
+        .addUserOption((option) => option.setName('user').setDescription('Thành viên cần thu hồi role').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
       execute: async (interaction: ChatInputCommandInteraction) => {

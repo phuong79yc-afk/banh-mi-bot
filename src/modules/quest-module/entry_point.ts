@@ -453,7 +453,7 @@ export default class QuestModule {
 
   private registerCommands() {
     this.commands.set('quest', {
-      data: new SlashCommandBuilder().setName('quest').setDescription('Mở sổ nhiệm vụ'),
+      data: new SlashCommandBuilder().setName('quest').setDescription('Xem nhiệm vụ và tiến độ hoàn thành của bạn'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const startTime = Date.now();
         
@@ -509,4 +509,3 @@ export default class QuestModule {
     console.log('Quest module cleanup');
   }
 }
-

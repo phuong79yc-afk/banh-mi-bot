@@ -97,17 +97,17 @@ export default class SecurityModule {
     this.commands.set('lock-invites', {
       data: new SlashCommandBuilder()
         .setName('lock-invites')
-        .setDescription('Khóa/mở khóa tất cả invite links')
+        .setDescription('Quản lý việc tạo liên kết mời vào máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .setDMPermission(false)
         .addSubcommand(s =>
           s
             .setName('lock')
-            .setDescription('� Vô hiệu hóa tất cả invite links')
-            .addBooleanOption(o => o.setName('delete_existing').setDescription('Xóa tất cả invite hiện có')),
+            .setDescription('Ngăn thành viên tạo liên kết mời mới')
+            .addBooleanOption(o => o.setName('delete_existing').setDescription('Xóa các liên kết mời hiện có')),
         )
-        .addSubcommand(s => s.setName('unlock').setDescription('Cho phép tạo invite links lại'))
-        .addSubcommand(s => s.setName('status').setDescription('Kiểm tra trạng thái invite lock')),
+        .addSubcommand(s => s.setName('unlock').setDescription('Cho phép tạo liên kết mời trở lại'))
+        .addSubcommand(s => s.setName('status').setDescription('Xem trạng thái khóa liên kết mời')),
 
       execute: async (i: ChatInputCommandInteraction) => {
         try {
@@ -135,11 +135,11 @@ export default class SecurityModule {
     this.commands.set('performance', {
       data: new SlashCommandBuilder()
         .setName('performance')
-        .setDescription('Kiểm tra hiệu suất và memory của bot')
+        .setDescription('Theo dõi hiệu năng và mức sử dụng bộ nhớ của bot')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addSubcommand(s => s.setName('stats').setDescription('Xem thống kê hiệu suất'))
-        .addSubcommand(s => s.setName('cleanup').setDescription('Dọn dẹp memory ngay lập tức'))
-        .addSubcommand(s => s.setName('report').setDescription('Xem báo cáo chi tiết')),
+        .addSubcommand(s => s.setName('stats').setDescription('Xem số liệu hiệu năng hiện tại'))
+        .addSubcommand(s => s.setName('cleanup').setDescription('Giải phóng bộ nhớ đang sử dụng'))
+        .addSubcommand(s => s.setName('report').setDescription('Xem báo cáo chi tiết về hiệu năng')),
 
       execute: async (i: ChatInputCommandInteraction) => {
         try {
@@ -405,4 +405,3 @@ export default class SecurityModule {
     console.log(`${emojis.delete} Security module cleanup`);
   }
 }
-

@@ -78,34 +78,34 @@ function rolePanel(userId: string, data: CustomRoleData | undefined, enabled: bo
 export const customRoleCommand = {
   data: new SlashCommandBuilder()
     .setName('customrole')
-    .setDescription('Quản lý role riêng của bạn')
+    .setDescription('Tạo và quản lý role cá nhân trong máy chủ')
     .setDMPermission(false)
-    .addSubcommand(s => s.setName('panel').setDescription('Xem role của bạn'))
+    .addSubcommand(s => s.setName('panel').setDescription('Xem và quản lý các role cá nhân của bạn'))
     .addSubcommand(s =>
       s
         .setName('create')
-        .setDescription('Tạo role riêng')
-        .addStringOption(o => o.setName('name').setDescription('Tên role').setMaxLength(32).setRequired(true))
-        .addStringOption(o => o.setName('color').setDescription('Màu hex, vd #ff66aa').setRequired(true)),
+        .setDescription('Tạo role cá nhân với tên và màu tùy chọn')
+        .addStringOption(o => o.setName('name').setDescription('Tên role mới (tối đa 32 ký tự)').setMaxLength(32).setRequired(true))
+        .addStringOption(o => o.setName('color').setDescription('Mã màu HEX, ví dụ #ff66aa').setRequired(true)),
     )
     .addSubcommand(s =>
       s
         .setName('edit')
-        .setDescription('Đổi tên hoặc màu role')
-        .addStringOption(o => o.setName('name').setDescription('Tên mới').setMaxLength(32))
-        .addStringOption(o => o.setName('color').setDescription('Màu hex mới')),
+        .setDescription('Thay đổi tên hoặc màu role cá nhân')
+        .addStringOption(o => o.setName('name').setDescription('Tên role mới (tối đa 32 ký tự)').setMaxLength(32))
+        .addStringOption(o => o.setName('color').setDescription('Mã màu HEX mới, ví dụ #ff66aa')),
     )
-    .addSubcommand(s => s.setName('delete').setDescription('Xóa role của bạn'))
-    .addSubcommand(s => s.setName('config').setDescription('Xem cấu hình (admin)'))
+    .addSubcommand(s => s.setName('delete').setDescription('Xóa role cá nhân của bạn'))
+    .addSubcommand(s => s.setName('config').setDescription('Xem cấu hình role cá nhân (quản trị viên)'))
     .addSubcommand(s =>
       s
         .setName('setup')
-        .setDescription('Cấu hình tính năng (admin)')
-        .addBooleanOption(o => o.setName('enabled').setDescription('Bật / tắt'))
-        .addRoleOption(o => o.setName('required').setDescription('Role cần có để dùng'))
-        .addBooleanOption(o => o.setName('clear-required').setDescription('Gỡ role bắt buộc'))
-        .addIntegerOption(o => o.setName('max-roles').setDescription('Giới hạn role của mỗi user').setMinValue(1).setMaxValue(5))
-        .addStringOption(o => o.setName('colors').setDescription('Màu cho phép, cách nhau bằng dấu phẩy. Gõ "all" để mở hết')),
+        .setDescription('Cập nhật thiết lập role cá nhân (quản trị viên)')
+        .addBooleanOption(o => o.setName('enabled').setDescription('Bật hoặc tắt tính năng role cá nhân'))
+        .addRoleOption(o => o.setName('required').setDescription('Role thành viên phải có để sử dụng'))
+        .addBooleanOption(o => o.setName('clear-required').setDescription('Gỡ yêu cầu phải có role'))
+        .addIntegerOption(o => o.setName('max-roles').setDescription('Số role tối đa mỗi thành viên (1–5)').setMinValue(1).setMaxValue(5))
+        .addStringOption(o => o.setName('colors').setDescription('Danh sách màu HEX phân cách bằng dấu phẩy; nhập all để cho phép mọi màu')),
     ),
 
   async execute(i: ChatInputCommandInteraction) {

@@ -9,9 +9,10 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
-import { V2, V2_EPHEMERAL, txt, sep } from '../../utils/v2Helper';
+import { V2, V2_EPHEMERAL, txt, sep, gallery } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { keyRotator } from '../../utils/aiKeyRotator';
 import { aiUsageTracker } from '../../utils/aiUsageTracker';
 import { getCustomEmoji } from '../../utils/customEmoji';
@@ -25,6 +26,9 @@ const MAX_HISTORY = 10; // Keep last 10 exchanges per channel
 
 // Giới hạn hiển thị (message V2 tối đa 4000 ký tự text)
 const MAX_DISPLAY = 3200;
+const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const IMAGE_CREDIT = '![:gemini:](https://cdn.discordapp.com/emojis/1447369690895745155.webp?size=56) Generated with Nano Banana Flash';
 
 // Cache câu trả lời gần đây để nút "Tạo lại" hoạt động
 interface CachedAnswer {
@@ -71,6 +75,7 @@ Bot Commands Knowledge (use when user asks about bot commands):
 **🤖 AI Chat:**
 - /ai message:[câu hỏi] model:[optional] style:[optional] - Chat với AI có memory. Models: GPT-OSS 20B/120B (Groq), Llama 3.1 8B, Gemini 2.0 Flash/1.5 Pro/Flash. Styles: default, creative, professional, casual, technical
 - /ai-memory view/clear - Xem hoặc xóa lịch sử hội thoại trong kênh
+- /image prompt:[mô tả] - Tạo ảnh bằng Gemini Nano Banana Flash
 - !ai [câu hỏi] - Prefix command, dùng model mặc định GPT-OSS 20B
 
 **💰 Economy & Shop:**
@@ -306,10 +311,10 @@ export default class AIModule {
     const aiCommand = {
       data: new SlashCommandBuilder()
         .setName('ai')
-        .setDescription('Chat with AI (with memory) / Trò chuyện với AI (có nhớ context)')
-        .addStringOption(o => o.setName('message').setDescription('Your message / Tin nhắn của bạn').setRequired(true))
+        .setDescription('Trò chuyện với AI; cuộc trò chuyện có lưu ngữ cảnh')
+        .addStringOption(o => o.setName('message').setDescription('Nội dung bạn muốn hỏi hoặc yêu cầu AI').setRequired(true))
         .addStringOption(o =>
-          o.setName('model').setDescription('AI Model / Mô hình AI').setRequired(false)
+          o.setName('model').setDescription('Chọn mô hình AI (mặc định bot tự chọn)').setRequired(false)
             .addChoices(
               { name: '⚡ GPT-OSS 20B (Fastest)', value: 'groq:openai/gpt-oss-20b' },
               { name: '🧠 GPT-OSS 120B (Smart)', value: 'groq:openai/gpt-oss-120b' },
@@ -320,7 +325,7 @@ export default class AIModule {
             ),
         )
         .addStringOption(o =>
-          o.setName('style').setDescription('Response style / Phong cách trả lời').setRequired(false)
+          o.setName('style').setDescription('Chọn phong cách trả lời của AI').setRequired(false)
             .addChoices(
               { name: '📝 Default (Helpful)', value: 'default' },
               { name: `${emojis.art} Creative`, value: 'creative' },
@@ -330,7 +335,7 @@ export default class AIModule {
             ),
         )
         .addBooleanOption(o =>
-          o.setName('clear_memory').setDescription('Clear conversation history / Xóa lịch sử hội thoại').setRequired(false),
+          o.setName('clear_memory').setDescription('Xóa ngữ cảnh hội thoại đã lưu sau khi trả lời').setRequired(false),
         ),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await this.handleAIChat(interaction);
@@ -341,16 +346,137 @@ export default class AIModule {
     const memoryCommand = {
       data: new SlashCommandBuilder()
         .setName('ai-memory')
-        .setDescription('View or clear AI conversation memory / Xem/xóa bộ nhớ hội thoại AI')
-        .addSubcommand(s => s.setName('view').setDescription('View conversation history / Xem lịch sử'))
-        .addSubcommand(s => s.setName('clear').setDescription('Clear conversation history / Xóa lịch sử')),
+        .setDescription('Xem hoặc xóa ngữ cảnh trò chuyện AI đã lưu')
+        .addSubcommand(s => s.setName('view').setDescription('Xem lịch sử trò chuyện AI của bạn'))
+        .addSubcommand(s => s.setName('clear').setDescription('Xóa lịch sử trò chuyện AI đã lưu')),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await this.handleMemoryCommand(interaction);
       },
     };
 
+    const imageCommand = {
+      data: new SlashCommandBuilder()
+        .setName('image')
+        .setDescription('Tạo ảnh từ mô tả bằng Nano Banana Flash')
+        .addStringOption(option =>
+          option
+            .setName('prompt')
+            .setDescription('Mô tả hình ảnh bạn muốn tạo')
+            .setMinLength(3)
+            .setMaxLength(2000)
+            .setRequired(true),
+        ),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        await this.handleImageGeneration(interaction);
+      },
+    };
+
     this.commands.set('ai', aiCommand);
     this.commands.set('ai-memory', memoryCommand);
+    this.commands.set('image', imageCommand);
+  }
+
+  private async handleImageGeneration(interaction: ChatInputCommandInteraction) {
+    try {
+      await interaction.deferReply();
+    } catch (error: any) {
+      if (error.code === 10062 || error.code === 40060) return;
+      throw error;
+    }
+
+    const apiKey = keyRotator.getGeminiKey();
+    if (!apiKey) {
+      await interaction.editReply('Tính năng tạo ảnh hiện chưa khả dụng: bot chưa có Gemini API key.');
+      return;
+    }
+
+    const prompt = interaction.options.getString('prompt', true).trim();
+    if (prompt.length < 3) {
+      await interaction.editReply('Mô tả ảnh cần có ít nhất 3 ký tự.');
+      return;
+    }
+
+    try {
+      const { data } = await axios.post<{
+        candidates?: Array<{
+          content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string }; text?: string }> };
+          finishReason?: string;
+        }>;
+        promptFeedback?: { blockReason?: string };
+      }>(
+        `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+        },
+        {
+          headers: { 'x-goog-api-key': apiKey },
+          timeout: 120_000,
+        },
+      );
+
+      const parts = data.candidates?.[0]?.content?.parts ?? [];
+      const imagePart = parts.find(part => part.inlineData?.data);
+      if (!imagePart?.inlineData?.data) {
+        const reason = data.promptFeedback?.blockReason ?? data.candidates?.[0]?.finishReason;
+        const detail = parts.map(part => part.text).filter(Boolean).join('\n').slice(0, 800);
+        await interaction.editReply(
+          reason
+            ? `Gemini không thể tạo ảnh từ yêu cầu này (${reason}). Hãy thử mô tả khác.`
+            : detail || 'Gemini không trả về ảnh. Hãy thử lại với mô tả khác.',
+        );
+        return;
+      }
+
+      const mimeType = imagePart.inlineData.mimeType ?? 'image/png';
+      const extensionByMime: Record<string, string> = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/webp': 'webp',
+      };
+      const extension = extensionByMime[mimeType];
+      if (!extension) {
+        throw new Error(`Định dạng ảnh Gemini trả về không được hỗ trợ: ${mimeType}`);
+      }
+
+      const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+      if (imageBuffer.length > IMAGE_MAX_BYTES) {
+        await interaction.editReply('Ảnh tạo ra vượt quá giới hạn tệp 8 MB của bot.');
+        return;
+      }
+
+      const fileName = `generated-image.${extension}`;
+      const container = new ContainerBuilder()
+        .addMediaGalleryComponents(gallery(`attachment://${fileName}`))
+        .addSeparatorComponents(sep())
+        .addTextDisplayComponents(txt(IMAGE_CREDIT));
+
+      await interaction.editReply({
+        components: [container],
+        files: [new AttachmentBuilder(imageBuffer, { name: fileName })],
+        flags: V2,
+      } as any);
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (axios.isAxiosError(error) && (!status || status === 429 || status >= 500)) {
+        keyRotator.markFailed('gemini', apiKey, error);
+      }
+      console.error('[Image Generation] Gemini request failed:', {
+        status,
+        message: error instanceof Error ? error.message : String(error),
+      });
+
+      const message = status === 429
+        ? 'Gemini đang giới hạn yêu cầu. Vui lòng đợi một chút rồi thử lại.'
+        : status === 403
+          ? 'Gemini API key chưa được cấp quyền tạo ảnh.'
+          : status === 404
+            ? `Không tìm thấy model ${IMAGE_MODEL}. Hãy kiểm tra quyền truy cập model của API key.`
+            : 'Không thể tạo ảnh lúc này. Vui lòng thử lại sau.';
+      await interaction.editReply(message).catch(editError => {
+        console.error('[Image Generation] Failed to send error response:', editError);
+      });
+    }
   }
 
   // ───────── Nút bấm (Tạo lại / Xóa bộ nhớ) ─────────
