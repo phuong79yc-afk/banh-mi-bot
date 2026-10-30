@@ -67,10 +67,6 @@ const commands = [
         .setDescription('Clear conversation history / Xóa lịch sử')
     ),
 
-  new SlashCommandBuilder()
-    .setName('ai-models')
-    .setDescription('List available AI models / Danh sách mô hình AI'),
-
   // Utility module commands
   new SlashCommandBuilder()
     .setName('ping')

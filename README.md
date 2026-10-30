@@ -60,7 +60,6 @@ PORT=3001
 | `/ai <message>` | Chat với AI (memory, chọn model & style) | ❌ None |
 | `/ai-memory view` | Xem lịch sử conversation | ❌ None |
 | `/ai-memory clear` | Xóa lịch sử | ❌ None |
-| `/ai-models` | List AI models | ❌ None |
 
 **AI Features:**
 - ✅ Conversation memory (20 messages/channel)
@@ -119,7 +118,7 @@ node scripts/deploy-tools/deploy-all-commands.js
 ```
 src/modules/
 ├── ai-module/           # AI chat commands
-│   ├── entry_point.ts   # /ai, /ai-memory, /ai-models
+│   ├── entry_point.ts   # /ai, /ai-memory
 │   └── metadata.json
 └── utility/             # Utility commands
     ├── entry_point.ts   # /ping, /help, /info, /serverinfo

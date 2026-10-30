@@ -92,23 +92,6 @@ Enhanced AI chat system with:
 
 ---
 
-### 3. `/ai-models` - List Models
-
-**Show all available AI models and key status**
-
-**Shows:**
-- All Groq models (Llama, Mixtral)
-- All Gemini models
-- Active keys count
-- Model descriptions
-
-**Example:**
-```bash
-/ai-models
-```
-
----
-
 ## 🧠 How Context Memory Works
 
 ### Memory Storage
@@ -224,7 +207,6 @@ GOOGLE_API_KEY_2=key2
 ```
 
 ### Status Monitoring
-- Use `/ai-models` to see active keys
 - Console logs rotation events
 - Automatic failover (no downtime)
 
@@ -293,7 +275,7 @@ Map<channelId, Array<{role, content}>>
 
 **"Invalid model provider"**
 - Solution: Use correct model format
-- Check `/ai-models` for valid models
+- Chọn model hợp lệ trong slash command `/ai`
 
 ---
 
@@ -374,11 +356,10 @@ AI: [Response with context from previous]
 **Commands:**
 - `/ai` - Main chat
 - `/ai-memory view` - Check memory
-- `/ai-models` - List models
 
 **Troubleshooting:**
 1. Check API keys in `.env`
-2. Verify key rotation with `/ai-models`
+2. Verify key rotation from console logs
 3. Check usage with `/ai-usage`
 4. Clear memory with `/ai-memory clear`
 

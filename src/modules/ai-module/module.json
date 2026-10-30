@@ -31,10 +31,6 @@
       "name": "ai-memory",
       "description": "View/clear conversation memory",
       "subcommands": ["view", "clear"]
-    },
-    {
-      "name": "ai-models",
-      "description": "List available AI models"
     }
   ],
   "config": {

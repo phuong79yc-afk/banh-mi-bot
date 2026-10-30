@@ -71,7 +71,6 @@ Bot Commands Knowledge (use when user asks about bot commands):
 **🤖 AI Chat:**
 - /ai message:[câu hỏi] model:[optional] style:[optional] - Chat với AI có memory. Models: GPT-OSS 20B/120B (Groq), Llama 3.1 8B, Gemini 2.0 Flash/1.5 Pro/Flash. Styles: default, creative, professional, casual, technical
 - /ai-memory view/clear - Xem hoặc xóa lịch sử hội thoại trong kênh
-- /ai-models - Xem danh sách AI models có sẵn và key status
 - !ai [câu hỏi] - Prefix command, dùng model mặc định GPT-OSS 20B
 
 **💰 Economy & Shop:**
@@ -350,19 +349,8 @@ export default class AIModule {
       },
     };
 
-    // /ai-models - List available models
-    const modelsCommand = {
-      data: new SlashCommandBuilder()
-        .setName('ai-models')
-        .setDescription('List available AI models / Danh sách mô hình AI'),
-      execute: async (interaction: ChatInputCommandInteraction) => {
-        await this.handleModelsCommand(interaction);
-      },
-    };
-
     this.commands.set('ai', aiCommand);
     this.commands.set('ai-memory', memoryCommand);
-    this.commands.set('ai-models', modelsCommand);
   }
 
   // ───────── Nút bấm (Tạo lại / Xóa bộ nhớ) ─────────
@@ -744,40 +732,6 @@ export default class AIModule {
       conversationHistory.delete(channelId);
       await interaction.editReply({ components: [clearedCard()], flags: V2 } as any);
     }
-  }
-
-  // ───────── /ai-models ─────────
-  private async handleModelsCommand(interaction: ChatInputCommandInteraction) {
-    const keyStatus = keyRotator.getStatus();
-
-    const dot = (active: number, total: number) => (active > 0 ? '🟢' : total > 0 ? '🔴' : '⚫');
-
-    const list = (models: Record<string, string>, defaultId?: string) =>
-      Object.entries(models)
-        .map(([key, name]) => `• \`${key}\`${key === defaultId ? ' ⭐' : ''}\n-# ${name}`)
-        .join('\n');
-
-    const g = keyStatus.groq;
-    const m = keyStatus.gemini;
-
-    const container = new ContainerBuilder().addTextDisplayComponents(txt('## 🤖 Available AI Models'), txt('-# ⭐ = model mặc định'))
-      .addSeparatorComponents(sep(true))
-      .addTextDisplayComponents(
-        txt(`### ⚡ Groq ${dot(g.active, g.total)}\n-# ${g.active}/${g.total} keys active`),
-        txt(list(AI_MODELS.groq, 'openai/gpt-oss-20b')),
-      )
-      .addSeparatorComponents(sep())
-      .addTextDisplayComponents(
-        txt(`### ${emojis.sparkles} Gemini ${dot(m.active, m.total)}\n-# ${m.active}/${m.total} keys active`),
-        txt(list(AI_MODELS.gemini)),
-      )
-      .addSeparatorComponents(sep())
-      .addTextDisplayComponents(
-        txt(`### 🎨 Phong cách\n${Object.values(STYLE_LABELS).join(' • ')}`),
-        txt('-# Dùng: `/ai message:... model:<name> style:<style>` • Key tự động xoay vòng khi lỗi'),
-      );
-
-    await interaction.reply({ components: [container], flags: V2 } as any);
   }
 
   async shutdown() {

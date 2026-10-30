@@ -80,12 +80,11 @@ const BOT_COMMANDS_KNOWLEDGE = `
 🤖 AI & TỰ ĐỘNG HÓA (AI & Automation)
 ═══════════════════════════════════════════════════
 
-## 🤖 AI Chat (3 lệnh + @bot)
+## 🤖 AI Chat (2 lệnh + @bot)
 - /ai message model style clear_memory — Chat với AI có memory
   Models: Groq (GPT-OSS 20B/120B, Llama 3.1), Gemini (2.0 Flash, 1.5 Pro/Flash)
   Styles: Default, Creative, Professional, Casual, Technical
 - /ai-memory view|clear — Xem/xóa lịch sử hội thoại
-- /ai-models — Danh sách models
 - @bot + câu hỏi — Chat trực tiếp (GPT-OSS 20B)
 
 ## 🔄 Autoresponder (6 lệnh)
