@@ -235,3 +235,5 @@ export class ManagementModule {
     }
   }
 }
+
+export default ManagementModule;
