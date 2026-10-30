@@ -6,6 +6,7 @@
   "author": "GlitchBucket",
   "enabled": true,
   "commands": [
+    "customrole",
     "customrole-admin-enable",
     "customrole-admin-disable",
     "customrole-admin-color-palette",

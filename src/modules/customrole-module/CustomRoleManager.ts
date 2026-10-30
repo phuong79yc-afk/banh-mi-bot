@@ -1,7 +1,7 @@
 // Custom Role Manager
 import fs from 'fs';
 import path from 'path';
-import { Guild, Role, ColorResolvable } from 'discord.js';
+import { Guild } from 'discord.js';
 
 export interface CustomRoleData {
   guildId: string;
@@ -123,7 +123,7 @@ class CustomRoleManager {
         // Create role in new guild
         const newRole = await toGuild.roles.create({
           name: roleData.name,
-          colors: roleData.color ? { primaryColor: roleData.color as ColorResolvable } : undefined,
+          color: roleData.color ? parseInt(roleData.color.replace('#', ''), 16) : undefined,
           reason: `Migrated from ${fromGuild.name}`
         });
 

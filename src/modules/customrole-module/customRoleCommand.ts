@@ -103,6 +103,8 @@ export const customRoleCommand = {
         .setDescription('Cấu hình tính năng (admin)')
         .addBooleanOption(o => o.setName('enabled').setDescription('Bật / tắt'))
         .addRoleOption(o => o.setName('required').setDescription('Role cần có để dùng'))
+        .addBooleanOption(o => o.setName('clear-required').setDescription('Gỡ role bắt buộc'))
+        .addIntegerOption(o => o.setName('max-roles').setDescription('Giới hạn role của mỗi user').setMinValue(1).setMaxValue(5))
         .addStringOption(o => o.setName('colors').setDescription('Màu cho phép, cách nhau bằng dấu phẩy. Gõ "all" để mở hết')),
     ),
 
@@ -122,11 +124,15 @@ export const customRoleCommand = {
       if (sub === 'setup') {
         const enabled = i.options.getBoolean('enabled');
         const required = i.options.getRole('required');
+        const clearRequired = i.options.getBoolean('clear-required');
+        const maxRoles = i.options.getInteger('max-roles');
         const colors = i.options.getString('colors');
         const updates: Parameters<typeof mgr.updateConfig>[1] = {};
 
         if (enabled !== null) updates.enabled = enabled;
         if (required) updates.requiredRoleId = required.id;
+        if (clearRequired) updates.requiredRoleId = undefined;
+        if (maxRoles !== null) updates.maxRoles = maxRoles;
         if (colors) {
           const list = colors.toLowerCase() === 'all' ? [] : colors.split(',').map(s => s.trim());
           if (list.some(c => !HEX.test(c))) return reply(fail('Màu phải là hex 6 ký tự, vd `#ff66aa`.'));
@@ -185,6 +191,19 @@ export const customRoleCommand = {
     const name = i.options.getString('name');
     const colorIn = i.options.getString('color');
 
+    if (name !== null) {
+      const cleanName = name.trim();
+      if (cleanName.length < 2 || cleanName.length > 32) {
+        return reply(fail('Tên role phải từ 2 đến 32 ký tự.'));
+      }
+      if (/(@everyone|@here|<@|<#)/i.test(cleanName)) {
+        return reply(fail('Tên role không được chứa mention hoặc nội dung đặc biệt.'));
+      }
+      if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        return reply(fail('Bot cần quyền **Manage Roles** để tạo hoặc chỉnh role.'));
+      }
+    }
+
     if (colorIn) {
       if (!HEX.test(colorIn)) return reply(fail('Màu phải là hex 6 ký tự, vd `#ff66aa`.'));
       if (!mgr.isColorAllowed(guild.id, colorIn)) {
@@ -201,12 +220,17 @@ export const customRoleCommand = {
 
         const color = toHex(colorIn!);
         const role = await guild.roles.create({
-          name: name!,
+          name: name!.trim(),
           color: toInt(color),
           reason: `Custom role for ${i.user.tag}`,
         });
 
-        await member.roles.add(role);
+        try {
+          await member.roles.add(role);
+        } catch (error) {
+          await role.delete('Failed to assign custom role to member').catch(() => {});
+          throw error;
+        }
 
         const data: CustomRoleData = {
           guildId: guild.id,

@@ -3,14 +3,14 @@ import {
   Client, 
   Collection, 
   SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
+  ChatInputCommandInteraction,
   EmbedBuilder,
   PermissionFlagsBits,
-  ColorResolvable
 } from 'discord.js';
 import { createEnhancedEmbed } from '../../utils/embedHelper';
 import { emojis } from '../../config/emojis';
 import { customRoleManager } from './CustomRoleManager';
+import { customRoleCommand } from './customRoleCommand';
 
 export default class CustomRoleModule {
   name = 'customrole-module';
@@ -19,6 +19,10 @@ export default class CustomRoleModule {
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
+  private interactionHandler = (interaction: any) => {
+    if (!interaction.isButton() || !interaction.customId?.startsWith('crole:')) return;
+    void customRoleCommand.onButton(interaction);
+  };
 
   constructor(client: Client) {
     this.client = client;
@@ -28,10 +32,13 @@ export default class CustomRoleModule {
   async initialize() {
     console.log(`🎨 Custom Role module initialized`);
     this.registerCommands();
+    this.client.on('interactionCreate', this.interactionHandler);
     console.log(`✅ Custom Role module registered ${this.commands.size} commands`);
   }
 
   private registerCommands() {
+    this.commands.set('customrole', customRoleCommand);
+
     // /customrole-admin-enable
     const enableCommand = {
       data: new SlashCommandBuilder()
@@ -71,7 +78,7 @@ export default class CustomRoleModule {
         customRoleManager.updateConfig(interaction.guildId!, { enabled: false });
 
         await interaction.reply({
-          content: '${emojis.success} Custom role system disabled!',
+          content: `${emojis.success} Custom role system disabled!`,
           flags: 64
         });
       }
@@ -81,7 +88,7 @@ export default class CustomRoleModule {
     const colorPaletteCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-color-palette')
-        .setDescription('${emojis.art} Đặt màu role cho phép (để trống = tất cả)')
+        .setDescription(`${emojis.art} Đặt màu role cho phép (để trống = tất cả)`)
         .addStringOption(option =>
           option
             .setName('colors')
@@ -95,18 +102,26 @@ export default class CustomRoleModule {
         if (!colorsStr) {
           customRoleManager.updateConfig(interaction.guildId!, { allowedColors: [] });
           return interaction.reply({
-            content: '${emojis.success} All colors are now allowed!',
+            content: `${emojis.success} All colors are now allowed!`,
             flags: 64
           });
         }
 
         const colors = colorsStr.split(',').map(c => c.trim());
-        customRoleManager.updateConfig(interaction.guildId!, { allowedColors: colors });
+        const hexColor = /^#?[0-9a-f]{6}$/i;
+        if (colors.some(color => !hexColor.test(color))) {
+          return interaction.reply({
+            content: `${emojis.error} Màu không hợp lệ. Dùng hex 6 ký tự, ví dụ \`#ff0000\`.`,
+            flags: 64,
+          });
+        }
+        const normalized = colors.map(color => color.startsWith('#') ? color.toLowerCase() : `#${color.toLowerCase()}`);
+        customRoleManager.updateConfig(interaction.guildId!, { allowedColors: normalized });
 
         const embed = new EmbedBuilder()
           .setColor(0x5865f2)
-          .setTitle('${emojis.art} Color Palette Updated')
-          .setDescription(`Allowed colors:\n${colors.map(c => `• \`${c}\``).join('\n')}`)
+          .setTitle(`${emojis.art} Color Palette Updated`)
+          .setDescription(`Allowed colors:\n${normalized.map(c => `• \`${c}\``).join('\n')}`)
           .setTimestamp();
 
         await interaction.reply({ embeds: [embed], flags: 64 });
@@ -147,7 +162,7 @@ export default class CustomRoleModule {
         try {
           const role = await interaction.guild!.roles.create({
             name,
-            colors: color ? { primaryColor: color as ColorResolvable } : undefined,
+                color: color ? parseInt(color.replace('#', ''), 16) : undefined,
             reason: `Custom role created by admin for ${user.tag}`
           });
 
@@ -212,7 +227,7 @@ export default class CustomRoleModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x5865f2)
-            .setTitle('${emojis.art} Custom Roles')
+            .setTitle(`${emojis.art} Custom Roles`)
             .setDescription(
               roles
                 .map((r, i) => `${i + 1}. <@${r.userId}> - **${r.name}** (\`${r.color}\`)`)
@@ -258,7 +273,7 @@ export default class CustomRoleModule {
     const migrateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-migrate')
-        .setDescription('${emojis.refresh} Chuyển role tùy chỉnh sang server khác')
+        .setDescription(`${emojis.refresh} Chuyển role tùy chỉnh sang server khác`)
         .addStringOption(option =>
           option
             .setName('target-guild-id')
@@ -276,7 +291,7 @@ export default class CustomRoleModule {
           
           if (!targetGuild) {
             return interaction.editReply({
-              content: '${emojis.error} Bot is not in that server!'
+              content: `${emojis.error} Bot is not in that server!`
             });
           }
 
@@ -287,10 +302,10 @@ export default class CustomRoleModule {
 
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
-            .setTitle('${emojis.success} Migration Complete')
+            .setTitle(`${emojis.success} Migration Complete`)
             .addFields(
-              { name: '${emojis.success} Success', value: result.success.toString(), inline: true },
-              { name: '${emojis.error} Failed', value: result.failed.toString(), inline: true }
+              { name: `${emojis.success} Success`, value: result.success.toString(), inline: true },
+              { name: `${emojis.error} Failed`, value: result.failed.toString(), inline: true }
             )
             .setDescription(`Migrated custom roles from **${interaction.guild!.name}** to **${targetGuild.name}**`)
             .setTimestamp();
@@ -309,7 +324,7 @@ export default class CustomRoleModule {
     const terminateCommand = {
       data: new SlashCommandBuilder()
         .setName('customrole-admin-terminate')
-        .setDescription('${emojis.warning} Xóa TẤT CẢ role tùy chỉnh và tắt hệ thống')
+        .setDescription(`${emojis.warning} Xóa TẤT CẢ role tùy chỉnh và tắt hệ thống`)
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
       execute: async (interaction: ChatInputCommandInteraction) => {
         await interaction.deferReply({ flags: 64 });
@@ -348,6 +363,7 @@ export default class CustomRoleModule {
   }
 
   async cleanup() {
+    this.client.removeListener('interactionCreate', this.interactionHandler);
     console.log('🧹 Custom Role module cleanup...');
   }
 }
