@@ -1,0 +1,7 @@
+{
+  "name": "management-module",
+  "version": "1.0.0",
+  "description": "Quản lý bot, module, lệnh, guild, audit, backup và tác vụ định kỳ",
+  "enabled": true,
+  "priority": 2
+}
