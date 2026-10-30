@@ -15,6 +15,8 @@ export interface Autoresponder {
   ignoreCase: boolean;
   createdBy: string;
   createdAt: number;
+  enabled: boolean;
+  cooldownSeconds: number;
 }
 
 export interface AutoresponderData {
@@ -24,6 +26,7 @@ export interface AutoresponderData {
 class AutoresponderManager {
   private data: AutoresponderData = {};
   private maxPerGuild = 50;
+  private lastTriggered = new Map<string, number>();
 
   constructor() {
     this.loadData();
@@ -32,6 +35,12 @@ class AutoresponderManager {
   private loadData() {
     try {
       this.data = loadJsonDb(DB_PATH);
+      for (const guildItems of Object.values(this.data)) {
+        for (const item of guildItems) {
+          if (typeof item.enabled !== 'boolean') item.enabled = true;
+          if (!Number.isFinite(item.cooldownSeconds)) item.cooldownSeconds = 10;
+        }
+      }
       const totalGuilds = Object.keys(this.data).length;
       const totalAutoresponders = Object.values(this.data).reduce((sum, arr) => sum + arr.length, 0);
       console.log(`✅ Loaded ${totalAutoresponders} autoresponders from ${totalGuilds} guilds`);
@@ -56,8 +65,20 @@ class AutoresponderManager {
     response: string,
     mode: MatchMode = 'contains',
     ignoreCase: boolean = true,
-    userId: string
+    userId: string,
+    cooldownSeconds = 10
   ): { success: boolean; error?: string; autoresponder?: Autoresponder } {
+    trigger = trigger.trim();
+    response = response.trim();
+    if (trigger.length < 1 || trigger.length > 100) {
+      return { success: false, error: 'Trigger phải từ 1 đến 100 ký tự.' };
+    }
+    if (response.length < 1 || response.length > 2000) {
+      return { success: false, error: 'Phản hồi phải từ 1 đến 2000 ký tự.' };
+    }
+    if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 0 || cooldownSeconds > 3600) {
+      return { success: false, error: 'Cooldown phải từ 0 đến 3600 giây.' };
+    }
     if (!this.data[guildId]) {
       this.data[guildId] = [];
     }
@@ -90,7 +111,9 @@ class AutoresponderManager {
       mode,
       ignoreCase,
       createdBy: userId,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      enabled: true,
+      cooldownSeconds: Math.max(0, cooldownSeconds),
     };
 
     this.data[guildId].push(autoresponder);
@@ -162,12 +185,55 @@ class AutoresponderManager {
     return { success: true };
   }
 
+  edit(
+    guildId: string,
+    trigger: string,
+    updates: Partial<Pick<Autoresponder, 'trigger' | 'response' | 'mode' | 'ignoreCase' | 'cooldownSeconds'>>
+  ): { success: boolean; error?: string; autoresponder?: Autoresponder } {
+    const autoresponder = this.get(guildId, trigger);
+    if (!autoresponder) return { success: false, error: `Không tìm thấy trigger "${trigger}".` };
+
+    if (updates.trigger !== undefined) {
+      updates.trigger = updates.trigger.trim();
+      if (!updates.trigger || updates.trigger.length > 100) {
+        return { success: false, error: 'Trigger mới phải từ 1 đến 100 ký tự.' };
+      }
+      if (updates.trigger.toLowerCase() !== trigger.toLowerCase()
+        && this.get(guildId, updates.trigger)) {
+        return { success: false, error: 'Trigger mới đã tồn tại.' };
+      }
+    }
+    if (updates.response !== undefined) {
+      updates.response = updates.response.trim();
+      if (!updates.response || updates.response.length > 2000) {
+        return { success: false, error: 'Phản hồi mới phải từ 1 đến 2000 ký tự.' };
+      }
+    }
+    if (updates.cooldownSeconds !== undefined
+      && (!Number.isInteger(updates.cooldownSeconds) || updates.cooldownSeconds < 0 || updates.cooldownSeconds > 3600)) {
+      return { success: false, error: 'Cooldown phải từ 0 đến 3600 giây.' };
+    }
+
+    Object.assign(autoresponder, updates);
+    this.saveData();
+    return { success: true, autoresponder };
+  }
+
+  setEnabled(guildId: string, trigger: string, enabled: boolean): { success: boolean; error?: string } {
+    const autoresponder = this.get(guildId, trigger);
+    if (!autoresponder) return { success: false, error: `Không tìm thấy trigger "${trigger}".` };
+    autoresponder.enabled = enabled;
+    this.saveData();
+    return { success: true };
+  }
+
   // Check message against autoresponders
-  checkMessage(guildId: string, message: string): string | null {
+  checkMessage(guildId: string, message: string, channelId?: string, userId?: string): string | null {
     const autoresponders = this.getAll(guildId);
     if (autoresponders.length === 0) return null;
 
     for (const ar of autoresponders) {
+      if (ar.enabled === false) continue;
       const trigger = ar.ignoreCase ? ar.trigger.toLowerCase() : ar.trigger;
       const msg = ar.ignoreCase ? message.toLowerCase() : message;
 
@@ -189,6 +255,14 @@ class AutoresponderManager {
       }
 
       if (matched) {
+        const cooldownSeconds = ar.cooldownSeconds ?? 10;
+        const cooldownKey = `${guildId}:${ar.id}:${channelId ?? 'all'}:${userId ?? 'all'}`;
+        if (cooldownSeconds > 0) {
+          const now = Date.now();
+          const last = this.lastTriggered.get(cooldownKey) ?? 0;
+          if (now - last < cooldownSeconds * 1000) continue;
+          this.lastTriggered.set(cooldownKey, now);
+        }
         return ar.response;
       }
     }

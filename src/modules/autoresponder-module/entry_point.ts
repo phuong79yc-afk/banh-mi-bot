@@ -58,7 +58,9 @@ const detailCard = (ar: any, title: string, color = COLOR.main) => {
     .addTextDisplayComponents(
       txt(
         `**${mode.emoji} Chế độ khớp:** ${mode.label}\n` +
-        `**🔤 Phân biệt hoa/thường:** ${ar.ignoreCase ? 'Không' : 'Có'}`,
+        `**🔤 Phân biệt hoa/thường:** ${ar.ignoreCase ? 'Không' : 'Có'}\n` +
+        `**⏱️ Cooldown:** ${ar.cooldownSeconds ?? 10}s\n` +
+        `**${ar.enabled === false ? '🔴' : '🟢'} Trạng thái:** ${ar.enabled === false ? 'Tắt' : 'Bật'}`,
       ),
     )
     .addSeparatorComponents(sep(false, false))
@@ -109,15 +111,17 @@ export default class AutoresponderModule {
         )
         .addBooleanOption(o =>
           o.setName('ignorecase').setDescription('� Bỏ qua chữ hoa/thường').setRequired(false),
-        ),
+        )
+        .addIntegerOption(o => o.setName('cooldown').setDescription('Cooldown mỗi user theo giây (0-3600)').setMinValue(0).setMaxValue(3600).setRequired(false)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const trigger = interaction.options.getString('trigger', true);
         const response = interaction.options.getString('response', true);
         const mode = (interaction.options.getString('mode') || 'contains') as MatchMode;
         const ignoreCase = interaction.options.getBoolean('ignorecase') ?? true;
+        const cooldown = interaction.options.getInteger('cooldown') ?? 10;
 
         const result = autoresponderManager.add(
-          interaction.guildId!, trigger, response, mode, ignoreCase, interaction.user.id,
+          interaction.guildId!, trigger, response, mode, ignoreCase, interaction.user.id, cooldown,
         );
 
         if (!result.success) {
@@ -129,6 +133,71 @@ export default class AutoresponderModule {
         await interaction[replyMethod]({
           components: [detailCard(result.autoresponder!, `${emojis.success} Đã thêm Autoresponder`, COLOR.success)],
           flags: V2,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
+    };
+
+    // ───────── /autoresponder-edit ─────────
+    const editCommand = {
+      data: new SlashCommandBuilder()
+        .setName('autoresponder-edit')
+        .setDescription('Chỉnh sửa autoresponder')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('Trigger hiện tại').setRequired(true))
+        .addStringOption(o => o.setName('new-trigger').setDescription('Trigger mới'))
+        .addStringOption(o => o.setName('response').setDescription('Phản hồi mới'))
+        .addStringOption(o => o.setName('mode').setDescription('Chế độ khớp mới').addChoices(...modeChoices))
+        .addBooleanOption(o => o.setName('ignorecase').setDescription('Phân biệt hoa/thường'))
+        .addIntegerOption(o => o.setName('cooldown').setDescription('Cooldown theo giây (0-3600)').setMinValue(0).setMaxValue(3600)),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        const trigger = interaction.options.getString('trigger', true);
+        const updates: Parameters<typeof autoresponderManager.edit>[2] = {};
+        const newTrigger = interaction.options.getString('new-trigger');
+        const response = interaction.options.getString('response');
+        const mode = interaction.options.getString('mode') as MatchMode | null;
+        const ignoreCase = interaction.options.getBoolean('ignorecase');
+        const cooldown = interaction.options.getInteger('cooldown');
+        if (newTrigger !== null) updates.trigger = newTrigger;
+        if (response !== null) updates.response = response;
+        if (mode !== null) updates.mode = mode;
+        if (ignoreCase !== null) updates.ignoreCase = ignoreCase;
+        if (cooldown !== null) updates.cooldownSeconds = cooldown;
+        if (!Object.keys(updates).length) {
+          return interaction.reply({ components: [errorCard('Hãy nhập ít nhất một trường cần chỉnh sửa.')], flags: V2_EPHEMERAL } as any);
+        }
+        const result = autoresponderManager.edit(interaction.guildId!, trigger, updates);
+        if (!result.success) {
+          return interaction.reply({ components: [errorCard(String(result.error))], flags: V2_EPHEMERAL } as any);
+        }
+        await interaction.reply({
+          components: [detailCard(result.autoresponder!, `${emojis.success} Đã chỉnh sửa Autoresponder`, COLOR.success)],
+          flags: V2_EPHEMERAL,
+          allowedMentions: { parse: [] },
+        } as any);
+      },
+    };
+
+    // ───────── /autoresponder-toggle ─────────
+    const toggleCommand = {
+      data: new SlashCommandBuilder()
+        .setName('autoresponder-toggle')
+        .setDescription('Bật hoặc tắt một autoresponder')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .setContexts(InteractionContextType.Guild)
+        .addStringOption(o => o.setName('trigger').setDescription('Trigger cần đổi trạng thái').setRequired(true))
+        .addBooleanOption(o => o.setName('enabled').setDescription('Bật hay tắt').setRequired(true)),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        const trigger = interaction.options.getString('trigger', true);
+        const enabled = interaction.options.getBoolean('enabled', true);
+        const result = autoresponderManager.setEnabled(interaction.guildId!, trigger, enabled);
+        if (!result.success) {
+          return interaction.reply({ components: [errorCard(String(result.error))], flags: V2_EPHEMERAL } as any);
+        }
+        await interaction.reply({
+          components: [successCard('Đã cập nhật trạng thái', `${code(trigger)} → **${enabled ? '🟢 Đang bật' : '🔴 Đã tắt'}**`)],
+          flags: V2_EPHEMERAL,
           allowedMentions: { parse: [] },
         } as any);
       },
@@ -330,6 +399,8 @@ export default class AutoresponderModule {
     };
 
     this.commands.set('autoresponder-add', addCommand);
+    this.commands.set('autoresponder-edit', editCommand);
+    this.commands.set('autoresponder-toggle', toggleCommand);
     this.commands.set('autoresponder-remove', removeCommand);
     this.commands.set('autoresponder-list', listCommand);
     this.commands.set('autoresponder-view', viewCommand);
@@ -366,7 +437,12 @@ export default class AutoresponderModule {
       if (message.author.bot || !message.guild) return;
 
       // Check for autoresponder match
-      const response = autoresponderManager.checkMessage(message.guild.id, message.content);
+      const response = autoresponderManager.checkMessage(
+        message.guild.id,
+        message.content,
+        message.channelId,
+        message.author.id,
+      );
       if (!response) return;
 
       // Replace placeholders
@@ -395,4 +471,3 @@ export default class AutoresponderModule {
     console.log('🧹 Autoresponder module cleanup');
   }
 }
-
