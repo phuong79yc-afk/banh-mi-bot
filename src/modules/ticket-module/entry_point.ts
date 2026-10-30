@@ -182,8 +182,7 @@ export default class TicketModule {
             [
               '### Tiếp theo',
               '• Thành viên bấm **Tạo ticket** trong kênh hỗ trợ để mở ticket',
-              '• Trong kênh ticket dùng `/ticket-add`, `/ticket-remove`, `/ticket-close`',
-              '• Gán role hỗ trợ cho nhân sự để họ xem và trả lời ticket',
+              `• Quản lý trong kênh bằng \`/ticket-add\`, \`/ticket-remove\`, \`/ticket-close\``,
             ].join('\n')
           )
         );
@@ -197,18 +196,7 @@ export default class TicketModule {
     const container = box(COLOR_TEAL)
       .addTextDisplayComponents(
         text('# 🎫 Trung tâm hỗ trợ'),
-        text('Cần giúp đỡ? Tạo ticket để trao đổi riêng với đội ngũ hỗ trợ.')
-      )
-      .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
-      .addTextDisplayComponents(
-        text(
-          [
-            '### Cách hoạt động',
-            '`1` Bấm **Tạo ticket** và mô tả vấn đề của bạn',
-            '`2` Một kênh riêng sẽ được tạo cho bạn',
-            '`3` Chờ đội ngũ hỗ trợ phản hồi',
-          ].join('\n')
-        )
+        text('Bấm **Tạo ticket** và mô tả vấn đề để nhận hỗ trợ riêng.')
       )
       .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
       .addActionRowComponents(
@@ -216,7 +204,7 @@ export default class TicketModule {
           new ButtonBuilder().setCustomId('ticket_create').setLabel('Tạo ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
         )
       )
-      .addTextDisplayComponents(text(`-# ${guildName ?? 'Máy chủ của TrầnTuấn'} • Mỗi người chỉ mở được một ticket cùng lúc`));
+      .addTextDisplayComponents(text('-# Một người chỉ mở được một ticket cùng lúc'));
 
     return { components: [container], flags: V2 } as const;
   }
@@ -247,15 +235,12 @@ export default class TicketModule {
       .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
       .addTextDisplayComponents(text(`### ${emojis.copy} Vấn đề của bạn\n${quote(opts.issue)}`))
       .addSeparatorComponents(divider())
-      .addTextDisplayComponents(text('-# Đội ngũ hỗ trợ sẽ phản hồi sớm nhất có thể. Vui lòng đọc kĩ luật của server trong lúc chờ.'))
       .addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId('ticket_claim').setLabel('Nhận ticket').setEmoji('🎫').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('ticket_close_button').setLabel('Đóng ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId('ticket_close_reason').setLabel('Đóng với lí do').setEmoji('📝').setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId('ticket_close_button').setLabel('Đóng').setEmoji('🔒').setStyle(ButtonStyle.Danger)
         )
-      )
-      .addTextDisplayComponents(text(`-# ${opts.guildName}`));
+      );
 
     // Dòng mention nằm ngoài Container (Components V2 không cho dùng `content`)
     const ping = text(
@@ -676,8 +661,6 @@ export default class TicketModule {
           await this.handleTicketClaim(interaction);
         } else if (interaction.customId === 'ticket_close_button') {
           await this.handleTicketCloseButton(interaction);
-        } else if (interaction.customId === 'ticket_close_reason') {
-          await this.handleTicketCloseWithReason(interaction);
         }
       } else if (interaction.isModalSubmit()) {
         if (interaction.customId === 'ticket_close_modal') {
@@ -792,6 +775,19 @@ export default class TicketModule {
   }
 
   private async handleTicketCloseButton(interaction: ButtonInteraction) {
+    const ticket = ticketManager.getTicket(interaction.channelId);
+    const config = ticketManager.getConfig(interaction.guildId!);
+    const member = interaction.guild
+      ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null)
+      : null;
+    const isOwner = ticket?.userId === interaction.user.id;
+    const hasStaffRole = !!config?.staffRoleId && !!member?.roles.cache.has(config.staffRoleId);
+    const hasManageMessages = !!member?.permissions.has(PermissionFlagsBits.ManageMessages);
+
+    if (!ticket || (!isOwner && !hasStaffRole && !hasManageMessages)) {
+      return interaction.reply(errorViewEphemeral(`${emojis.error} Bạn không có quyền đóng ticket này.`));
+    }
+
     await interaction.deferReply();
     await this.closeTicket(interaction);
   }
@@ -821,6 +817,17 @@ export default class TicketModule {
   }
 
   private async handleTicketClaim(interaction: ButtonInteraction) {
+    const config = ticketManager.getConfig(interaction.guildId!);
+    const member = interaction.guild
+      ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null)
+      : null;
+    const hasStaffRole = !!config?.staffRoleId && !!member?.roles.cache.has(config.staffRoleId);
+    const hasManageMessages = !!member?.permissions.has(PermissionFlagsBits.ManageMessages);
+
+    if (!hasStaffRole && !hasManageMessages) {
+      return interaction.reply(errorViewEphemeral(`${emojis.error} Chỉ nhân viên hỗ trợ mới có thể nhận ticket.`));
+    }
+
     await interaction.deferReply();
 
     const ticket = ticketManager.getTicket(interaction.channelId);
@@ -842,4 +849,3 @@ export default class TicketModule {
     console.log('🧹 Ticket module cleanup');
   }
 }
-
