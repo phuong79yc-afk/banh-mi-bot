@@ -65,11 +65,17 @@ const API_DELAY_MS = 300; // tránh rate limit khi tạo/xóa hàng loạt
 const TREE_PAGE_CHARS = 1500; // số ký tự cây tối đa mỗi trang
 const PROGRESS_THROTTLE_MS = 1200; // tần suất cập nhật thanh tiến trình
 const MODEL = 'openai/gpt-oss-120b';
+const MAX_GUILD_CHANNELS = 500;
+const MAX_GUILD_CATEGORIES = 50;
+const MAX_GUILD_ROLES = 250;
 
 const customId = (action: string, userId: string, extra?: string | number) =>
   `gen:${action}:${userId}` + (extra !== undefined ? `:${extra}` : '');
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+const summarizeFailure = (label: string, error: unknown) =>
+  `${label}: ${errorMessage(error).slice(0, 180)}`;
 
 const toCategoryName = (name: string): string =>
   name.normalize('NFC').trim().replace(/\s+/g, ' ').toUpperCase();
@@ -791,7 +797,9 @@ class ProgressTracker {
     const now = Date.now();
     if (finished || now - this.last >= PROGRESS_THROTTLE_MS) {
       this.last = now;
-      await this.push(this.steps).catch(() => {});
+      await this.push(this.steps).catch((error) => {
+        console.warn('Failed to update server generator progress:', error);
+      });
     }
   }
 }
@@ -877,25 +885,33 @@ function buildDesignView(user: User, design: ServerDesign, page = 0, report?: Va
   const pages = buildTreePages(design);
   const safePage = Math.min(Math.max(page, 0), pages.length - 1);
 
-  const card = baseEmbed(user, 'Server Generator')
-    .setTitle(`${emojis.sparkles} ${design.serverName}`)
-    .setDescription(
-      quote(
-        `${emojis.folder} Categories \`${s.categories}\` · ${emojis.message} Text \`${s.text}\` · ${emojis.music} Voice \`${s.voice}\``,
-        `${emojis.users} Roles \`${s.roles}\` · ➡️ Tổng kênh \`${s.total}\` · 📄 Trang \`${safePage + 1}/${pages.length}\``,
-      ),
-    )
-    .setDescription(`**${emojis.document} Cấu trúc server**\n\`\`\`ansi\n${pages[safePage]}\n\`\`\``);
+  const description = [
+    quote(
+      `${emojis.folder} Categories \`${s.categories}\` · ${emojis.message} Text \`${s.text}\` · ${emojis.music} Voice \`${s.voice}\``,
+      `${emojis.users} Roles \`${s.roles}\` · ➡️ Tổng kênh \`${s.total}\` · 📄 Trang \`${safePage + 1}/${pages.length}\``,
+    ),
+    `**${emojis.document} Cấu trúc server**\n\`\`\`ansi\n${pages[safePage]}\n\`\`\``,
+  ];
 
   if (report?.themes.length) {
-    card.setDescription(`-# 🎯 Chủ đề nhận diện: ${report.themes.join(' · ')}`);
+    description.push(`-# 🎯 Chủ đề nhận diện: ${report.themes.join(' · ')}`);
   }
 
   if (report?.fixes.length) {
     const shown = report.fixes.slice(0, 5).map((f) => `-# • ${f}`);
     if (report.fixes.length > 5) shown.push(`-# • … và ${report.fixes.length - 5} mục khác`);
-    card.setDescription(['-# 🛠️ Đã tự động chỉnh sửa:', ...shown].join('\n'));
+    description.push(['-# 🛠️ Đã tự động chỉnh sửa:', ...shown].join('\n'));
   }
+
+  if (report?.warnings.length) {
+    const shown = report.warnings.slice(0, 5).map((warning) => `-# • ${warning}`);
+    if (report.warnings.length > 5) shown.push(`-# • … và ${report.warnings.length - 5} cảnh báo khác`);
+    description.push(['-# ⚠️ Lưu ý:', ...shown].join('\n'));
+  }
+
+  const card = baseEmbed(user, 'Server Generator')
+    .setTitle(`${emojis.sparkles} ${design.serverName}`)
+    .setDescription(description.join('\n\n'));
 
   if (BANNER_URL) card.setImage(BANNER_URL);
 
@@ -927,7 +943,7 @@ function buildMenuView(user: User) {
     .setTitle(`${emojis.sparkles} Chọn tác vụ`)
     .setDescription(
       quote(
-        `${emojis.download} **Tải JSON** • ${emojis.mail} **DM** • ${emojis.clipboard} **Import** • ${emojis.document} **Template**`,
+        `${emojis.download} **Tải JSON** • ${emojis.mail} **DM** • ${emojis.clipboard} **Import**`,
         `${emojis.settings} **Welcome/Bye** • ${emojis.refresh} **Tạo lại** • ${emojis.trash} **Xóa toàn bộ**`,
       ),
     );
@@ -937,7 +953,6 @@ function buildMenuView(user: User) {
       button('json', user.id, 'JSON', emojis.download, ButtonStyle.Primary),
       button('dm', user.id, 'DM', emojis.mail, ButtonStyle.Primary),
       button('importfile', user.id, 'Import', emojis.clipboard, ButtonStyle.Primary),
-      button('template', user.id, 'Template', emojis.document, ButtonStyle.Secondary),
     ),
     row(
       button('welcbye', user.id, 'Welcome/Bye', emojis.settings, ButtonStyle.Primary),
@@ -2415,6 +2430,42 @@ export default class ServerGeneratorModule {
     }
 
     const stats = buildStats(design);
+    let botMember;
+    try {
+      botMember = i.guild.members.me ?? await i.guild.members.fetchMe();
+    } catch (error) {
+      return i.editReply(payload(errorEmbed(
+        i.user,
+        'Không kiểm tra được quyền bot',
+        'Không thể xác minh quyền của bot trong server.',
+        errorMessage(error),
+      )));
+    }
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)
+      || !botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      return i.editReply(payload(errorEmbed(
+        i.user,
+        'Bot thiếu quyền',
+        'Cấp cho bot quyền **Manage Roles** và **Manage Channels**, sau đó thử export lại.',
+      )));
+    }
+
+    if (i.guild.roles.cache.size + stats.roles > MAX_GUILD_ROLES) {
+      return i.editReply(payload(errorEmbed(
+        i.user,
+        'Vượt giới hạn role',
+        `Server chỉ có thể có tối đa ${MAX_GUILD_ROLES} role. Thiết kế cần thêm ${stats.roles}, hiện server có ${i.guild.roles.cache.size}.`,
+      )));
+    }
+    if (i.guild.channels.cache.size + stats.categories + stats.total > MAX_GUILD_CHANNELS
+      || i.guild.channels.cache.filter((channel) => channel.type === ChannelType.GuildCategory).size + stats.categories > MAX_GUILD_CATEGORIES) {
+      return i.editReply(payload(errorEmbed(
+        i.user,
+        'Vượt giới hạn channel',
+        `Discord giới hạn ${MAX_GUILD_CHANNELS} channel tổng cộng và ${MAX_GUILD_CATEGORIES} category mỗi server. Hãy giảm kích thước thiết kế hoặc dọn bớt channel trước.`,
+      )));
+    }
+
     const steps: Step[] = [
       { label: `${emojis.shield} Tạo roles`, done: 0, total: stats.roles },
       { label: `${emojis.folder} Tạo categories`, done: 0, total: stats.categories },
@@ -2434,7 +2485,9 @@ export default class ServerGeneratorModule {
         ),
       );
 
-    await render(steps).catch(() => {});
+    await render(steps).catch((error) => {
+      console.warn('Failed to show server generator export progress:', error);
+    });
 
     try {
       const r = await this.applyDesign(i.guild, design, new ProgressTracker(steps, render), themes);
@@ -2444,6 +2497,12 @@ export default class ServerGeneratorModule {
         `${emojis.folder} Categories ~ \`${r.categories}\``,
         `${emojis.message} Channels ~ \`${r.channels}\``,
       ];
+
+      if (r.failures.length) {
+        lines.push('', `⚠️ Có **${r.failures.length}** mục không tạo được:`);
+        lines.push(...r.failures.slice(0, 5).map((failure) => `• ${failure}`));
+        if (r.failures.length > 5) lines.push(`• … và ${r.failures.length - 5} lỗi khác`);
+      }
       
       if (design.welcome || design.goodbye) {
         lines.push('');
@@ -2460,7 +2519,7 @@ export default class ServerGeneratorModule {
           infoEmbed(
             i.user,
             COLORS.success,
-            'Export thành công!',
+            r.failures.length ? 'Export hoàn tất một phần' : 'Export thành công!',
             lines,
             'Kiểm tra Discord server để xem kết quả!',
           ),
@@ -2483,6 +2542,7 @@ export default class ServerGeneratorModule {
     let roles = 0;
     let categories = 0;
     let channels = 0;
+    const failures: string[] = [];
 
     // Detect theme for styling
     const theme = detectDesignTheme(design, requestedThemes);
@@ -2499,6 +2559,7 @@ export default class ServerGeneratorModule {
         await sleep(API_DELAY_MS);
       } catch (err) {
         console.error(`Failed to create role "${role.name}":`, err);
+        failures.push(summarizeFailure(`Role "${role.name}"`, err));
       }
       await tracker.tick(0);
     }
@@ -2519,6 +2580,7 @@ export default class ServerGeneratorModule {
         await sleep(API_DELAY_MS);
       } catch (err) {
         console.error(`Failed to create category "${cat.name}":`, err);
+        failures.push(summarizeFailure(`Category "${cat.name}"`, err));
       }
       await tracker.tick(1);
 
@@ -2551,6 +2613,7 @@ export default class ServerGeneratorModule {
             await sleep(API_DELAY_MS);
           } catch (err) {
             console.error(`Failed to create channel "${ch.name}":`, err);
+            failures.push(summarizeFailure(`Channel "${ch.name}"`, err));
           }
         }
         await tracker.tick(2);
@@ -2559,10 +2622,15 @@ export default class ServerGeneratorModule {
 
     // Save welcome/goodbye designs if present
     if (design.welcome || design.goodbye) {
-      this.saveWelcomeGoodbyeDesigns(guild.id, design.welcome, design.goodbye);
+      try {
+        this.saveWelcomeGoodbyeDesigns(guild.id, design.welcome, design.goodbye);
+      } catch (error) {
+        console.error('Failed to save welcome/goodbye designs:', error);
+        failures.push(summarizeFailure('Welcome/Goodbye settings', error));
+      }
     }
 
-    return { roles, categories, channels };
+    return { roles, categories, channels, failures };
   }
 
   /** Save welcome/goodbye designs to data file */
@@ -2659,7 +2727,7 @@ export default class ServerGeneratorModule {
       }
       
     } catch (error) {
-      console.error('Failed to save welcome/goodbye designs:', error);
+      throw error;
     }
   }
 
