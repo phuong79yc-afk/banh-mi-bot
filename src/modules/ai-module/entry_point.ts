@@ -366,7 +366,12 @@ export default class AIModule {
     return this.imageEditCache.get(id) ?? null;
   }
 
-  private buildImageResult(buffer: Buffer, mimeType: string, ownerId: string) {
+  private buildImageResult(
+    buffer: Buffer,
+    mimeType: string,
+    ownerId: string,
+    credit = IMAGE_CREDIT,
+  ) {
     const extensionByMime: Record<string, string> = {
       'image/png': 'png',
       'image/jpeg': 'jpg',
@@ -380,7 +385,7 @@ export default class AIModule {
     const container = new ContainerBuilder()
       .addMediaGalleryComponents(gallery(`attachment://${fileName}`))
       .addSeparatorComponents(sep())
-      .addTextDisplayComponents(txt(IMAGE_CREDIT))
+      .addTextDisplayComponents(txt(credit))
       .addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder()
@@ -720,7 +725,12 @@ export default class AIModule {
         return;
       }
 
-      const { container, fileName } = this.buildImageResult(imageBuffer, mimeType, ownerId);
+      const { container, fileName } = this.buildImageResult(
+        imageBuffer,
+        mimeType,
+        ownerId,
+        'Edited with FLUX.2 Klein · Cloudflare Workers AI',
+      );
       await interaction.editReply({
         components: [container],
         files: [new AttachmentBuilder(imageBuffer, { name: fileName })],
