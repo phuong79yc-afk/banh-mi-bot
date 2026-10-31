@@ -26,7 +26,7 @@ Tạo ảnh từ mô tả bằng FLUX.1 Schnell trên Cloudflare Workers AI. C�
 **Tùy chọn:**
 - `prompt` (bắt buộc) - Mô tả ảnh cần tạo
 
-Sau khi tạo ảnh, nhấn **Sửa ảnh** để chỉnh ảnh bằng Gemini. Tính năng chỉnh sửa vẫn cần `GEMINI_API_KEY` có quyền dùng model `gemini-2.5-flash-image`. Ảnh gốc được giữ trong bộ nhớ tạm tối đa 30 phút; chỉ người tạo ảnh dùng được nút này.
+Sau khi tạo ảnh, nhấn **Sửa ảnh** để chỉnh ảnh bằng model image-to-image của Cloudflare Workers AI. Cần `CLOUDFLARE_ACCOUNT_ID` và `CLOUDFLARE_API_TOKEN` có quyền Workers AI. Ảnh gốc có thể chỉnh trong tối đa 30 phút; chỉ người tạo ảnh dùng được nút này.
 
 ```text
 /image prompt:Một tiệm bánh cuốn Việt Nam phong cách tranh màu nước
