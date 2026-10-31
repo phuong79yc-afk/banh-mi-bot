@@ -677,7 +677,13 @@ export default class AIModule {
 
     try {
       const formData = new FormData();
-      formData.set('prompt', editPrompt);
+      formData.set(
+        'prompt',
+        `Edit the provided image with a minimal, localized change. ${editPrompt} ` +
+          'Preserve the original composition, subjects, identities, poses, framing, background, art style, lighting, ' +
+          'colors, and every detail not explicitly mentioned. Do not recreate or redesign the image, and do not ' +
+          'add, remove, or alter anything beyond the requested edit.',
+      );
       formData.set(
         'image',
         new Blob([new Uint8Array(sourceImage.buffer)], { type: sourceImage.mimeType }),
