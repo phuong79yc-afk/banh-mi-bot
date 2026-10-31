@@ -322,8 +322,12 @@ export default class MusicModule {
         const YoutubeExtractor = youtubeModule.YoutubeExtractor || youtubeModule.default;
         
         if (YoutubeExtractor) {
-          await this.player.extractors.register(YoutubeExtractor, {});
-          console.log('  ✅ discord-player-youtubei registered');
+          await this.player.extractors.register(YoutubeExtractor, {
+            downloads: {
+              trialOrder: ['adaptive', 'sabr', 'yt-dlp'],
+            },
+          });
+          console.log('  ✅ discord-player-youtubei registered (adaptive, SABR, yt-dlp)');
           youtubeRegistered = true;
         }
       } catch (err) {
@@ -438,7 +442,12 @@ export default class MusicModule {
       // Ignore "Cannot perform IP discovery - socket closed" from discord-voip
       if (err.message?.includes('Cannot perform IP discovery') || err.message?.includes('socket closed')) return;
       
-      console.error('[playerError]', err.name, err.message);
+      console.error(
+        '[playerError]',
+        queue.currentTrack?.title ?? 'Unknown track',
+        err.name,
+        err.message,
+      );
       
       // Auto skip to next track on error
       if (queue.tracks.size > 0) {
