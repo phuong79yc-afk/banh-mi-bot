@@ -9,6 +9,7 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
   ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction,
 } from 'discord.js';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getEmoji, emojis } from '../../config/emojis';
 import { V2, V2_EPHEMERAL, txt, sep, gallery } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
@@ -33,6 +34,20 @@ const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_EDIT_CACHE_MAX = 10;
 const IMAGE_EDIT_CACHE_TTL = 30 * 60 * 1000;
 const IMAGE_CREDIT = 'Generated with FLUX.1 Schnell · Cloudflare Workers AI';
+
+async function createFullImageEditMask(imageBuffer: Buffer): Promise<{ width: number; height: number; pixels: number[] }> {
+  const image = await loadImage(imageBuffer);
+  const mask = createCanvas(image.width, image.height);
+  const context = mask.getContext('2d');
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, image.width, image.height);
+  const { data } = context.getImageData(0, 0, image.width, image.height);
+  const pixels = new Array<number>(image.width * image.height);
+  for (let source = 0, target = 0; source < data.length; source += 4, target++) {
+    pixels[target] = data[source];
+  }
+  return { width: image.width, height: image.height, pixels };
+}
 
 interface CachedImage {
   ownerId: string;
@@ -671,11 +686,15 @@ export default class AIModule {
     }
 
     try {
+      const { width, height, pixels: maskImage } = await createFullImageEditMask(sourceImage.buffer);
       const response = await axios.post<ArrayBuffer>(
         `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${IMAGE_EDIT_MODEL}`,
         {
           prompt: editPrompt,
           image_b64: sourceImage.buffer.toString('base64'),
+          mask_image: maskImage,
+          width,
+          height,
           strength: 0.65,
           guidance: 7.5,
           num_steps: 20,
