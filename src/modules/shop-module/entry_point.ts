@@ -20,7 +20,7 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
 } from 'discord.js';
-import { emojis } from '../../config/emojis';
+import { EMOJI_IDS, emojis } from '../../config/emojis';
 import { addTransaction } from '../balance-module/entry_point';
 import { syncVipRolesForMember } from '../vip-module/entry_point';
 import { addCoins, addGems, getCurrencyBalance, spendCoins } from '../../utils/currency';
@@ -333,7 +333,19 @@ function decrementSold(itemId: string): void {
 // SHOP CARD (Components V2)
 // ============================================
 
-function buildShop(client: Client, userId?: string, page: number = 1, disabled = false) {
+function componentEmoji(client: Client, guildId: string | null, name: string, fallback: string): string {
+  const guild = guildId ? client.guilds.cache.get(guildId) : undefined;
+  const emojiId = EMOJI_IDS[name];
+  const canUseCustomEmoji =
+    !!guild &&
+    !!emojiId &&
+    (guild.emojis.cache.has(emojiId) ||
+      !!guild.members.me?.permissions.has(PermissionFlagsBits.UseExternalEmojis));
+
+  return canUseCustomEmoji ? emojis[name] : fallback;
+}
+
+function buildShop(client: Client, guildId: string | null, userId?: string, page: number = 1, disabled = false) {
   const icon = client.user?.displayAvatarURL();
 
   // Pagination settings
@@ -418,7 +430,7 @@ function buildShop(client: Client, userId?: string, page: number = 1, disabled =
       .setLabel('Mua full tất cả role')
       .setDescription(`${formatNumber(fullPrice)} coin`)
       .setValue('all')
-      .setEmoji(parseEmoji(emojis.gift) ?? ({ name: '🎁' } as any)),
+      .setEmoji(componentEmoji(client, guildId, 'gift', '🎁')),
   ];
 
   const selectMenu = new StringSelectMenuBuilder()
@@ -431,25 +443,25 @@ function buildShop(client: Client, userId?: string, page: number = 1, disabled =
     new ButtonBuilder()
       .setCustomId(`shop_page:${currentPage - 1}`)
       .setLabel('Trước')
-      .setEmoji(emojis.gen_prev)
+      .setEmoji(componentEmoji(client, guildId, 'gen_prev', '◀️'))
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled || currentPage === 1),
     new ButtonBuilder()
       .setCustomId(`shop_refresh:${currentPage}`)
       .setLabel('Refresh')
-      .setEmoji(parseEmoji(emojis.refresh) ?? ({ name: '🔄' } as any))
+      .setEmoji(componentEmoji(client, guildId, 'refresh', '🔄'))
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`shop_page:${currentPage + 1}`)
       .setLabel('Tiếp')
-      .setEmoji(emojis.gen_next)
+      .setEmoji(componentEmoji(client, guildId, 'gen_next', '▶️'))
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled || currentPage === totalPages),
     new ButtonBuilder()
       .setCustomId('shop_vipinfo')
       .setLabel('VIP Info')
-      .setEmoji(parseEmoji(emojis.crown) ?? ({ name: '👑' } as any))
+      .setEmoji(componentEmoji(client, guildId, 'crown', '👑'))
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled),
   );
@@ -522,7 +534,7 @@ export default class ShopModule {
           const userId = interaction.user.id;
           let lastPage = 1;
 
-          const response = await interaction.editReply(buildShop(interaction.client, userId, 1) as any);
+          const response = await interaction.editReply(buildShop(interaction.client, interaction.guildId, userId, 1) as any);
 
           // Collector
           const collector = response.createMessageComponentCollector({ time: 300000 });
@@ -536,14 +548,14 @@ export default class ShopModule {
             // Pagination button
             if (i.customId.startsWith('shop_page:')) {
               lastPage = parseInt(i.customId.split(':')[1]);
-              await i.update(buildShop(i.client, userId, lastPage) as any);
+              await i.update(buildShop(i.client, i.guildId, userId, lastPage) as any);
               return;
             }
 
             // Refresh button
             if (i.customId.startsWith('shop_refresh:')) {
               lastPage = parseInt(i.customId.split(':')[1]);
-              await i.update(buildShop(i.client, userId, lastPage) as any);
+              await i.update(buildShop(i.client, i.guildId, userId, lastPage) as any);
               return;
             }
 
@@ -720,7 +732,7 @@ export default class ShopModule {
                 );
 
                 // Refresh shop card with current page
-                await i.message?.edit(buildShop(i.client, userId, currentPage) as any).catch(() => {});
+                await i.message?.edit(buildShop(i.client, i.guildId, userId, currentPage) as any).catch(() => {});
               } finally {
                 busyUsers.delete(userId);
               }
@@ -729,7 +741,7 @@ export default class ShopModule {
 
           // Hết thời gian: vô hiệu hóa menu và nút (V2 không cho xóa hết components)
           collector.on('end', () => {
-            interaction.editReply(buildShop(interaction.client, userId, lastPage, true) as any).catch(() => {});
+            interaction.editReply(buildShop(interaction.client, interaction.guildId, userId, lastPage, true) as any).catch(() => {});
           });
         } catch (error: any) {
           console.error('[Shop] Error in shop command:', error);

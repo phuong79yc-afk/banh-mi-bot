@@ -246,7 +246,7 @@ function buildQuest(client: Client, user: DiscordUser, period: Period) {
         new StringSelectMenuOptionBuilder()
           .setLabel(label)
           .setValue(value)
-          .setEmoji(getEmoji('ledger'))
+          .setEmoji('📒')
           .setDefault(value === period),
       ),
     );
