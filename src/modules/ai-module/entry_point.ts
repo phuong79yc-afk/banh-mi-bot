@@ -685,7 +685,7 @@ export default class AIModule {
           headers: { Authorization: `Bearer ${apiToken}` },
           responseType: 'arraybuffer',
           timeout: 120_000,
-          maxContentLength: IMAGE_MAX_BYTES,
+          maxContentLength: Math.ceil(IMAGE_MAX_BYTES * 4 / 3) + 1024,
         },
       );
 
