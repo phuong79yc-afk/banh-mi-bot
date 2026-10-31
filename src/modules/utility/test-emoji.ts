@@ -8,7 +8,7 @@ import { emojis } from '../../config/emojis';
 export default {
   data: new SlashCommandBuilder()
     .setName('test-emoji')
-    .setDescription('🎨 Kiểm tra tất cả animated emoji'),
+    .setDescription('Kiểm tra cách hiển thị các emoji của bot'),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const embed = new EmbedBuilder()

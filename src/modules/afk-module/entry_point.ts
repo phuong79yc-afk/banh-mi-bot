@@ -136,7 +136,7 @@ export default class AFKModule {
               new ButtonBuilder()
                 .setCustomId(`afk_remove:${interaction.user.id}`)
                 .setLabel('Tắt AFK')
-                .setEmoji('👋')
+                .setEmoji(emojis.gen_welcome)
                 .setStyle(ButtonStyle.Secondary),
             ),
           );

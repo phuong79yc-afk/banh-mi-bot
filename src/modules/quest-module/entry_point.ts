@@ -16,10 +16,11 @@ import {
   ThumbnailBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { emojis, getEmoji } from '../../config/emojis';
 import { addTransaction } from '../balance-module/entry_point';
 import { addCoins, getCurrencyBalance, spendCoins } from '../../utils/currency';
 import fs from 'fs';
@@ -230,10 +231,10 @@ function buildQuest(client: Client, user: DiscordUser, period: Period) {
   for (const q of QUESTS.filter(x => x.period === period)) {
     const p = Math.min(s.prog[q.id] ?? 0, q.target);
     const ok = p >= q.target;
-    const status = s.claimed[q.id] ? `✅ Đã nhận` : ok ? `🎁 Chờ nhận` : `${p}/${q.target}`;
+    const status = s.claimed[q.id] ? `${emojis.success} Đã nhận` : ok ? `${emojis.gift} Chờ nhận` : `${p}/${q.target}`;
 
     box.addTextDisplayComponents(
-      txt(`📜 **${questText(q)}**\n-# ${bar(p, q.target)} \`${status}\` • 🎁 ${fmt(q.reward)} ${COIN}`),
+    txt(`${emojis.document} **${questText(q)}**\n-# ${bar(p, q.target)} \`${status}\` • ${emojis.gift} ${fmt(q.reward)} ${COIN}`),
     );
   }
 
@@ -241,12 +242,13 @@ function buildQuest(client: Client, user: DiscordUser, period: Period) {
     .setCustomId(`quest:view:${user.id}:${period}`)
     .setPlaceholder(PERIODS[period])
     .addOptions(
-      Object.entries(PERIODS).map(([value, label]) => ({
-        label,
-        value,
-        emoji: { name: '📒' },
-        default: value === period,
-      })),
+      Object.entries(PERIODS).map(([value, label]) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(label)
+          .setValue(value)
+          .setEmoji(getEmoji('ledger'))
+          .setDefault(value === period),
+      ),
     );
 
   const buttons = [
@@ -254,18 +256,18 @@ function buildQuest(client: Client, user: DiscordUser, period: Period) {
       .setCustomId(`quest:upgrade:${user.id}:${period}`)
       .setStyle(ButtonStyle.Success)
       .setLabel(u.book ? 'Sổ Xịn Đã Mở' : 'Nâng Cấp Sổ Xịn')
-      .setEmoji({ name: '📗' })
+      .setEmoji(getEmoji('document'))
       .setDisabled(!!u.book),
     new ButtonBuilder()
       .setCustomId(`quest:claim:${user.id}:${period}`)
       .setStyle(ButtonStyle.Danger)
       .setLabel('Hoàn Thành')
-      .setEmoji({ name: 'success', id: EMOJI_IDS.success }),
+      .setEmoji(getEmoji('success')),
     new ButtonBuilder()
       .setCustomId(`quest:guide:${user.id}:${period}`)
       .setStyle(ButtonStyle.Secondary)
       .setLabel('Hướng Dẫn')
-      .setEmoji({ name: '💡' }),
+      .setEmoji(getEmoji('sparkles')),
   ];
 
   box

@@ -22,7 +22,7 @@ import {
   VoiceBasedChannel,
 } from 'discord.js';
 import { GuildQueue, Player, Track, useMainPlayer, useQueue, QueryType } from 'discord-player';
-import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { emojis, getEmoji } from '../../config/emojis';
 
 const V2 = MessageFlags.IsComponentsV2;
 const PREFIX = '!bc';
@@ -39,19 +39,19 @@ const controls = (paused = false) =>
   new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('music:toggle')
-      .setEmoji({ id: paused ? EMOJI_IDS.arrow_forward : EMOJI_IDS.pause_button, name: paused ? 'arrow_forward' : 'pause_button', animated: true })
+      .setEmoji(getEmoji(paused ? 'arrow_forward' : 'pause_button'))
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('music:skip')
-      .setEmoji({ id: EMOJI_IDS.track_next, name: 'track_next', animated: true })
+      .setEmoji(getEmoji('track_next'))
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music:queue')
-      .setEmoji({ id: EMOJI_IDS.scroll, name: 'scroll', animated: true })
+      .setEmoji(getEmoji('scroll'))
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music:stop')
-      .setEmoji({ id: EMOJI_IDS.stop_button, name: 'stop_button', animated: true })
+      .setEmoji(getEmoji('stop_button'))
       .setStyle(ButtonStyle.Danger),
   );
 
@@ -641,9 +641,9 @@ export default class MusicModule {
 
     if (['loop', 'repeat'].includes(cmd)) {
       const modes = [
-        { value: 0, name: 'Tắt', emoji: '▶️' },
-        { value: 1, name: 'Lặp bài', emoji: '🔂' },
-        { value: 2, name: 'Lặp queue', emoji: '🔁' },
+        { value: 0, name: 'Tắt', emoji: emojis.stop_button },
+        { value: 1, name: 'Lặp bài', emoji: emojis.track_next },
+        { value: 2, name: 'Lặp queue', emoji: emojis.refresh },
       ];
       
       const current = queue.repeatMode;
@@ -679,7 +679,7 @@ export default class MusicModule {
         return reply(notice(`${emojis.warning} Cần ít nhất 2 bài trong queue để trộn.`));
       }
       queue.tracks.shuffle();
-      return reply(notice(`${emojis.success} 🔀 Đã trộn **${queue.tracks.size}** bài trong queue!`));
+      return reply(notice(`${emojis.success} ${emojis.refresh} Đã trộn **${queue.tracks.size}** bài trong queue!`));
     }
 
     // !bc nowplaying / np - Xem bài đang phát
@@ -803,4 +803,3 @@ export default class MusicModule {
     console.log('🎵 Music module shutdown');
   }
 }
-

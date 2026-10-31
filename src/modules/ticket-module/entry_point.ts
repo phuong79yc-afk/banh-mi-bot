@@ -201,7 +201,7 @@ export default class TicketModule {
       .addSeparatorComponents(divider(SeparatorSpacingSize.Large))
       .addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId('ticket_create').setLabel('Tạo ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
+          new ButtonBuilder().setCustomId('ticket_create').setLabel('Tạo ticket').setEmoji(emojis.ticket).setStyle(ButtonStyle.Primary)
         )
       )
       .addTextDisplayComponents(text('-# Một người chỉ mở được một ticket cùng lúc'));
@@ -237,8 +237,8 @@ export default class TicketModule {
       .addSeparatorComponents(divider())
       .addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId('ticket_claim').setLabel('Nhận ticket').setEmoji('🎫').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('ticket_close_button').setLabel('Đóng').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId('ticket_claim').setLabel('Nhận ticket').setEmoji(emojis.ticket).setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('ticket_close_button').setLabel('Đóng').setEmoji(emojis.lock).setStyle(ButtonStyle.Danger)
         )
       );
 

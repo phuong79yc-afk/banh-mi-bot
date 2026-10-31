@@ -7,7 +7,7 @@ import {
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { emojis, getEmoji } from '../../config/emojis';
 import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
@@ -343,14 +343,14 @@ export default class UtilityModule {
   // Convert emoji string to dropdown-compatible format
   private getCategoryEmojiForDropdown(category: string): { id: string; name: string } | string {
     // Map category names to emoji IDs
-    const emojiMap: Record<string, { id: string; name: string }> = {
-      'Hệ thống xử lí tin nhắn': { id: EMOJI_IDS.message, name: 'message' },
-      'Giải trí': { id: EMOJI_IDS.sparkles, name: 'sparkles' },
-      'Economy': { id: EMOJI_IDS.coin, name: 'coin' },
-      'Management': { id: EMOJI_IDS.gear, name: 'gear' },
-      'Moderation': { id: EMOJI_IDS.shield, name: 'shield' },
-      'Utility': { id: EMOJI_IDS.wrench, name: 'wrench' },
-      'Khác': { id: EMOJI_IDS.art, name: 'art' },
+    const emojiMap: Record<string, string> = {
+      'Hệ thống xử lí tin nhắn': getEmoji('message'),
+      'Giải trí': getEmoji('sparkles'),
+      Economy: getEmoji('coin'),
+      Management: getEmoji('gear'),
+      Moderation: getEmoji('shield'),
+      Utility: getEmoji('wrench'),
+      'Khác': getEmoji('art'),
     };
 
     return emojiMap[category] || '📦';
@@ -601,7 +601,7 @@ export default class UtilityModule {
 
         const homeRow = (disabled = false) =>
           new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId('help_home').setLabel('Trang chủ').setEmoji('🏠')
+            new ButtonBuilder().setCustomId('help_home').setLabel('Trang chủ').setEmoji(emojis.gen_mark)
               .setStyle(ButtonStyle.Primary).setDisabled(disabled),
           );
 

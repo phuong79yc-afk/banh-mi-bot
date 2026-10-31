@@ -10,6 +10,7 @@ import {
   ContainerBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
 import { V2, V2_EPHEMERAL, txt, sep } from '../../utils/v2Helper';
@@ -20,13 +21,13 @@ import { autoresponderManager, MatchMode } from './AutoresponderManager';
 const COLOR = { main: 0x667eea, success: 0x57f287, error: 0xed4245, warn: 0xfee75c };
 
 const MODES: Record<string, { label: string; emoji: string }> = {
-  equal: { label: 'Bằng nhau', emoji: '🟰' },
-  contains: { label: 'Chứa', emoji: '🔍' },
-  startswith: { label: 'Bắt đầu bằng', emoji: '▶️' },
-  endswith: { label: 'Kết thúc bằng', emoji: '⏹️' },
+  equal: { label: 'Bằng nhau', emoji: emojis.copy },
+  contains: { label: 'Chứa', emoji: emojis.search },
+  startswith: { label: 'Bắt đầu bằng', emoji: emojis.arrow_forward },
+  endswith: { label: 'Kết thúc bằng', emoji: emojis.stop_button },
 };
 
-const modeOf = (mode: string) => MODES[mode] ?? { label: mode, emoji: '⚙️' };
+const modeOf = (mode: string) => MODES[mode] ?? { label: mode, emoji: emojis.gear };
 
 const ts = (t: number) => Math.floor(t / 1000);
 
@@ -264,11 +265,13 @@ export default class AutoresponderModule {
 
         const rest = lines.length - shown.length;
 
-        const options = list.slice(0, 25).map((ar: any, i: number) => ({
-          label: `${i + 1}. ${ar.trigger}`.slice(0, 100),
-          description: modeOf(ar.mode).label,
-          value: String(i),
-        }));
+        const options = list.slice(0, 25).map((ar: any, i: number) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`${i + 1}. ${ar.trigger}`.slice(0, 100))
+            .setDescription(modeOf(ar.mode).label)
+            .setValue(String(i))
+            .setEmoji(modeOf(ar.mode).emoji),
+        );
 
         const container = new ContainerBuilder().addTextDisplayComponents(
             txt(`## ${emojis.copy} Autoresponders`),

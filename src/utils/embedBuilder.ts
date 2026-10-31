@@ -1,4 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
+import { emojis } from '../config/emojis';
 
 export const Colors = {
   Primary: 0x667eea,
@@ -12,7 +13,7 @@ export const Colors = {
 export function createSuccessEmbed(title: string, description: string, footer?: string) {
   const embed = new EmbedBuilder()
     .setColor(Colors.Success)
-    .setTitle(`<a:white_check_mark:1555921911395909722> ${title}`)
+    .setTitle(`${emojis.success} ${title}`)
     .setDescription(description)
     .setTimestamp();
   

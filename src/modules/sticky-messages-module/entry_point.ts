@@ -24,7 +24,7 @@ import {
   SeparatorSpacingSize,
   MessageFlags,
 } from 'discord.js';
-import { emojis, EMOJI_IDS } from '../../config/emojis';
+import { emojis, getEmoji } from '../../config/emojis';
 import { stickyManager, StickyMode, StickyMessage } from './StickyManager';
 
 // ==================== CONSTANTS ====================
@@ -209,15 +209,15 @@ export default class StickyMessagesModule {
           new ButtonBuilder()
             .setCustomId('stk_mode')
             .setLabel(sticky.mode === 'threshold' ? 'Chuyển sang độ trễ' : 'Chuyển sang ngưỡng')
-            .setEmoji(EMOJI_IDS.refresh)
+            .setEmoji(getEmoji('refresh'))
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('stk_mention')
             .setLabel(sticky.allowMentions ? 'Tắt mention' : 'Bật mention')
-            .setEmoji(EMOJI_IDS.bell)
+            .setEmoji(getEmoji('bell'))
             .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('stk_repost').setLabel('Đăng lại ngay').setEmoji(EMOJI_IDS.arrow_forward).setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('stk_remove').setLabel('Gỡ sticky').setEmoji(EMOJI_IDS.delete).setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId('stk_repost').setLabel('Đăng lại ngay').setEmoji(getEmoji('arrow_forward')).setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('stk_remove').setLabel('Gỡ sticky').setEmoji(getEmoji('delete')).setStyle(ButtonStyle.Danger)
         )
       );
     }

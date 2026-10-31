@@ -1,4 +1,5 @@
 import { EmbedBuilder, User, Guild, GuildMember } from 'discord.js';
+import { emojis } from '../config/emojis';
 
 export class EmbedTemplates {
   // Moderation action colors
@@ -65,7 +66,7 @@ export class EmbedTemplates {
     const embed = new EmbedBuilder()
       .setColor(color || this.COLORS.SUCCESS)
       .setAuthor({
-        name: `<a:white_check_mark:1555921911395909722> ${action} Successfully`,
+        name: `${emojis.success} ${action} Successfully`,
         iconURL: targetUser.displayAvatarURL()
       })
       .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))

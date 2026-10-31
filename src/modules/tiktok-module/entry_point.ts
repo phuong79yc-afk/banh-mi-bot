@@ -724,12 +724,12 @@ async function buildTikTokPayload(rawUrl: string, requester: User, guild?: Guild
   const buttons: ButtonBuilder[] = [
     new ButtonBuilder()
       .setCustomId(`tiktok:info:${contextId}`)
-      .setEmoji('ℹ️')
+      .setEmoji(emojis.info)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`tiktok:transcript:${contextId}`)
       .setLabel('Transcript')
-      .setEmoji('📝')
+      .setEmoji(emojis.document)
       .setStyle(ButtonStyle.Secondary),
   ];
   if (!data.isPhoto && !hasVideoFile) {

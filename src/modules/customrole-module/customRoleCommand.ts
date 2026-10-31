@@ -14,6 +14,7 @@ import {
   GuildMember,
 } from 'discord.js';
 import { customRoleManager as mgr, CustomRoleData } from './CustomRoleManager';
+import { emojis } from '../../config/emojis';
 
 // ==================== COMPONENTS V2 HELPERS ====================
 const V2_EPH = MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral;
@@ -27,7 +28,7 @@ const card = (color: number, ...lines: string[]) =>
 
 const ok = (...l: string[]) => card(COLOR.ok, ...l);
 const warn = (...l: string[]) => card(COLOR.warn, ...l);
-const fail = (...l: string[]) => card(COLOR.err, '❌ **Lỗi**', ...l);
+const fail = (...l: string[]) => card(COLOR.err, `${emojis.error} **Lỗi**`, ...l);
 
 const toHex = (c: string) => `#${HEX.exec(c)![1].toLowerCase()}`;
 const toInt = (c: string) => parseInt(HEX.exec(c)![1], 16);
@@ -66,7 +67,7 @@ function rolePanel(userId: string, data: CustomRoleData | undefined, enabled: bo
         new ButtonBuilder()
           .setCustomId(`crole:delete:${userId}`)
           .setLabel('Xóa role')
-          .setEmoji('🗑️')
+          .setEmoji(emojis.delete)
           .setStyle(ButtonStyle.Danger),
       ) as any,
     );

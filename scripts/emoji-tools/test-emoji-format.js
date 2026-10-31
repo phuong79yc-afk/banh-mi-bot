@@ -19,7 +19,7 @@ Object.entries(emojis).slice(0, 8).forEach(([name, value]) => {
 console.log('\n' + '='.repeat(60) + '\n');
 
 console.log('Expected format: <:name:id>');
-console.log('Example: <:success:1546857884330098768>');
+console.log(`Example: <:success:${EMOJI_IDS.success}>`);
 
 console.log('\n✅ If format matches, emoji should work!');
 console.log('❌ If format is different, check getEmoji() function');

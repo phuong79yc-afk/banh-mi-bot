@@ -31,18 +31,17 @@ client.once('ready', async () => {
     console.log(`📝 Found channel: #${testChannel.name}\n`);
     
     // Test emoji formats
+    const { emojis } = require('../dist/src/config/emojis');
     const tests = [
       '**Test 1: Direct emoji IDs**',
-      '<:success:1546857884330098768>',
-      '<:error:1546858101381140533>',
-      '<:warning:1546858070758396006>',
-      '<:art:1546858007944630352>',
+      emojis.success,
+      emojis.error,
+      emojis.warning,
+      emojis.art,
       '',
       '**Test 2: From emojis.ts**',
     ];
     
-    // Load compiled emojis
-    const { emojis } = require('../dist/src/config/emojis');
     tests.push(`success: ${emojis.success}`);
     tests.push(`error: ${emojis.error}`);
     tests.push(`warning: ${emojis.warning}`);

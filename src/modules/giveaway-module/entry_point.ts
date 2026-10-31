@@ -132,13 +132,13 @@ export default class GiveawayModule {
               )
             )
             .addSeparatorComponents(sep())
-            .addTextDisplayComponents(txt(`### 🎊 Bấm nút bên dưới để tham gia!`))
+            .addTextDisplayComponents(txt(`### ${emojis.gen_giveaway} Bấm nút bên dưới để tham gia!`))
             .addActionRowComponents(
               new ActionRowBuilder<ButtonBuilder>().addComponents(
                 new ButtonBuilder()
                   .setCustomId(`giveaway_enter_${giveawayId}`)
                   .setLabel('Tham gia giveaway')
-                  .setEmoji('🎉')
+                  .setEmoji(emojis.gen_giveaway)
                   .setStyle(ButtonStyle.Success)
               )
             );
@@ -601,7 +601,7 @@ export default class GiveawayModule {
                 new ButtonBuilder()
                   .setCustomId(`giveaway_leave_${giveawayId}`)
                   .setLabel('Rút khỏi giveaway')
-                  .setEmoji('🚪')
+                  .setEmoji(emojis.gen_back)
                   .setStyle(ButtonStyle.Secondary)
               )
             ),

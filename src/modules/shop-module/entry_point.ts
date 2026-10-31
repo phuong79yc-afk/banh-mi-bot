@@ -430,7 +430,8 @@ function buildShop(client: Client, userId?: string, page: number = 1, disabled =
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`shop_page:${currentPage - 1}`)
-      .setLabel('◀ Trước')
+      .setLabel('Trước')
+      .setEmoji(emojis.gen_prev)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled || currentPage === 1),
     new ButtonBuilder()
@@ -441,7 +442,8 @@ function buildShop(client: Client, userId?: string, page: number = 1, disabled =
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`shop_page:${currentPage + 1}`)
-      .setLabel('Tiếp ▶')
+      .setLabel('Tiếp')
+      .setEmoji(emojis.gen_next)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled || currentPage === totalPages),
     new ButtonBuilder()

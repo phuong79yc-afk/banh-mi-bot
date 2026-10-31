@@ -7,6 +7,7 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from 'discord.js';
+import { emojis } from '../config/emojis';
 
 /**
  * Modal Helper - Tạo modal forms cho các commands
@@ -86,12 +87,12 @@ export class ModalHelper {
           new ButtonBuilder()
             .setCustomId('modal_mute')
             .setLabel('Mute')
-            .setEmoji('<a:mute:1555853916405628998>')
+            .setEmoji(emojis.mute ?? '🔇')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_unmute')
             .setLabel('Unmute')
-            .setEmoji('<a:unmute:1555853968154824784>')
+            .setEmoji(emojis.unmute ?? '🔊')
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId('modal_clear')

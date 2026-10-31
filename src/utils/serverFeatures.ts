@@ -10,6 +10,7 @@ import {
   ThumbnailBuilder,
   User,
 } from 'discord.js';
+import { emojis } from '../config/emojis';
 import fs from 'fs';
 import path from 'path';
 
@@ -36,11 +37,11 @@ interface FeatureOption {
 }
 
 export const FEATURES: FeatureOption[] = [
-  { label: 'Welcome System', value: 'welcome_system', emoji: '👋' },
-  { label: 'Goodbye System', value: 'goodbye_system', emoji: '👋' },
-  { label: 'Auto Role', value: 'auto_role', emoji: '🎭' },
-  { label: 'Level System', value: 'level_system', emoji: '📊' },
-  { label: 'Giveaway Notifications', value: 'giveaway_notifications', emoji: '🎁' },
+  { label: 'Welcome System', value: 'welcome_system', emoji: emojis.gen_welcome },
+  { label: 'Goodbye System', value: 'goodbye_system', emoji: emojis.gen_goodbye },
+  { label: 'Auto Role', value: 'auto_role', emoji: emojis.gen_autorole },
+  { label: 'Level System', value: 'level_system', emoji: emojis.gen_level },
+  { label: 'Giveaway Notifications', value: 'giveaway_notifications', emoji: emojis.gen_giveaway },
 ];
 
 const DEFAULT_FEATURES: GuildFeatures = {
@@ -103,21 +104,21 @@ export function buildFeatureCard(user: User, guildId: string): any {
   const features = getGuildFeatures(guildId);
   const container = new ContainerBuilder();
 
-  container.addTextDisplayComponents(text('-# ⚙️ Server Features'));
+  container.addTextDisplayComponents(text(`-# ${emojis.gen_settings} Server Features`));
   container.addSectionComponents(
     new SectionBuilder()
       .addTextDisplayComponents(
-        text('## ⚙️ Server Features'),
+        text(`## ${emojis.gen_settings} Server Features`),
         text('-# Configure which features are enabled for this server'),
       )
       .setThumbnailAccessory(new ThumbnailBuilder().setURL(user.displayAvatarURL({ size: 256 }))),
   );
   container.addSeparatorComponents(divider(SeparatorSpacingSize.Large));
   container.addTextDisplayComponents(
-    text('### 📋 Current Status'),
+    text(`### ${emojis.gen_mark} Current Status`),
     text(FEATURES.map((feature) => {
       const enabled = features[feature.value];
-      return `${enabled ? '✅' : '❌'} **${feature.label}** ~ ${enabled ? 'Enabled' : 'Disabled'}`;
+      return `${feature.emoji} ${enabled ? '✅' : '❌'} **${feature.label}** ~ ${enabled ? 'Enabled' : 'Disabled'}`;
     }).join('\n')),
   );
   container.addSeparatorComponents(divider());

@@ -31,9 +31,10 @@ try {
   
   console.log('\n' + '='.repeat(60) + '\n');
   
-  console.log('Expected format: <:success:1546857884330098768>');
+  const expectedSuccess = `<:success:${EMOJI_IDS.success}>`;
+  console.log('Expected format:', expectedSuccess);
   console.log('Actual success:', emojis.success);
-  console.log('Match:', emojis.success === '<:success:1546857884330098768>');
+  console.log('Match:', emojis.success === expectedSuccess);
   
 } catch (error) {
   console.error('❌ Error:', error.message);

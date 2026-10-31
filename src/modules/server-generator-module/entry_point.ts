@@ -910,7 +910,7 @@ function buildDesignView(user: User, design: ServerDesign, page = 0, report?: Va
   }
 
   const card = baseEmbed(user, 'Server Generator')
-    .setTitle(`${emojis.sparkles} ${design.serverName}`)
+    .setTitle(`${emojis.gen_mark} ${design.serverName}`)
     .setDescription(description.join('\n\n'));
 
   if (BANNER_URL) card.setImage(BANNER_URL);
@@ -919,8 +919,8 @@ function buildDesignView(user: User, design: ServerDesign, page = 0, report?: Va
   if (pages.length > 1) {
     rows.push(
       row(
-        button('page', user.id, 'Trước', emojis.prev, ButtonStyle.Secondary, safePage - 1).setDisabled(safePage === 0),
-        button('page', user.id, 'Sau', emojis.next, ButtonStyle.Secondary, safePage + 1).setDisabled(
+        button('page', user.id, 'Trước', emojis.gen_prev, ButtonStyle.Secondary, safePage - 1).setDisabled(safePage === 0),
+        button('page', user.id, 'Sau', emojis.gen_next, ButtonStyle.Secondary, safePage + 1).setDisabled(
           safePage === pages.length - 1,
         ),
       ),
@@ -929,8 +929,8 @@ function buildDesignView(user: User, design: ServerDesign, page = 0, report?: Va
 
   rows.push(
     row(
-      button('export', user.id, 'Export vào server', emojis.rocket, ButtonStyle.Success),
-      button('menu', user.id, 'Menu', emojis.settings, ButtonStyle.Secondary),
+      button('export', user.id, 'Export vào server', emojis.gen_export, ButtonStyle.Success),
+      button('menu', user.id, 'Menu', emojis.gen_menu, ButtonStyle.Secondary),
     ),
   );
 
@@ -940,25 +940,25 @@ function buildDesignView(user: User, design: ServerDesign, page = 0, report?: Va
 /** Menu: mô tả từng tác vụ + 2 hàng nút trong cùng khung */
 function buildMenuView(user: User) {
   const card = baseEmbed(user, 'Generator Menu')
-    .setTitle(`${emojis.sparkles} Chọn tác vụ`)
+    .setTitle(`${emojis.gen_mark} Chọn tác vụ`)
     .setDescription(
       quote(
-        `${emojis.download} **Tải JSON** • ${emojis.mail} **DM** • ${emojis.clipboard} **Import**`,
-        `${emojis.settings} **Welcome/Bye** • ${emojis.refresh} **Tạo lại** • ${emojis.trash} **Xóa toàn bộ**`,
+        `${emojis.gen_json} **Tải JSON** • ${emojis.gen_dm} **DM** • ${emojis.gen_import} **Import**`,
+        `${emojis.gen_settings} **Welcome/Bye** • ${emojis.gen_retry} **Tạo lại** • ${emojis.gen_delete} **Xóa toàn bộ**`,
       ),
     );
 
   return payload(card, [
     row(
-      button('json', user.id, 'JSON', emojis.download, ButtonStyle.Primary),
-      button('dm', user.id, 'DM', emojis.mail, ButtonStyle.Primary),
-      button('importfile', user.id, 'Import', emojis.clipboard, ButtonStyle.Primary),
+      button('json', user.id, 'JSON', emojis.gen_json, ButtonStyle.Primary),
+      button('dm', user.id, 'DM', emojis.gen_dm, ButtonStyle.Primary),
+      button('importfile', user.id, 'Import', emojis.gen_import, ButtonStyle.Primary),
     ),
     row(
-      button('welcbye', user.id, 'Welcome/Bye', emojis.settings, ButtonStyle.Primary),
-      button('retry', user.id, 'Tạo lại', emojis.refresh, ButtonStyle.Secondary),
-      button('delete', user.id, 'Xóa', emojis.trash, ButtonStyle.Danger),
-      button('back', user.id, 'Quay lại', emojis.back, ButtonStyle.Secondary),
+      button('welcbye', user.id, 'Welcome/Bye', emojis.gen_settings, ButtonStyle.Primary),
+      button('retry', user.id, 'Tạo lại', emojis.gen_retry, ButtonStyle.Secondary),
+      button('delete', user.id, 'Xóa', emojis.gen_delete, ButtonStyle.Danger),
+      button('back', user.id, 'Quay lại', emojis.gen_back, ButtonStyle.Secondary),
     ),
   ]);
 }
@@ -997,7 +997,7 @@ async function buildWelcomeByeMenu(user: User, guildId: string) {
   } catch {}
   
   const card = baseEmbed(user, 'Welcome & Goodbye Settings')
-    .setTitle(`${emojis.sparkles} Cấu hình Welcome/Goodbye`)
+    .setTitle(`${emojis.gen_settings} Cấu hình Welcome/Goodbye`)
     .setDescription(
       quote(
         `${emojis.users} **Welcome System**`,
@@ -1018,8 +1018,8 @@ async function buildWelcomeByeMenu(user: User, guildId: string) {
         goodbyeEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
     ),
     row(
-      button('editwelcome', user.id, 'Chỉnh sửa', emojis.edit, ButtonStyle.Primary),
-      button('menu', user.id, 'Quay lại', emojis.back, ButtonStyle.Secondary),
+      button('editwelcome', user.id, 'Chỉnh sửa', emojis.gen_edit, ButtonStyle.Primary),
+      button('menu', user.id, 'Quay lại', emojis.gen_back, ButtonStyle.Secondary),
     ),
   ]);
 }
@@ -1034,7 +1034,7 @@ const loadingGenerateView = (user: User) =>
         `${emojis.chart} Phân tích yêu cầu của bạn`,
         `${emojis.art} Thiết kế cấu trúc server`,
         `${emojis.star} Chọn emoji phù hợp`,
-        `${emojis.edit} Đặt tên channels và roles`,
+        `${emojis.gen_edit} Đặt tên channels và roles`,
       ],
       'Mất khoảng 10–20 giây · Model: GPT-OSS 120B',
     ),

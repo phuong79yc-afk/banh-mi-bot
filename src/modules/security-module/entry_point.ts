@@ -310,8 +310,8 @@ export default class SecurityModule {
     if (withButtons) {
       c.addActionRowComponents(
         new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId('perf:refresh').setLabel('Làm mới').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('perf:cleanup').setLabel('Dọn dẹp').setEmoji('🧹').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('perf:refresh').setLabel('Làm mới').setEmoji(emojis.refresh).setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('perf:cleanup').setLabel('Dọn dẹp').setEmoji(emojis.delete).setStyle(ButtonStyle.Primary),
         ),
       );
     }

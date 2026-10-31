@@ -1,8 +1,8 @@
 /**
- * Custom Emoji System - Unicode Based
- * Uses beautiful Unicode emojis instead of server-specific custom emojis
- * Works in any Discord server without needing to upload emojis
+ * Shared emoji aliases for command utilities.
+ * Uses the server icon set for common bot statuses and Unicode elsewhere.
  */
+import { emojis } from '../config/emojis';
 
 export const CUSTOM_EMOJI = {
   // 🎵 Music Commands
@@ -26,8 +26,8 @@ export const CUSTOM_EMOJI = {
   MOD_BAN: '🔨',
   MOD_UNBAN: '🔓',
   MOD_KICK: '👢',
-  MOD_MUTE: '<a:mute:1555853916405628998>',
-  MOD_UNMUTE: '<a:unmute:1555853968154824784>',
+  MOD_MUTE: '🔇',
+  MOD_UNMUTE: '🔊',
   MOD_WARN: '⚠️',
   MOD_LOCK: '🔒',
   MOD_UNLOCK: '🔓',
@@ -39,12 +39,12 @@ export const CUSTOM_EMOJI = {
   MOD_SHIELD: '🛡️',
   
   // ✨ Status Indicators
-  STATUS_SUCCESS: '<a:white_check_mark:1555921911395909722>',
-  STATUS_ERROR: '❌',
+  STATUS_SUCCESS: '✅',
+  STATUS_ERROR: emojis.error,
   STATUS_LOADING: '⏳',
   STATUS_WARNING: '⚠️',
-  SUCCESS: '<a:white_check_mark:1555921911395909722>',
-  ERROR: '❌',
+  SUCCESS: '✅',
+  ERROR: emojis.error,
   LOADING: '⏳',
   WARNING: '⚠️',
   INFO: 'ℹ️',
@@ -63,15 +63,15 @@ export const CUSTOM_EMOJI = {
   
   // 💰 Economy Commands
   ECO_WALLET: '👛',
-  ECO_COIN: '<a:money_with_wings:1555919069172080650>',
+  ECO_COIN: '💸',
   ECO_GIFT: '🎁',
   ECO_SHOP: '🏪',
   ECO_DAILY: '📅',
   ECO_BANK: '🏦',
-  ECO_MONEY: '<a:money_with_wings:1555919069172080650>',
+  ECO_MONEY: '💸',
   ECO_DIAMOND: '💎',
   ECO_GOLD: '🏅',
-  ECO_MINUS: '<a:heavy_minus_sign:1555918969750425682>',
+  ECO_MINUS: '➖',
   
   // 🎯 General Icons
   CROWN: '👑',
@@ -80,7 +80,7 @@ export const CUSTOM_EMOJI = {
   CLOCK: '⏰',
   GLOBE: '🌍',
   CHART: '📈',
-  COIN: '<a:money_with_wings:1555919069172080650>',
+  COIN: '💸',
   GIFT: '🎁',
   ENVELOPE: '✉️',
   GEM: '💎',

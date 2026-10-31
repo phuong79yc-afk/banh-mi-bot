@@ -546,7 +546,7 @@ register(['mute'], async ({ client, message, args }) => {
       user,
       card({
         color: COLOR_ORANGE,
-        title: '<a:mute:1555853916405628998> Bạn đã bị mute',
+        title: `${emojis.mute} Bạn đã bị mute`,
         subtitle: `Bạn đã bị mute trong **${message.guild.name}**`,
         sections: [
           `⏱️ **Thời gian:** ${formatDuration(duration)}\n👮 **Moderator:** ${message.author.tag}`,
@@ -559,7 +559,7 @@ register(['mute'], async ({ client, message, args }) => {
         modCard({
           action: 'MUTE',
           color: COLOR_YELLOW,
-          title: '<a:mute:1555853916405628998> User đã bị mute',
+          title: `${emojis.mute} User đã bị mute`,
           target: user,
           lines: [
             `${emojis.user} **User:** ${user} (${user.tag})`,
@@ -595,7 +595,7 @@ register(['unmute'], async ({ client, message, args }) => {
       user,
       card({
         color: COLOR_GREEN,
-        title: '<a:unmute:1555853968154824784> Bạn đã được unmute',
+        title: `${emojis.unmute} Bạn đã được unmute`,
         subtitle: `Bạn đã được unmute trong **${message.guild.name}**`,
         sections: [`👮 **Moderator:** ${message.author.tag}`, `### 📝 Lý do\n${quote(reason)}`],
       })
@@ -605,7 +605,7 @@ register(['unmute'], async ({ client, message, args }) => {
         modCard({
           action: 'UNMUTE',
           color: COLOR_GREEN,
-          title: '<a:unmute:1555853968154824784> User đã được unmute',
+          title: `${emojis.unmute} User đã được unmute`,
           target: user,
           lines: [`${emojis.user} **User:** ${user} (${user.tag})`, `👮 **Moderator:** ${message.author}`, dmLine(dmOk)],
           reason,

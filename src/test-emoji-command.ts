@@ -4,7 +4,7 @@ import { emojis } from './config/emojis';
 export default {
   data: new SlashCommandBuilder()
     .setName('test-emoji')
-    .setDescription('Test animated emoji display'),
+    .setDescription('Kiểm tra cách hiển thị emoji của bot'),
   
   async execute(interaction: ChatInputCommandInteraction) {
     // Method 1: Emoji in text (small - 48x48px)

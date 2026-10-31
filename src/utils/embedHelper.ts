@@ -1,4 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
+import { emojis } from '../config/emojis';
 
 /**
  * Enhanced Embed Helper - Create beautiful, consistent embeds
@@ -90,7 +91,7 @@ export function createEnhancedEmbed(options: EnhancedEmbedOptions): EmbedBuilder
 export const EmbedTemplates = {
   success: (title: string, description: string) =>
     createEnhancedEmbed({
-      title: `<a:white_check_mark:1555921911395909722> ${title}`,
+      title: `${emojis.success} ${title}`,
       description,
       color: 'success',
     }),

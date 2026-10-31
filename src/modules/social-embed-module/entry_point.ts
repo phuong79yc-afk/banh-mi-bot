@@ -23,6 +23,7 @@ import path from 'path';
 import ffmpegPath from 'ffmpeg-static';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { keyRotator } from '../../utils/aiKeyRotator';
+import { emojis } from '../../config/emojis';
 
 // ==================== CONFIG ====================
 /** true = hiện thanh viền màu theo từng nền tảng; false = card không viền */
@@ -848,13 +849,14 @@ function buildSocialCard(o: CardOptions) {
   container.addTextDisplayComponents(text(lines.join('\n')));
 
   // Hàng nút: link gốc trước; nút embed chỉ hiện khi video chưa nằm sẵn trong card
-  const buttons = [linkButton('Xem bài gốc', o.rawLink, '🔗')];
+  const buttons = [linkButton('Xem bài gốc', o.rawLink, emojis.link)];
   if (o.translateCustomId) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId(o.translateCustomId)
         .setLabel('Dịch caption')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji(emojis.sparkles),
     );
   }
   container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));

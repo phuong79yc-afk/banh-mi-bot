@@ -2,6 +2,9 @@
  * Emoji Helper - Centralized emoji management
  * Use these emoji in commands, embeds, and messages
  */
+import { emojis } from '../config/emojis';
+
+const getServerEmoji = (name: string, fallback: string) => emojis[name] ?? fallback;
 
 // Standard Unicode Emoji (works everywhere, no upload needed)
 export const EMOJI = {
@@ -28,8 +31,8 @@ export const EMOJI = {
   BAN: '🔨',
   KICK: '👢',
   BOOT: '👢',
-  MUTE: '<a:mute:1555853916405628998>',
-  UNMUTE: '<a:unmute:1555853968154824784>',
+  MUTE: getServerEmoji('mute', '🔇'),
+  UNMUTE: getServerEmoji('unmute', '🔊'),
   WARNING: '⚠️',
   HOURGLASS: '⏱️',
   TIMEOUT: '⏱️',
@@ -44,8 +47,8 @@ export const EMOJI = {
   CROSSED_SWORDS: '⚔️',
   
   // Status & Feedback
-  SUCCESS: '<a:white_check_mark:1555921911395909722>',
-  CHECK: '<a:white_check_mark:1555921911395909722>',
+  SUCCESS: getServerEmoji('white_check_mark', '✅'),
+  CHECK: getServerEmoji('white_check_mark', '✅'),
   ERROR: '❌',
   CROSS: '❌',
   WARNING_SIGN: '⚠️',
@@ -141,14 +144,14 @@ export const EMOJI = {
   CLOWN: '🤡',
   
   // Economy & Money
-  COIN: '<a:money_with_wings:1555919069172080650>',
-  MONEY_BAG: '<a:money_with_wings:1555919069172080650>',
+  COIN: getServerEmoji('money_with_wings', '💸'),
+  MONEY_BAG: getServerEmoji('money_with_wings', '💸'),
   DOLLAR: '💵',
   YEN: '💴',
   EURO: '💶',
   POUND: '💷',
   CREDIT_CARD: '💳',
-  MINUS: '<a:heavy_minus_sign:1555918969750425682>',
+  MINUS: getServerEmoji('heavy_minus_sign', '➖'),
   RECEIPT: '🧾',
   SHOPPING_CART: '🛒',
   SHOP: '🏪',
@@ -224,31 +227,26 @@ export const EMOJI = {
   PENGUIN: '🐧'
 } as const;
 
-// Custom Emoji (requires upload to Discord server)
-// Replace IDs after uploading your custom emoji
+// Server-specific emoji, centralized in the shared emoji config.
 export const CUSTOM_EMOJI = {
-  // Music (example IDs - replace with your actual emoji IDs)
-  MUSIC_PLAY: '<:music_play:000000000000000000>',
-  MUSIC_PAUSE: '<:music_pause:000000000000000000>',
-  MUSIC_STOP: '<:music_stop:000000000000000000>',
-  MUSIC_QUEUE: '<:music_queue:000000000000000000>',
+  MUSIC_PLAY: getServerEmoji('music', '🎵'),
+  MUSIC_PAUSE: getServerEmoji('pause_button', '⏸️'),
+  MUSIC_STOP: getServerEmoji('stop_button', '⏹️'),
+  MUSIC_QUEUE: getServerEmoji('scroll', '📋'),
   
-  // Moderation (example IDs)
-  MOD_BAN: '<:mod_ban:000000000000000000>',
-  MOD_KICK: '<:mod_kick:000000000000000000>',
-  MOD_MUTE: '<:mod_mute:000000000000000000>',
-  MOD_WARN: '<:mod_warn:000000000000000000>',
+  MOD_BAN: getServerEmoji('shield', '🔨'),
+  MOD_KICK: getServerEmoji('user', '👢'),
+  MOD_MUTE: getServerEmoji('mute', '🔇'),
+  MOD_WARN: getServerEmoji('warning', '⚠️'),
   
-  // Status (example IDs)
-  STATUS_ONLINE: '<:status_online:000000000000000000>',
-  STATUS_OFFLINE: '<:status_offline:000000000000000000>',
-  STATUS_IDLE: '<:status_idle:000000000000000000>',
-  STATUS_DND: '<:status_dnd:000000000000000000>',
+  STATUS_ONLINE: getServerEmoji('success', '✅'),
+  STATUS_OFFLINE: getServerEmoji('error', '❌'),
+  STATUS_IDLE: getServerEmoji('loading', '⏳'),
+  STATUS_DND: getServerEmoji('mute', '🔇'),
   
-  // Brand/Logo (example IDs)
-  LOGO: '<:bot_logo:000000000000000000>',
-  VERIFIED: '<:verified:000000000000000000>',
-  PREMIUM: '<:premium:000000000000000000>'
+  LOGO: getServerEmoji('gen_mark', '🤖'),
+  VERIFIED: getServerEmoji('success', '✅'),
+  PREMIUM: getServerEmoji('gem', '💎')
 } as const;
 
 // Helper function to get emoji

@@ -346,7 +346,7 @@ export default class ModerationModule {
             ],
             reason,
             note,
-            undo: !note && !ended ? { customId: undoId, label: 'Gỡ ban', emoji: '🔓' } : undefined,
+            undo: !note && !ended ? { customId: undoId, label: 'Gỡ ban', emoji: emojis.unlock } : undefined,
             at,
           });
 
@@ -426,7 +426,7 @@ export default class ModerationModule {
             ],
             reason,
             note,
-            undo: !note && !ended ? { customId: undoId, label: 'Gỡ timeout', emoji: '🔊' } : undefined,
+            undo: !note && !ended ? { customId: undoId, label: 'Gỡ timeout', emoji: emojis.unmute } : undefined,
             at,
           });
 
@@ -549,7 +549,7 @@ export default class ModerationModule {
             lines: [`${emojis.shield} **Thực hiện bởi:** ${interaction.user}`],
             reason,
             note,
-            undo: !note && !ended ? { customId: undoId, label: 'Mở khóa', emoji: '🔓' } : undefined,
+            undo: !note && !ended ? { customId: undoId, label: 'Mở khóa', emoji: emojis.unlock } : undefined,
             at,
           });
 

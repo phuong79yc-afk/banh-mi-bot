@@ -7,8 +7,9 @@ import {
   Client, Collection, SlashCommandBuilder, ChatInputCommandInteraction, ButtonInteraction,
   AttachmentBuilder, ContainerBuilder, FileBuilder,
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
+  ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction,
 } from 'discord.js';
-import { emojis } from '../../config/emojis';
+import { getEmoji, emojis } from '../../config/emojis';
 import { V2, V2_EPHEMERAL, txt, sep, gallery } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -26,9 +27,19 @@ const MAX_HISTORY = 10; // Keep last 10 exchanges per channel
 
 // Giới hạn hiển thị (message V2 tối đa 4000 ký tự text)
 const MAX_DISPLAY = 3200;
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
+const IMAGE_EDIT_MODEL = 'gemini-2.5-flash-image';
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-const IMAGE_CREDIT = '![:gemini:](https://cdn.discordapp.com/emojis/1447369690895745155.webp?size=56) Generated with Nano Banana Flash';
+const IMAGE_EDIT_CACHE_MAX = 10;
+const IMAGE_EDIT_CACHE_TTL = 30 * 60 * 1000;
+const IMAGE_CREDIT = 'Generated with FLUX.1 Schnell · Cloudflare Workers AI';
+
+interface CachedImage {
+  ownerId: string;
+  buffer: Buffer;
+  mimeType: string;
+  expiresAt: number;
+}
 
 // Cache câu trả lời gần đây để nút "Tạo lại" hoạt động
 interface CachedAnswer {
@@ -75,7 +86,7 @@ Bot Commands Knowledge (use when user asks about bot commands):
 **🤖 AI Chat:**
 - /ai message:[câu hỏi] model:[optional] style:[optional] - Chat với AI có memory. Models: GPT-OSS 20B/120B (Groq), Llama 3.1 8B, Gemini 2.0 Flash/1.5 Pro/Flash. Styles: default, creative, professional, casual, technical
 - /ai-memory view/clear - Xem hoặc xóa lịch sử hội thoại trong kênh
-- /image prompt:[mô tả] - Tạo ảnh bằng Gemini Nano Banana Flash
+- /image prompt:[mô tả] - Tạo ảnh bằng FLUX trên Cloudflare Workers AI
 - !ai [câu hỏi] - Prefix command, dùng model mặc định GPT-OSS 20B
 
 **💰 Economy & Shop:**
@@ -270,6 +281,7 @@ export default class AIModule {
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
+  private readonly imageEditCache = new Map<string, CachedImage>();
 
   constructor(client: Client) {
     this.client = client;
@@ -282,6 +294,56 @@ export default class AIModule {
     this.registerCommands();
     this.registerEvents();
     console.log('  ✅ AI Module ready');
+  }
+
+  private cacheImageForEditing(ownerId: string, buffer: Buffer, mimeType: string): string {
+    const now = Date.now();
+    for (const [id, image] of this.imageEditCache) {
+      if (image.expiresAt <= now) this.imageEditCache.delete(id);
+    }
+
+    while (this.imageEditCache.size >= IMAGE_EDIT_CACHE_MAX) {
+      const oldest = this.imageEditCache.keys().next().value;
+      if (!oldest) break;
+      this.imageEditCache.delete(oldest);
+    }
+
+    const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    this.imageEditCache.set(id, {
+      ownerId,
+      buffer,
+      mimeType,
+      expiresAt: now + IMAGE_EDIT_CACHE_TTL,
+    });
+    return id;
+  }
+
+  private buildImageResult(buffer: Buffer, mimeType: string, ownerId: string) {
+    const extensionByMime: Record<string, string> = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/webp': 'webp',
+    };
+    const extension = extensionByMime[mimeType];
+    if (!extension) throw new Error(`Định dạng ảnh không được hỗ trợ: ${mimeType}`);
+
+    const fileName = `generated-image.${extension}`;
+    const imageId = this.cacheImageForEditing(ownerId, buffer, mimeType);
+    const container = new ContainerBuilder()
+      .addMediaGalleryComponents(gallery(`attachment://${fileName}`))
+      .addSeparatorComponents(sep())
+      .addTextDisplayComponents(txt(IMAGE_CREDIT))
+      .addActionRowComponents(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`image_edit:${ownerId}:${imageId}`)
+            .setLabel('Sửa ảnh')
+            .setEmoji(getEmoji('edit_image'))
+            .setStyle(ButtonStyle.Secondary),
+        ),
+      );
+
+    return { container, fileName };
   }
 
   private checkKeys() {
@@ -357,7 +419,7 @@ export default class AIModule {
     const imageCommand = {
       data: new SlashCommandBuilder()
         .setName('image')
-        .setDescription('Tạo ảnh từ mô tả bằng Nano Banana Flash')
+        .setDescription('Tạo ảnh bằng FLUX qua Cloudflare Workers AI')
         .addStringOption(option =>
           option
             .setName('prompt')
@@ -384,9 +446,12 @@ export default class AIModule {
       throw error;
     }
 
-    const apiKey = keyRotator.getGeminiKey();
-    if (!apiKey) {
-      await interaction.editReply('Tính năng tạo ảnh hiện chưa khả dụng: bot chưa có Gemini API key.');
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+    if (!accountId || !apiToken) {
+      await interaction.editReply(
+        'Tính năng tạo ảnh chưa được cấu hình. Hãy đặt CLOUDFLARE_ACCOUNT_ID và CLOUDFLARE_API_TOKEN.',
+      );
       return;
     }
 
@@ -398,15 +463,180 @@ export default class AIModule {
 
     try {
       const { data } = await axios.post<{
+        success?: boolean;
+        result?: { image?: string };
+        errors?: Array<{ code?: number; message?: string }>;
+      }>(
+        `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${IMAGE_MODEL}`,
+        { prompt },
+        {
+          headers: { Authorization: `Bearer ${apiToken}` },
+          timeout: 120_000,
+        },
+      );
+
+      if (!data.success || !data.result?.image) {
+        const detail = data.errors?.map(error => error.message).filter(Boolean).join('\n').slice(0, 800);
+        await interaction.editReply(detail || 'Cloudflare Workers AI không trả về ảnh. Hãy thử lại sau.');
+        return;
+      }
+
+      const mimeType = 'image/jpeg';
+      const imageBuffer = Buffer.from(data.result.image, 'base64');
+      if (imageBuffer.length === 0) {
+        await interaction.editReply('Cloudflare Workers AI trả về dữ liệu ảnh không hợp lệ. Vui lòng thử lại sau.');
+        return;
+      }
+      if (imageBuffer.length > IMAGE_MAX_BYTES) {
+        await interaction.editReply('Ảnh tạo ra vượt quá giới hạn tệp 8 MB của bot.');
+        return;
+      }
+
+      const { container, fileName } = this.buildImageResult(imageBuffer, mimeType, interaction.user.id);
+
+      await interaction.editReply({
+        components: [container],
+        files: [new AttachmentBuilder(imageBuffer, { name: fileName })],
+        flags: V2,
+      } as any);
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const providerMessage = axios.isAxiosError(error)
+        ? error.response?.data?.errors?.map((entry: { message?: string }) => entry.message).filter(Boolean).join('; ')
+        : undefined;
+      console.error('[Image Generation] Cloudflare Workers AI request failed:', {
+        status,
+        providerMessage,
+        message: error instanceof Error ? error.message : String(error),
+      });
+
+      const quotaExceeded = status === 429 || /quota|neurons|daily allocation|rate limit/i.test(providerMessage ?? '');
+      const message = quotaExceeded
+        ? 'Cloudflare Workers AI đã hết quota hoặc đang giới hạn yêu cầu. Hạn mức miễn phí được làm mới hằng ngày.'
+        : status === 401 || status === 403
+          ? 'Cloudflare API token không hợp lệ hoặc thiếu quyền Workers AI.'
+          : status === 404
+            ? `Không tìm thấy model ${IMAGE_MODEL} hoặc Account ID không đúng.`
+            : 'Không thể tạo ảnh bằng Cloudflare Workers AI lúc này. Vui lòng thử lại sau.';
+      await interaction.editReply(message).catch(editError => {
+        console.error('[Image Generation] Failed to send error response:', editError);
+      });
+    }
+  }
+
+  // ───────── Nút bấm (Tạo lại / Xóa bộ nhớ) ─────────
+  private registerEvents() {
+    // Button interactions
+    this.client.on('interactionCreate', async interaction => {
+      try {
+        if (interaction.isButton() && interaction.customId.startsWith('image_edit:')) {
+          await this.handleImageEditButton(interaction);
+        } else if (interaction.isModalSubmit() && interaction.customId.startsWith('image_edit_modal:')) {
+          await this.handleImageEditSubmit(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
+          await this.handleButton(interaction);
+        }
+      } catch (error) {
+        console.error('AI interaction error:', error);
+        if (interaction.isRepliable()) {
+          try {
+            if (interaction.deferred || interaction.replied) {
+              await interaction.editReply('Không thể xử lý tương tác AI lúc này.');
+            } else {
+              await interaction.reply({
+                content: 'Không thể xử lý tương tác AI lúc này.',
+                flags: MessageFlags.Ephemeral,
+              });
+            }
+          } catch (responseError) {
+            console.error('AI interaction error response failed:', responseError);
+          }
+        }
+      }
+    });
+
+    // Bot mention listener disabled - using main index.ts listener instead
+  }
+
+  private async handleImageEditButton(interaction: ButtonInteraction) {
+    const [, ownerId, imageId] = interaction.customId.split(':');
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply({ content: 'Chỉ người tạo ảnh mới có thể sửa ảnh này.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const image = this.imageEditCache.get(imageId);
+    if (!image || image.expiresAt <= Date.now()) {
+      this.imageEditCache.delete(imageId);
+      await interaction.reply({
+        content: 'Ảnh đã hết hạn khỏi bộ nhớ tạm. Hãy dùng `/image` để tạo ảnh mới rồi thử lại.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const promptInput = new TextInputBuilder()
+      .setCustomId('edit_prompt')
+      .setLabel('Bạn muốn chỉnh sửa ảnh như thế nào?')
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder('Ví dụ: thêm chiếc nơ đỏ cho con mèo')
+      .setMinLength(3)
+      .setMaxLength(1000)
+      .setRequired(true);
+    const modal = new ModalBuilder()
+      .setCustomId(`image_edit_modal:${ownerId}:${imageId}`)
+      .setTitle('Sửa ảnh bằng Gemini')
+      .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(promptInput));
+
+    await interaction.showModal(modal);
+  }
+
+  private async handleImageEditSubmit(interaction: ModalSubmitInteraction) {
+    const [, ownerId, imageId] = interaction.customId.split(':');
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply({ content: 'Chỉ người tạo ảnh mới có thể sửa ảnh này.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const sourceImage = this.imageEditCache.get(imageId);
+    if (!sourceImage || sourceImage.expiresAt <= Date.now()) {
+      this.imageEditCache.delete(imageId);
+      await interaction.reply({
+        content: 'Ảnh đã hết hạn khỏi bộ nhớ tạm. Hãy dùng `/image` để tạo ảnh mới rồi thử lại.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const apiKey = keyRotator.getGeminiKey();
+    if (!apiKey) {
+      await interaction.editReply('Tính năng sửa ảnh hiện chưa khả dụng: bot chưa có Gemini API key.');
+      return;
+    }
+
+    const editPrompt = interaction.fields.getTextInputValue('edit_prompt').trim();
+    if (editPrompt.length < 3) {
+      await interaction.editReply('Yêu cầu chỉnh sửa cần có ít nhất 3 ký tự.');
+      return;
+    }
+
+    try {
+      const { data } = await axios.post<{
         candidates?: Array<{
           content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string }; text?: string }> };
           finishReason?: string;
         }>;
         promptFeedback?: { blockReason?: string };
       }>(
-        `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_EDIT_MODEL}:generateContent`,
         {
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{
+            parts: [
+              { text: `Edit the provided image according to this request. Preserve the original image and change only what is requested: ${editPrompt}` },
+              { inlineData: { mimeType: sourceImage.mimeType, data: sourceImage.buffer.toString('base64') } },
+            ],
+          }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         },
         {
@@ -422,35 +652,20 @@ export default class AIModule {
         const detail = parts.map(part => part.text).filter(Boolean).join('\n').slice(0, 800);
         await interaction.editReply(
           reason
-            ? `Gemini không thể tạo ảnh từ yêu cầu này (${reason}). Hãy thử mô tả khác.`
-            : detail || 'Gemini không trả về ảnh. Hãy thử lại với mô tả khác.',
+            ? `Gemini không thể sửa ảnh theo yêu cầu này (${reason}). Hãy thử mô tả khác.`
+            : detail || 'Gemini không trả về ảnh đã chỉnh sửa. Hãy thử lại với yêu cầu khác.',
         );
         return;
       }
 
       const mimeType = imagePart.inlineData.mimeType ?? 'image/png';
-      const extensionByMime: Record<string, string> = {
-        'image/png': 'png',
-        'image/jpeg': 'jpg',
-        'image/webp': 'webp',
-      };
-      const extension = extensionByMime[mimeType];
-      if (!extension) {
-        throw new Error(`Định dạng ảnh Gemini trả về không được hỗ trợ: ${mimeType}`);
-      }
-
       const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
       if (imageBuffer.length > IMAGE_MAX_BYTES) {
-        await interaction.editReply('Ảnh tạo ra vượt quá giới hạn tệp 8 MB của bot.');
+        await interaction.editReply('Ảnh đã sửa vượt quá giới hạn tệp 8 MB của bot.');
         return;
       }
 
-      const fileName = `generated-image.${extension}`;
-      const container = new ContainerBuilder()
-        .addMediaGalleryComponents(gallery(`attachment://${fileName}`))
-        .addSeparatorComponents(sep())
-        .addTextDisplayComponents(txt(IMAGE_CREDIT));
-
+      const { container, fileName } = this.buildImageResult(imageBuffer, mimeType, ownerId);
       await interaction.editReply({
         components: [container],
         files: [new AttachmentBuilder(imageBuffer, { name: fileName })],
@@ -461,37 +676,21 @@ export default class AIModule {
       if (axios.isAxiosError(error) && (!status || status === 429 || status >= 500)) {
         keyRotator.markFailed('gemini', apiKey, error);
       }
-      console.error('[Image Generation] Gemini request failed:', {
+      console.error('[Image Edit] Gemini request failed:', {
         status,
         message: error instanceof Error ? error.message : String(error),
       });
-
       const message = status === 429
         ? 'Gemini đang giới hạn yêu cầu. Vui lòng đợi một chút rồi thử lại.'
         : status === 403
-          ? 'Gemini API key chưa được cấp quyền tạo ảnh.'
+          ? 'Gemini API key chưa được cấp quyền chỉnh sửa ảnh.'
           : status === 404
-            ? `Không tìm thấy model ${IMAGE_MODEL}. Hãy kiểm tra quyền truy cập model của API key.`
-            : 'Không thể tạo ảnh lúc này. Vui lòng thử lại sau.';
+            ? `Không tìm thấy model ${IMAGE_EDIT_MODEL}. Hãy kiểm tra quyền truy cập model của API key.`
+            : 'Không thể sửa ảnh lúc này. Vui lòng thử lại sau.';
       await interaction.editReply(message).catch(editError => {
-        console.error('[Image Generation] Failed to send error response:', editError);
+        console.error('[Image Edit] Failed to send error response:', editError);
       });
     }
-  }
-
-  // ───────── Nút bấm (Tạo lại / Xóa bộ nhớ) ─────────
-  private registerEvents() {
-    // Button interactions
-    this.client.on('interactionCreate', async interaction => {
-      if (!interaction.isButton() || !interaction.customId.startsWith('ai_')) return;
-      try {
-        await this.handleButton(interaction);
-      } catch (error) {
-        console.error('AI button error:', error);
-      }
-    });
-
-    // Bot mention listener disabled - using main index.ts listener instead
   }
 
   private async handleButton(interaction: ButtonInteraction) {
