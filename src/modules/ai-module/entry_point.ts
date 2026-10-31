@@ -9,7 +9,6 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
   ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction,
 } from 'discord.js';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getEmoji, emojis } from '../../config/emojis';
 import { V2, V2_EPHEMERAL, txt, sep, gallery } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
@@ -29,25 +28,11 @@ const MAX_HISTORY = 10; // Keep last 10 exchanges per channel
 // Giới hạn hiển thị (message V2 tối đa 4000 ký tự text)
 const MAX_DISPLAY = 3200;
 const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
-const IMAGE_EDIT_MODEL = '@cf/runwayml/stable-diffusion-v1-5-inpainting';
+const IMAGE_EDIT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_EDIT_CACHE_MAX = 10;
 const IMAGE_EDIT_CACHE_TTL = 30 * 60 * 1000;
 const IMAGE_CREDIT = 'Generated with FLUX.1 Schnell · Cloudflare Workers AI';
-
-async function createFullImageEditMask(imageBuffer: Buffer): Promise<{ width: number; height: number; pixels: number[] }> {
-  const image = await loadImage(imageBuffer);
-  const mask = createCanvas(image.width, image.height);
-  const context = mask.getContext('2d');
-  context.fillStyle = '#fff';
-  context.fillRect(0, 0, image.width, image.height);
-  const { data } = context.getImageData(0, 0, image.width, image.height);
-  const pixels = new Array<number>(image.width * image.height);
-  for (let source = 0, target = 0; source < data.length; source += 4, target++) {
-    pixels[target] = data[source];
-  }
-  return { width: image.width, height: image.height, pixels };
-}
 
 interface CachedImage {
   ownerId: string;
@@ -686,19 +671,16 @@ export default class AIModule {
     }
 
     try {
-      const { width, height, pixels: maskImage } = await createFullImageEditMask(sourceImage.buffer);
+      const formData = new FormData();
+      formData.set('prompt', editPrompt);
+      formData.set(
+        'image',
+        new Blob([new Uint8Array(sourceImage.buffer)], { type: sourceImage.mimeType }),
+        `source-image.${sourceImage.mimeType.split('/')[1]}`,
+      );
       const response = await axios.post<ArrayBuffer>(
         `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${IMAGE_EDIT_MODEL}`,
-        {
-          prompt: editPrompt,
-          image_b64: sourceImage.buffer.toString('base64'),
-          mask_image: maskImage,
-          width,
-          height,
-          strength: 0.65,
-          guidance: 7.5,
-          num_steps: 20,
-        },
+        formData,
         {
           headers: { Authorization: `Bearer ${apiToken}` },
           responseType: 'arraybuffer',
@@ -716,18 +698,17 @@ export default class AIModule {
 
       if (contentType?.includes('application/json')) {
         const result = JSON.parse(imageBuffer.toString('utf8')) as {
-          success?: boolean;
-          result?: string | { image?: string };
+          result?: { image?: string };
           errors?: Array<{ message?: string }>;
         };
-        const image = typeof result.result === 'string' ? result.result : result.result?.image;
-        if (!result.success || !image) {
+        const image = result.result?.image;
+        if (!image) {
           const detail = result.errors?.map(error => error.message).filter(Boolean).join('\n').slice(0, 800);
           await interaction.editReply(detail || 'Cloudflare Workers AI không trả về ảnh đã chỉnh sửa.');
           return;
         }
         imageBuffer = Buffer.from(image, 'base64');
-        mimeType = 'image/png';
+        mimeType = 'image/jpeg';
       }
 
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {

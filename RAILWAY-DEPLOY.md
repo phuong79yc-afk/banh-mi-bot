@@ -32,7 +32,7 @@ GROQ_API_KEYS=key1,key2,key3,key4
 # AI Chat - Gemini (fallback)
 GEMINI_API_KEY=your_gemini_key
 
-# /image image generation - Cloudflare Workers AI (FLUX.1 Schnell)
+# /image image generation and editing - Cloudflare Workers AI
 # Create a Workers AI API token with Workers AI Read/Edit permissions
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
 CLOUDFLARE_API_TOKEN=your_cloudflare_workers_ai_token
@@ -124,9 +124,9 @@ GEMINI_API_KEY=your_gemini_key
 
 Bot sẽ auto-failover giữa providers!
 
-### `/image` không tạo được ảnh
+### `/image` không tạo hoặc sửa được ảnh
 
-Thêm `CLOUDFLARE_ACCOUNT_ID` và `CLOUDFLARE_API_TOKEN` trong Railway Variables. Tạo token Cloudflare có quyền Workers AI; `/image` dùng model FLUX.1 Schnell. Nút **Sửa ảnh** vẫn dùng Gemini và cần `GEMINI_API_KEY`.
+Thêm `CLOUDFLARE_ACCOUNT_ID` và `CLOUDFLARE_API_TOKEN` trong Railway Variables. Tạo token Cloudflare có quyền Workers AI; `/image` dùng FLUX.1 Schnell để tạo ảnh và nút **Sửa ảnh** dùng FLUX.2 Klein.
 
 ### Commands Không Hiện
 
