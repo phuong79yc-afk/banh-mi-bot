@@ -28,7 +28,7 @@ const MAX_HISTORY = 10; // Keep last 10 exchanges per channel
 // Giới hạn hiển thị (message V2 tối đa 4000 ký tự text)
 const MAX_DISPLAY = 3200;
 const IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
-const IMAGE_EDIT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
+const IMAGE_EDIT_MODEL = '@cf/black-forest-labs/flux-2-klein-9b';
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_EDIT_CACHE_MAX = 10;
 const IMAGE_EDIT_CACHE_TTL = 30 * 60 * 1000;
@@ -735,7 +735,7 @@ export default class AIModule {
         imageBuffer,
         mimeType,
         ownerId,
-        'Edited with FLUX.2 Klein · Cloudflare Workers AI',
+        'Edited with FLUX.2 Klein 9B · Cloudflare Workers AI',
       );
       await interaction.editReply({
         components: [container],
