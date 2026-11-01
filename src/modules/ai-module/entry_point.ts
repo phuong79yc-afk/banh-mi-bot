@@ -675,11 +675,22 @@ export default class AIModule {
       return;
     }
 
+    let translatedPrompt: string;
+    try {
+      translatedPrompt = await this.translateImageEditPrompt(editPrompt);
+    } catch (error) {
+      console.error('[Image Edit] Prompt translation failed:', error);
+      await interaction.editReply(
+        'Không thể dịch yêu cầu chỉnh sửa lúc này. Vui lòng thử lại sau.',
+      );
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.set(
         'prompt',
-        `Edit the provided image with a minimal, localized change. ${editPrompt} ` +
+        `Edit the provided image with a minimal, localized change. ${translatedPrompt} ` +
           'Preserve the original composition, subjects, identities, poses, framing, background, art style, lighting, ' +
           'colors, and every detail not explicitly mentioned. Do not recreate or redesign the image, and do not ' +
           'add, remove, or alter anything beyond the requested edit.',
@@ -773,6 +784,36 @@ export default class AIModule {
       await interaction.editReply(message).catch(editError => {
         console.error('[Image Edit] Failed to send error response:', editError);
       });
+    }
+  }
+
+  private async translateImageEditPrompt(prompt: string): Promise<string> {
+    const key = keyRotator.getGroqKey();
+    if (!key) throw new Error('Groq is unavailable for translating image edit prompts.');
+
+    try {
+      const groq = new Groq({ apiKey: key });
+      const completion = await groq.chat.completions.create({
+        model: 'openai/gpt-oss-20b',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Translate the user image-edit instruction into concise, natural English for an image editing model. ' +
+              'If it is already English, preserve its meaning and return it unchanged. Return only the translated ' +
+              'instruction, with no explanation, quotes, or extra directions.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0,
+        max_tokens: 300,
+      });
+      const translated = completion.choices[0]?.message?.content?.trim();
+      if (!translated) throw new Error('Groq returned an empty image-edit translation.');
+      return translated;
+    } catch (error) {
+      keyRotator.markFailed('groq', key, error);
+      throw error;
     }
   }
 
