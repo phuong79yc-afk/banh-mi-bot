@@ -9,6 +9,7 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, User,
   ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction,
 } from 'discord.js';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getEmoji, emojis } from '../../config/emojis';
 import { V2, V2_EPHEMERAL, txt, sep, gallery } from '../../utils/v2Helper';
 import Groq from 'groq-sdk';
@@ -32,12 +33,33 @@ const IMAGE_EDIT_MODEL = '@cf/black-forest-labs/flux-2-klein-9b';
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_EDIT_CACHE_MAX = 10;
 const IMAGE_EDIT_CACHE_TTL = 30 * 60 * 1000;
+const IMAGE_EDIT_REQUEST_TTL = 10 * 60 * 1000;
+const IMAGE_EDIT_REQUEST_MAX = 10;
 const IMAGE_CREDIT = 'Generated with FLUX.1 Schnell · Cloudflare Workers AI';
+
+const IMAGE_REGIONS = [
+  { id: 'top-left', label: 'Trên trái', column: 0, row: 0 },
+  { id: 'top-center', label: 'Trên giữa', column: 1, row: 0 },
+  { id: 'top-right', label: 'Trên phải', column: 2, row: 0 },
+  { id: 'middle-left', label: 'Giữa trái', column: 0, row: 1 },
+  { id: 'center', label: 'Chính giữa', column: 1, row: 1 },
+  { id: 'middle-right', label: 'Giữa phải', column: 2, row: 1 },
+  { id: 'bottom-left', label: 'Dưới trái', column: 0, row: 2 },
+  { id: 'bottom-center', label: 'Dưới giữa', column: 1, row: 2 },
+  { id: 'bottom-right', label: 'Dưới phải', column: 2, row: 2 },
+] as const;
 
 interface CachedImage {
   ownerId: string;
   buffer: Buffer;
   mimeType: string;
+  expiresAt: number;
+}
+
+interface PendingImageEdit {
+  ownerId: string;
+  sourceImage: CachedImage;
+  translatedPrompt: string;
   expiresAt: number;
 }
 
@@ -282,6 +304,7 @@ export default class AIModule {
   client: Client;
   commands: Collection<string, any>;
   private readonly imageEditCache = new Map<string, CachedImage>();
+  private readonly pendingImageEdits = new Map<string, PendingImageEdit>();
 
   constructor(client: Client) {
     this.client = client;
@@ -584,6 +607,8 @@ export default class AIModule {
       try {
         if (interaction.isButton() && interaction.customId.startsWith('image_edit:')) {
           await this.handleImageEditButton(interaction);
+        } else if (interaction.isButton() && interaction.customId.startsWith('image_region:')) {
+          await this.handleImageRegionSelection(interaction);
         } else if (interaction.isModalSubmit() && interaction.customId.startsWith('image_edit_modal:')) {
           await this.handleImageEditSubmit(interaction);
         } else if (interaction.isButton() && interaction.customId.startsWith('ai_')) {
@@ -680,26 +705,91 @@ export default class AIModule {
       translatedPrompt = await this.translateImageEditPrompt(editPrompt);
     } catch (error) {
       console.error('[Image Edit] Prompt translation failed:', error);
+      await interaction.editReply('Không thể dịch yêu cầu chỉnh sửa lúc này. Vui lòng thử lại sau.');
+      return;
+    }
+
+    const requestId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    const now = Date.now();
+    for (const [id, request] of this.pendingImageEdits) {
+      if (request.expiresAt <= now) this.pendingImageEdits.delete(id);
+    }
+    while (this.pendingImageEdits.size >= IMAGE_EDIT_REQUEST_MAX) {
+      const oldest = this.pendingImageEdits.keys().next().value;
+      if (!oldest) break;
+      this.pendingImageEdits.delete(oldest);
+    }
+    this.pendingImageEdits.set(requestId, {
+      ownerId,
+      sourceImage,
+      translatedPrompt,
+      expiresAt: now + IMAGE_EDIT_REQUEST_TTL,
+    });
+
+    const regionRows = [0, 1, 2].map(row =>
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        ...IMAGE_REGIONS.filter(region => region.row === row).map(region =>
+          new ButtonBuilder()
+            .setCustomId(`image_region:${ownerId}:${requestId}:${region.id}`)
+            .setLabel(region.label)
+            .setStyle(ButtonStyle.Secondary),
+        ),
+      ),
+    );
+    await interaction.editReply({
+      content: 'Chọn vị trí gần chi tiết cần sửa. Bot chỉ thay đổi vùng quanh vị trí đó; phần còn lại lấy nguyên từ ảnh gốc.',
+      components: regionRows,
+    });
+  }
+
+  private async handleImageRegionSelection(interaction: ButtonInteraction) {
+    const [, ownerId, requestId, regionId] = interaction.customId.split(':');
+    if (interaction.user.id !== ownerId) {
+      await interaction.reply({ content: 'Chỉ người tạo ảnh mới có thể chọn vùng sửa này.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const pending = this.pendingImageEdits.get(requestId);
+    if (!pending || pending.expiresAt <= Date.now() || pending.ownerId !== ownerId) {
+      this.pendingImageEdits.delete(requestId);
+      await interaction.reply({
+        content: 'Lựa chọn vùng sửa đã hết hạn. Hãy nhấn **Sửa ảnh** để bắt đầu lại.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const region = IMAGE_REGIONS.find(option => option.id === regionId);
+    if (!region) {
+      await interaction.reply({ content: 'Vị trí vùng sửa không hợp lệ. Hãy thử lại.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    this.pendingImageEdits.delete(requestId);
+    await interaction.update({
+      content: `Đang sửa vùng **${region.label}**. Các phần bên ngoài vùng này sẽ được giữ nguyên từ ảnh gốc.`,
+      components: [],
+    });
+
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+    if (!accountId || !apiToken) {
       await interaction.editReply(
-        'Không thể dịch yêu cầu chỉnh sửa lúc này. Vui lòng thử lại sau.',
+        'Tính năng sửa ảnh chưa được cấu hình. Hãy đặt CLOUDFLARE_ACCOUNT_ID và CLOUDFLARE_API_TOKEN.',
       );
       return;
     }
 
     try {
+      const crop = await this.cropImageRegion(pending.sourceImage, region);
       const formData = new FormData();
       formData.set(
         'prompt',
-        `Edit the provided image with a minimal, localized change. ${translatedPrompt} ` +
-          'Preserve the original composition, subjects, identities, poses, framing, background, art style, lighting, ' +
-          'colors, and every detail not explicitly mentioned. Do not recreate or redesign the image, and do not ' +
-          'add, remove, or alter anything beyond the requested edit.',
+        `Edit only the provided cropped region. ${pending.translatedPrompt} ` +
+          'Keep the crop composition and style consistent; do not make unrelated changes.',
       );
-      formData.set(
-        'image',
-        new Blob([new Uint8Array(sourceImage.buffer)], { type: sourceImage.mimeType }),
-        `source-image.${sourceImage.mimeType.split('/')[1]}`,
-      );
+      formData.set('image', new Blob([new Uint8Array(crop.buffer)], { type: 'image/png' }), 'selected-region.png');
+
       const response = await axios.post<ArrayBuffer>(
         `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${IMAGE_EDIT_MODEL}`,
         formData,
@@ -715,44 +805,46 @@ export default class AIModule {
       const contentType = typeof contentTypeHeader === 'string'
         ? contentTypeHeader.split(';', 1)[0].toLowerCase()
         : undefined;
-      let imageBuffer = Buffer.from(response.data);
-      let mimeType = contentType ?? 'image/png';
-
+      let editedCropBuffer = Buffer.from(response.data);
+      let editedCropMimeType = contentType ?? 'image/png';
       if (contentType?.includes('application/json')) {
-        const result = JSON.parse(imageBuffer.toString('utf8')) as {
+        const result = JSON.parse(editedCropBuffer.toString('utf8')) as {
           result?: { image?: string };
           errors?: Array<{ message?: string }>;
         };
         const image = result.result?.image;
         if (!image) {
           const detail = result.errors?.map(error => error.message).filter(Boolean).join('\n').slice(0, 800);
-          await interaction.editReply(detail || 'Cloudflare Workers AI không trả về ảnh đã chỉnh sửa.');
-          return;
+          throw new Error(detail || 'Cloudflare Workers AI không trả về ảnh đã chỉnh sửa.');
         }
-        imageBuffer = Buffer.from(image, 'base64');
-        mimeType = 'image/jpeg';
+        editedCropBuffer = Buffer.from(image, 'base64');
+        editedCropMimeType = 'image/jpeg';
       }
 
-      if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
-        await interaction.editReply(`Cloudflare trả về định dạng ảnh không hỗ trợ: ${mimeType}.`);
-        return;
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(editedCropMimeType)) {
+        throw new Error(`Cloudflare trả về định dạng ảnh không hỗ trợ: ${editedCropMimeType}.`);
       }
-      if (imageBuffer.length === 0 || imageBuffer.length > IMAGE_MAX_BYTES) {
-        await interaction.editReply('Ảnh đã sửa vượt quá giới hạn tệp 8 MB của bot.');
-        return;
+      if (editedCropBuffer.length === 0 || editedCropBuffer.length > IMAGE_MAX_BYTES) {
+        throw new Error('Ảnh đã sửa vượt quá giới hạn tệp 8 MB của bot.');
+      }
+
+      const imageBuffer = await this.compositeEditedRegion(pending.sourceImage, editedCropBuffer, crop);
+      if (imageBuffer.length > IMAGE_MAX_BYTES) {
+        throw new Error('Ảnh sau khi ghép vượt quá giới hạn tệp 8 MB của bot.');
       }
 
       const { container, fileName } = this.buildImageResult(
         imageBuffer,
-        mimeType,
+        'image/png',
         ownerId,
-        'Edited with FLUX.2 Klein 9B · Cloudflare Workers AI',
+        'Edited with FLUX.2 Klein 9B · Cloudflare Workers AI · Selected region only',
       );
-      await interaction.editReply({
+      await interaction.followUp({
         components: [container],
         files: [new AttachmentBuilder(imageBuffer, { name: fileName })],
-        flags: V2,
+        flags: V2_EPHEMERAL,
       } as any);
+      await interaction.editReply('Đã sửa xong. Ảnh kết quả ở tin nhắn bên dưới.');
     } catch (error: unknown) {
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
       const responseData = axios.isAxiosError(error) && error.response?.data
@@ -767,7 +859,7 @@ export default class AIModule {
           providerMessage = responseData.slice(0, 500);
         }
       }
-      console.error('[Image Edit] Cloudflare Workers AI request failed:', {
+      console.error('[Image Edit] Region edit failed:', {
         status,
         providerMessage,
         message: error instanceof Error ? error.message : String(error),
@@ -780,11 +872,63 @@ export default class AIModule {
             ? `Không tìm thấy model chỉnh ảnh ${IMAGE_EDIT_MODEL} trong tài khoản Cloudflare.`
             : providerMessage
               ? `Cloudflare Workers AI: ${providerMessage}`
-              : 'Không thể sửa ảnh lúc này. Vui lòng thử lại sau.';
+              : error instanceof Error
+                ? error.message
+                : 'Không thể sửa ảnh lúc này. Vui lòng thử lại sau.';
       await interaction.editReply(message).catch(editError => {
         console.error('[Image Edit] Failed to send error response:', editError);
       });
     }
+  }
+
+  private async cropImageRegion(
+    sourceImage: CachedImage,
+    region: typeof IMAGE_REGIONS[number],
+  ) {
+    const image = await loadImage(sourceImage.buffer);
+    const width = image.width;
+    const height = image.height;
+    if (width <= 0 || height <= 0) throw new Error('Ảnh gốc không có kích thước hợp lệ.');
+
+    const size = Math.max(1, Math.round(Math.min(Math.min(width, height), Math.max(width, height) / 3)));
+    const centerX = ((region.column * 2) + 1) * width / 6;
+    const centerY = ((region.row * 2) + 1) * height / 6;
+    const x = Math.max(0, Math.min(width - size, Math.round(centerX - size / 2)));
+    const y = Math.max(0, Math.min(height - size, Math.round(centerY - size / 2)));
+    const canvas = createCanvas(size, size);
+    const context = canvas.getContext('2d');
+    context.drawImage(image, x, y, size, size, 0, 0, size, size);
+    return { buffer: canvas.toBuffer('image/png'), x, y, size };
+  }
+
+  private async compositeEditedRegion(
+    sourceImage: CachedImage,
+    editedCropBuffer: Buffer,
+    crop: { x: number; y: number; size: number },
+  ): Promise<Buffer> {
+    const source = await loadImage(sourceImage.buffer);
+    const editedCrop = await loadImage(editedCropBuffer);
+    const patch = createCanvas(crop.size, crop.size);
+    const patchContext = patch.getContext('2d');
+    patchContext.drawImage(editedCrop, 0, 0, crop.size, crop.size);
+
+    const imageData = patchContext.getImageData(0, 0, crop.size, crop.size);
+    const feather = Math.max(1, Math.round(crop.size * 0.1));
+    for (let y = 0; y < crop.size; y++) {
+      for (let x = 0; x < crop.size; x++) {
+        const distance = Math.min(x, y, crop.size - 1 - x, crop.size - 1 - y);
+        const alpha = Math.min(1, distance / feather);
+        const alphaIndex = (y * crop.size + x) * 4 + 3;
+        imageData.data[alphaIndex] = Math.round(imageData.data[alphaIndex] * alpha);
+      }
+    }
+    patchContext.putImageData(imageData, 0, 0);
+
+    const canvas = createCanvas(source.width, source.height);
+    const context = canvas.getContext('2d');
+    context.drawImage(source, 0, 0);
+    context.drawImage(patch, crop.x, crop.y);
+    return canvas.toBuffer('image/png');
   }
 
   private async translateImageEditPrompt(prompt: string): Promise<string> {

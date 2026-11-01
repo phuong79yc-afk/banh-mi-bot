@@ -26,7 +26,7 @@ Tạo ảnh từ mô tả bằng FLUX.1 Schnell trên Cloudflare Workers AI. C�
 **Tùy chọn:**
 - `prompt` (bắt buộc) - Mô tả ảnh cần tạo
 
-Sau khi tạo ảnh, nhấn **Sửa ảnh** để chỉnh ảnh bằng FLUX.2 Klein 9B trên Cloudflare Workers AI. Yêu cầu chỉnh sửa được dịch sang tiếng Anh bằng Groq trước khi gửi cho model ảnh; cần có Groq API key. Nút sửa ưu tiên thay đổi đúng nội dung yêu cầu và giữ nguyên các chi tiết khác, nhưng model vẫn có thể làm thay đổi ngoài ý muốn. Cần `CLOUDFLARE_ACCOUNT_ID` và `CLOUDFLARE_API_TOKEN` có quyền Workers AI. Ảnh gốc có thể chỉnh trong tối đa 30 phút; chỉ người tạo ảnh dùng được nút này.
+Sau khi tạo ảnh, nhấn **Sửa ảnh** để nhập yêu cầu, rồi chọn một trong 9 vị trí gần chi tiết cần sửa. Yêu cầu được dịch sang tiếng Anh bằng Groq; FLUX.2 Klein 9B chỉ nhận ảnh crop tại vị trí đã chọn. Bot ghép phần chỉnh sửa trở lại ảnh gốc, nên pixel bên ngoài vùng crop được giữ nguyên; vùng crop và mép chuyển tiếp vẫn có thể thay đổi ngoài ý muốn. Cần Groq API key cùng `CLOUDFLARE_ACCOUNT_ID` và `CLOUDFLARE_API_TOKEN` có quyền Workers AI. Ảnh gốc có thể chỉnh trong tối đa 30 phút; chỉ người tạo ảnh dùng được nút này.
 
 ```text
 /image prompt:Một tiệm bánh cuốn Việt Nam phong cách tranh màu nước
