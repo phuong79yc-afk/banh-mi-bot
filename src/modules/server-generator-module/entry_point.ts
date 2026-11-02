@@ -368,6 +368,11 @@ const THEME_STYLES = {
     voice: { left: '▶', right: '◀', icon: '🎥' },
     text: { separator: '▸' }
   },
+  tiktok: {
+    category: { left: '♪♫', right: '♫♪', icon: '📱' },
+    voice: { left: '♪', right: '♫', icon: '🎙️' },
+    text: { separator: '♪' }
+  },
   
   // More lifestyle
   fashion: {
@@ -530,7 +535,7 @@ const PREFERRED_THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
   'kawaii', 'cute', 'pink', 'pastel', 'aesthetic', 'soft', 'cottagecore', 'vintage',
   'girlpower', 'princess', 'fairy', 'magical', 'flower', 'angel', 'sparkle', 'rainbow',
   'unicorn', 'heart', 'bunny', 'cat', 'girl', 'star', 'moon', 'discord',
-  'anime', 'streaming', 'youtube', 'podcast', 'movie', 'art', 'photography',
+  'anime', 'youtube', 'tiktok', 'streaming', 'podcast', 'movie', 'art', 'photography',
   'design', 'writing', 'tech', 'crypto', 'business', 'school', 'study', 'english',
   'fitness', 'food', 'travel', 'sports', 'chess', 'pets', 'nature', 'dating',
   'meditation', 'motivation', 'beauty', 'fashion', 'strategy', 'sandbox', 'survival',
@@ -612,8 +617,9 @@ const detectDesignTheme = (
   
   // Creative
   if (/(anime|manga|otaku|weeb)/i.test(text)) return 'anime';
-  if (/(streaming|stream|twitch|youtube)/i.test(text)) return 'streaming';
   if (/(youtube|youtuber)/i.test(text)) return 'youtube';
+  if (/(tiktok|tiktoker|short.form video|short video|video ngắn)/i.test(text)) return 'tiktok';
+  if (/(streaming|stream|twitch)/i.test(text)) return 'streaming';
   if (/(podcast)/i.test(text)) return 'podcast';
   if (/(art|draw|design|paint|illustration)/i.test(text)) return 'art';
   if (/(photo|camera|photography)/i.test(text)) return 'photography';
@@ -1091,7 +1097,9 @@ CREATIVE & ARTS:
 - Music: producers, DJs, artists, beat-making, karaoke
 - Art: drawing, design, painting, illustration
 - Photography: camera enthusiasts, photo sharing
-- Streaming: Twitch/YouTube content creators
+- Streaming: Twitch livestreamers and live-stream communities
+- YouTube: video channels, creator updates, video ideas, production, feedback, collaborations, and watch parties
+- TikTok: short-form vertical video creators, trends and sounds, hooks, drafts, editing, feedback, collaborations, and live announcements
 - Movie: film discussions, series, Netflix watch parties
 
 TECH & BUSINESS:
