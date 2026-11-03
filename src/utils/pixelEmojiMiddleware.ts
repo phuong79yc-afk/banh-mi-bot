@@ -133,6 +133,12 @@ function transformPayload(value: unknown, key = ''): unknown {
 }
 
 function prefixText(value: string, emoji: string): string {
+  const heading = value.match(/^(\s{0,3}#{1,6}\s+)([\s\S]*)$/);
+  if (heading) {
+    const [, marker, content] = heading;
+    return content.startsWith(emoji) ? value : `${marker}${emoji} ${content}`;
+  }
+
   return value.trimStart().startsWith(emoji) ? value : `${emoji} ${value}`;
 }
 
