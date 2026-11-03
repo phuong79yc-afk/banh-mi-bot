@@ -57,6 +57,15 @@ const PIXEL_BY_GLYPH: Record<string, string> = {
 
 const wrappedTargets = new WeakMap<object, Set<string>>();
 
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    (typeof value === 'object' || typeof value === 'function') &&
+    value !== null &&
+    'then' in value &&
+    typeof value.then === 'function'
+  );
+}
+
 function pixelEmojiForGlyph(glyph: string): string | undefined {
   const pixelName = PIXEL_BY_GLYPH[glyph] ?? 'star';
   return getPixelEmoji(pixelName);
@@ -196,7 +205,20 @@ function wrapMethods(target: object, methodNames: string[], commandEmoji?: strin
       if (commandEmoji && args.length > 0) {
         args[0] = decorateCommandPayload(args[0], commandEmoji);
       }
-      return Reflect.apply(method, this, args);
+      const result = Reflect.apply(method, this, args);
+      if (
+        commandEmoji &&
+        (methodName === 'reply' || methodName === 'followUp') &&
+        isPromiseLike(result)
+      ) {
+        return result.then((response: unknown) => {
+          if (response && typeof response === 'object') {
+            wrapMethods(response, ['edit'], commandEmoji);
+          }
+          return response;
+        });
+      }
+      return result;
     });
     wrapped.add(methodName);
   }

@@ -624,7 +624,7 @@ export default class UtilityModule {
               `[Mời bot](https://invite.bot.com) • [Website](https://banhcuonbot.com)`,
             ))
             .addSeparatorComponents(sep(true))
-            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh prefix:** \`13\``))
+            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh nhạc prefix:** \`13\``))
             .addSeparatorComponents(sep())
             .addTextDisplayComponents(txt(
               `### ${emojis.music} Music Commands (Prefix: \`!bc\`)\n` +
@@ -635,8 +635,7 @@ export default class UtilityModule {
             .addSeparatorComponents(sep())
             .addTextDisplayComponents(txt(
               `### ⚡ Phím tắt hữu ích\n` +
-              `\`!bc q\` — Xem nhiệm vụ  •  \`!bc bal\` — Xem số dư\n` +
-              `\`!bc s\` — Mở shop  •  \`!bc cv\` — Đổi tiền\n` +
+              `\`!bc q\` — Xem hàng chờ nhạc  •  \`!bc bal\`, \`!bc s\`, \`!bc cv\` hiện chưa được hỗ trợ\n` +
               `-# ${emojis.info} Gõ \`!help\` để xem tất cả prefix commands`
             ))
             .addSeparatorComponents(sep())

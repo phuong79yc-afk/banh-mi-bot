@@ -32,6 +32,8 @@
 /daily-stats - Module: daily-module
 /editsnipe - Module: snipe-module
 /event-test - Module: utility
+/freefire - Module: freefire-module
+/freefire-article - Module: freefire-module
 /generator - Module: server-generator-module
 /giveaway-create - Module: giveaway-module
 /giveaway-delete - Module: giveaway-module
@@ -87,5 +89,5 @@
 /vip-tiers - Module: vip-module
 /vipinfo - Module: vip-module
 
-Total main commands: 86
+Total main commands: 88
 Total subcommands: 
