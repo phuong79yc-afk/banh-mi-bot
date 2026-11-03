@@ -4,7 +4,7 @@ import { getTursoDatabase } from '../../database/turso';
 
 export const data = new SlashCommandBuilder()
   .setName('admin-reset-daily')
-  .setDescription('Đặt lại lượt điểm danh trong ngày của một thành viên')
+  .setDescription('Đặt lại lượt điểm danh hôm nay')
   .addUserOption(option =>
     option
       .setName('user')

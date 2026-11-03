@@ -102,7 +102,7 @@ export default class AutoresponderModule {
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-add')
-        .setDescription('Tạo câu trả lời tự động theo từ khóa')
+        .setDescription('Tạo phản hồi tự động')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa hoặc cụm từ kích hoạt phản hồi').setRequired(true))
@@ -143,7 +143,7 @@ export default class AutoresponderModule {
     const editCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-edit')
-        .setDescription('Cập nhật từ khóa, phản hồi hoặc cách khớp')
+        .setDescription('Chỉnh sửa phản hồi tự động')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa hiện tại cần chỉnh sửa').setRequired(true))
@@ -184,7 +184,7 @@ export default class AutoresponderModule {
     const toggleCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-toggle')
-        .setDescription('Bật hoặc tắt phản hồi tự động theo từ khóa')
+        .setDescription('Bật hoặc tắt phản hồi')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần đổi trạng thái').setRequired(true))
@@ -208,7 +208,7 @@ export default class AutoresponderModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-remove')
-        .setDescription('Xóa phản hồi tự động theo từ khóa')
+        .setDescription('Xóa phản hồi tự động')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần xóa').setRequired(true)),
@@ -300,7 +300,7 @@ export default class AutoresponderModule {
     const viewCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-view')
-        .setDescription('Xem cấu hình của một phản hồi tự động')
+        .setDescription('Xem chi tiết phản hồi')
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa của phản hồi cần xem').setRequired(true)),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -327,7 +327,7 @@ export default class AutoresponderModule {
     const matchmodeCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-matchmode')
-        .setDescription('Thay đổi cách so khớp từ khóa')
+        .setDescription('Đổi cách so khớp từ khóa')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o => o.setName('trigger').setDescription('Từ khóa cần đổi cách so khớp').setRequired(true))
@@ -359,7 +359,7 @@ export default class AutoresponderModule {
     const placeholdersCommand = {
       data: new SlashCommandBuilder()
         .setName('autoresponder-placeholders')
-        .setDescription('Xem các biến có thể dùng trong nội dung phản hồi'),
+        .setDescription('Xem biến dùng trong phản hồi'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const group = (title: string, items: [string, string][]) =>
           txt(`### ${title}\n` + items.map(([k, v]) => `${code(k)} — ${v}`).join('\n'));

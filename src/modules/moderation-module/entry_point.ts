@@ -252,7 +252,7 @@ export default class ModerationModule {
     const kickCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-kick')
-        .setDescription('Mời một thành viên rời khỏi máy chủ')
+        .setDescription('Mời thành viên khỏi máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
         .addUserOption((o) => o.setName('user').setDescription('Thành viên cần mời khỏi máy chủ').setRequired(true))
         .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false)),
@@ -300,7 +300,7 @@ export default class ModerationModule {
     const banCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-ban')
-        .setDescription('Cấm một thành viên khỏi máy chủ')
+        .setDescription('Cấm thành viên khỏi máy chủ')
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
         .addUserOption((o) => o.setName('user').setDescription('Thành viên cần cấm khỏi máy chủ').setRequired(true))
         .addStringOption((o) => o.setName('reason').setDescription('Lý do thực hiện thao tác (không bắt buộc)').setRequired(false))
@@ -384,7 +384,7 @@ export default class ModerationModule {
     const timeoutCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-timeout')
-        .setDescription('Tạm thời hạn chế một thành viên gửi tin nhắn')
+        .setDescription('Tạm khóa chat thành viên')
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
         .addUserOption((o) => o.setName('user').setDescription('Thành viên cần hạn chế gửi tin nhắn').setRequired(true))
         .addIntegerOption((o) =>
@@ -462,7 +462,7 @@ export default class ModerationModule {
     const clearCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-clear')
-        .setDescription('Xóa nhiều tin nhắn gần đây trong một kênh')
+        .setDescription('Xóa tin nhắn trong kênh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addIntegerOption((o) =>
           o.setName('amount').setDescription('Số tin nhắn cần xóa (1–100)').setMinValue(1).setMaxValue(100).setRequired(true)
@@ -520,7 +520,7 @@ export default class ModerationModule {
     const lockCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-lock')
-        .setDescription('Ngăn thành viên gửi tin nhắn trong một kênh')
+        .setDescription('Khóa kênh chat')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o
@@ -585,7 +585,7 @@ export default class ModerationModule {
     const unlockCommand = {
       data: new SlashCommandBuilder()
         .setName('moderation-unlock')
-        .setDescription('Cho phép thành viên gửi tin nhắn trở lại trong kênh')
+        .setDescription('Mở khóa kênh chat')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o

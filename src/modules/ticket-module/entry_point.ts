@@ -346,7 +346,7 @@ export default class TicketModule {
     const setupCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-setup')
-        .setDescription('Thiết lập kênh và bảng điều khiển ticket cho máy chủ')
+        .setDescription('Thiết lập hệ thống ticket')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addBooleanOption((option) =>
           option.setName('force').setDescription('Tạo lại cấu hình hiện tại nếu đã thiết lập').setRequired(false)
@@ -530,7 +530,7 @@ export default class TicketModule {
     const closeCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-close')
-        .setDescription('Đóng kênh ticket hiện tại')
+        .setDescription('Đóng ticket hiện tại')
         .addStringOption((option) => option.setName('reason').setDescription('Lý do đóng ticket (không bắt buộc)').setRequired(false)),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const ticket = ticketManager.getTicket(interaction.channelId);
@@ -548,7 +548,7 @@ export default class TicketModule {
     const addCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-add')
-        .setDescription('Cấp quyền xem kênh ticket cho một thành viên')
+        .setDescription('Thêm thành viên vào ticket')
         .addUserOption((option) =>
           option.setName('user').setDescription('Thành viên cần thêm vào ticket').setRequired(true)
         ),
@@ -579,7 +579,7 @@ export default class TicketModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('ticket-remove')
-        .setDescription('Thu hồi quyền xem kênh ticket của một thành viên')
+        .setDescription('Xóa thành viên khỏi ticket')
         .addUserOption((option) =>
           option.setName('user').setDescription('Thành viên cần xóa khỏi ticket').setRequired(true)
         ),
@@ -607,7 +607,7 @@ export default class TicketModule {
 
     // ==================== /ticket-stats ====================
     const statsCommand = {
-      data: new SlashCommandBuilder().setName('ticket-stats').setDescription('Xem số liệu ticket của máy chủ'),
+      data: new SlashCommandBuilder().setName('ticket-stats').setDescription('Xem thống kê ticket'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const stats = ticketManager.getStats(interaction.guildId!);
 

@@ -117,7 +117,7 @@ export default class QuickReportModule {
     const enableCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-enable')
-        .setDescription('Bật báo cáo nhanh và chọn kênh nhận báo cáo')
+        .setDescription('Bật báo cáo nhanh')
         .addChannelOption(option =>
           option
             .setName('channel')
@@ -144,7 +144,7 @@ export default class QuickReportModule {
     const disableCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-disable')
-        .setDescription('Tắt tính năng gửi báo cáo nhanh')
+        .setDescription('Tắt báo cáo nhanh')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         reportManager.updateConfig(interaction.guildId!, { enabled: false });
@@ -160,7 +160,7 @@ export default class QuickReportModule {
     const configCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-config')
-        .setDescription('Quản lý quyền và kênh dùng cho báo cáo nhanh')
+        .setDescription('Cài đặt báo cáo nhanh')
         .addSubcommand(sub =>
           sub
             .setName('add-manager')
@@ -294,7 +294,7 @@ export default class QuickReportModule {
     const updateCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-update')
-        .setDescription('Đổi trạng thái xử lý của một báo cáo')
+        .setDescription('Cập nhật trạng thái báo cáo')
         .addStringOption(option =>
           option
             .setName('report-id')
@@ -346,7 +346,7 @@ export default class QuickReportModule {
     const recentCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-recent')
-        .setDescription('Liệt kê các báo cáo mới nhất trong máy chủ')
+        .setDescription('Xem báo cáo mới nhất')
         .addIntegerOption(option =>
           option
             .setName('limit')
@@ -386,7 +386,7 @@ export default class QuickReportModule {
     const checkCommand = {
       data: new SlashCommandBuilder()
         .setName('quickreport-check')
-        .setDescription('Xem chi tiết một báo cáo theo mã')
+        .setDescription('Xem chi tiết báo cáo')
         .addStringOption(option =>
           option
             .setName('report-id')

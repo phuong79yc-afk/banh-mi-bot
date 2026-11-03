@@ -59,48 +59,48 @@ export class ManagementModule {
   private registerCommands() {
     const data = new SlashCommandBuilder()
       .setName('manage')
-      .setDescription('Quản trị bot, tính năng và dữ liệu của máy chủ')
-      .addSubcommand((sub) => sub.setName('status').setDescription('Xem trạng thái bot và thông tin máy chủ'))
-      .addSubcommand((sub) => sub.setName('health').setDescription('Kiểm tra ping, thời gian hoạt động và bộ nhớ bot'))
-      .addSubcommand((sub) => sub.setName('modules').setDescription('Xem các module đang được tải'))
+      .setDescription('Quản lý bot và máy chủ')
+      .addSubcommand((sub) => sub.setName('status').setDescription('Xem trạng thái bot'))
+      .addSubcommand((sub) => sub.setName('health').setDescription('Kiểm tra sức khỏe bot'))
+      .addSubcommand((sub) => sub.setName('modules').setDescription('Xem module đang chạy'))
       .addSubcommand((sub) => sub
         .setName('module')
-        .setDescription('Tải, tải lại hoặc tắt một module')
+        .setDescription('Quản lý module')
         .addStringOption((opt) => opt.setName('action').setDescription('Chọn thao tác cần thực hiện').setRequired(true).addChoices(
           { name: 'Tải lại', value: 'reload' },
           { name: 'Tắt', value: 'unload' },
           { name: 'Mở lại', value: 'load' },
         ))
         .addStringOption((opt) => opt.setName('name').setDescription('Tên module cần thao tác').setRequired(true)))
-      .addSubcommand((sub) => sub.setName('commands').setDescription('Liệt kê các lệnh slash đã đăng ký'))
+      .addSubcommand((sub) => sub.setName('commands').setDescription('Xem các lệnh đã đăng ký'))
       .addSubcommand((sub) => sub
         .setName('welcome')
-        .setDescription('Cài đặt kênh, lời chào và role mặc định cho thành viên mới')
+        .setDescription('Cài đặt lời chào thành viên mới')
         .addBooleanOption((opt) => opt.setName('enabled').setDescription('Bật hoặc tắt lời chào thành viên mới').setRequired(false))
         .addChannelOption((opt) => opt.setName('channel').setDescription('Chọn kênh văn bản để gửi lời chào').setRequired(false))
         .addBooleanOption((opt) => opt.setName('auto-create').setDescription('Tạo kênh mới nếu chưa chọn kênh').setRequired(false))
         .addStringOption((opt) => opt.setName('channel-name').setDescription('Tên kênh sẽ tạo nếu chưa tồn tại').setRequired(false))
-        .addStringOption((opt) => opt.setName('message').setDescription('Nội dung chào; hỗ trợ {user}, {username}, {server}, {memberCount}').setRequired(false))
+        .addStringOption((opt) => opt.setName('message').setDescription('Nội dung chào; hỗ trợ {user}, {server}, {memberCount}').setRequired(false))
         .addRoleOption((opt) => opt.setName('autorole').setDescription('Role muốn gán cho thành viên mới').setRequired(false)))
       .addSubcommand((sub) => sub
         .setName('goodbye')
-        .setDescription('Cài đặt kênh và lời nhắn khi thành viên rời máy chủ')
+        .setDescription('Cài đặt lời nhắn khi thành viên rời đi')
         .addBooleanOption((opt) => opt.setName('enabled').setDescription('Bật hoặc tắt lời nhắn khi thành viên rời đi').setRequired(false))
         .addChannelOption((opt) => opt.setName('channel').setDescription('Chọn kênh văn bản để gửi lời nhắn').setRequired(false))
         .addBooleanOption((opt) => opt.setName('auto-create').setDescription('Tạo kênh mới nếu chưa chọn kênh').setRequired(false))
         .addStringOption((opt) => opt.setName('channel-name').setDescription('Tên kênh sẽ tạo nếu chưa tồn tại').setRequired(false))
-        .addStringOption((opt) => opt.setName('message').setDescription('Nội dung lời nhắn; hỗ trợ {user}, {username}, {server}, {memberCount}').setRequired(false)))
+        .addStringOption((opt) => opt.setName('message').setDescription('Lời nhắn rời đi; hỗ trợ {user}, {server}, {memberCount}').setRequired(false)))
       .addSubcommand((sub) => sub
         .setName('setting')
-        .setDescription('Lưu một giá trị cài đặt riêng cho máy chủ')
+        .setDescription('Lưu cài đặt máy chủ')
         .addStringOption((opt) => opt.setName('key').setDescription('Tên khóa cài đặt cần lưu').setRequired(true))
         .addStringOption((opt) => opt.setName('value').setDescription('Giá trị mới của cài đặt').setRequired(true)))
-      .addSubcommand((sub) => sub.setName('audit').setDescription('Xem các thao tác quản trị gần đây'))
-      .addSubcommand((sub) => sub.setName('backup').setDescription('Sao lưu dữ liệu bot ngay'))
-      .addSubcommand((sub) => sub.setName('backups').setDescription('Xem các bản sao lưu hiện có'))
+      .addSubcommand((sub) => sub.setName('audit').setDescription('Xem nhật ký quản trị'))
+      .addSubcommand((sub) => sub.setName('backup').setDescription('Sao lưu dữ liệu ngay'))
+      .addSubcommand((sub) => sub.setName('backups').setDescription('Xem bản sao lưu'))
       .addSubcommand((sub) => sub
         .setName('schedule')
-        .setDescription('Lên lịch sao lưu hoặc kiểm tra sức khỏe bot')
+        .setDescription('Lên lịch tác vụ tự động')
         .addStringOption((opt) => opt.setName('action').setDescription('Chọn loại tác vụ định kỳ').setRequired(true).addChoices(
           { name: 'Bật backup định kỳ', value: 'backup' },
           { name: 'Bật health check', value: 'health-check' },

@@ -832,11 +832,11 @@ export default class MinecraftModule {
     const minecraftServerCommand = {
       data: new SlashCommandBuilder()
         .setName('minecraft-server')
-        .setDescription('Kiểm tra máy chủ Minecraft đang hoạt động hay ngoại tuyến')
+        .setDescription('Kiểm tra trạng thái máy chủ Minecraft')
         .addStringOption((option) =>
           option
             .setName('address')
-            .setDescription('Địa chỉ máy chủ, có thể kèm cổng (ví dụ play.hypixel.net:25565)')
+            .setDescription('IP hoặc tên máy chủ, có thể kèm cổng')
             .setRequired(true),
         ),
 
@@ -917,9 +917,9 @@ export default class MinecraftModule {
     const customBannerCommand = {
       data: new SlashCommandBuilder()
         .setName('minecraft-custom-server-banner')
-        .setDescription('Tạo banner tùy chỉnh hiển thị thông tin máy chủ Minecraft')
+        .setDescription('Tạo banner máy chủ Minecraft')
         .addStringOption((option) =>
-          option.setName('address').setDescription('Địa chỉ máy chủ, có thể kèm cổng (ví dụ play.hypixel.net:25565)').setRequired(true),
+          option.setName('address').setDescription('IP hoặc tên máy chủ, có thể kèm cổng').setRequired(true),
         )
         .addStringOption((option) =>
           option

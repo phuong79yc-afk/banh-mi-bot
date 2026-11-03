@@ -1267,7 +1267,7 @@ export default class ServerGeneratorModule {
     this.commands.set('generator', {
       data: new SlashCommandBuilder()
         .setName('generator')
-        .setDescription('Tạo cấu trúc máy chủ bằng AI hoặc quản lý tính năng máy chủ')
+        .setDescription('Tạo hoặc quản lý máy chủ Discord')
         .addStringOption((option) =>
           option
             .setName('mode')

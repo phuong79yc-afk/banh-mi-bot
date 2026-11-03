@@ -120,7 +120,7 @@ export { addTransaction, getUser };
 const compensateCommand = {
   data: new SlashCommandBuilder()
     .setName('compensate')
-    .setDescription('Cộng xu hoặc vé vàng vào tài khoản một thành viên (quản trị viên)')
+    .setDescription('Cộng xu hoặc vé vàng cho thành viên')
     .addUserOption(option =>
       option
         .setName('user')
@@ -271,7 +271,7 @@ const compensateCommand = {
 const bulkCompensateCommand = {
   data: new SlashCommandBuilder()
     .setName('bulk-compensate')
-    .setDescription('Cộng xu hoặc vé vàng cho nhiều thành viên cùng lúc (quản trị viên)')
+    .setDescription('Cộng tiền cho nhiều thành viên')
     .addStringOption(option =>
       option
         .setName('reason')
@@ -529,7 +529,7 @@ const bulkCompensateCommand = {
 const balanceCommand = {
   data: new SlashCommandBuilder()
     .setName('balance')
-    .setDescription('Xem số dư xu và vé vàng của bạn hoặc thành viên khác')
+    .setDescription('Xem số dư xu và vé vàng')
     .addUserOption(option =>
       option
         .setName('user')
@@ -599,7 +599,7 @@ const balanceCommand = {
 const transactionHistoryCommand = {
   data: new SlashCommandBuilder()
     .setName('transaction-history')
-    .setDescription('Xem lịch sử giao dịch xu và vé vàng của thành viên')
+    .setDescription('Xem lịch sử giao dịch')
     .addUserOption(option =>
       option
         .setName('user')

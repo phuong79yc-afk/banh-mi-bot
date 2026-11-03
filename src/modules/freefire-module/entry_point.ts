@@ -390,7 +390,7 @@ export default class FreeFireModule {
     const notificationCommand = {
       data: new SlashCommandBuilder()
         .setName('freefire-notify')
-        .setDescription('Bật, tắt hoặc xem trạng thái thông báo tin Free Fire tự động')
+        .setDescription('Cài đặt thông báo tin Free Fire')
         .setContexts(InteractionContextType.Guild)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addStringOption((option) =>
@@ -482,7 +482,7 @@ export default class FreeFireModule {
     const freefireCommand = {
       data: new SlashCommandBuilder()
         .setName('freefire')
-        .setDescription('Xem cập nhật và tin tức mới nhất của Free Fire')
+        .setDescription('Xem tin Free Fire mới nhất')
         .addStringOption((option) =>
           option
             .setName('loại')
@@ -593,7 +593,7 @@ export default class FreeFireModule {
     const freefireArticleCommand = {
       data: new SlashCommandBuilder()
         .setName('freefire-article')
-        .setDescription('Đọc chi tiết một bài viết Free Fire')
+        .setDescription('Đọc bài viết Free Fire')
         .addIntegerOption((option) =>
           option
             .setName('id')

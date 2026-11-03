@@ -51,7 +51,7 @@ export default class GamesModule {
     const gtnCommand = {
       data: new SlashCommandBuilder()
         .setName('gtn-start')
-        .setDescription('Bắt đầu trò chơi đoán số cùng thành viên trong kênh')
+        .setDescription('Bắt đầu trò chơi đoán số')
         .addIntegerOption((option) =>
           option
             .setName('rounds')
@@ -228,4 +228,3 @@ export default class GamesModule {
     console.log('🧹 Games module cleanup');
   }
 }
-

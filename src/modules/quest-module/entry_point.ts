@@ -455,7 +455,7 @@ export default class QuestModule {
 
   private registerCommands() {
     this.commands.set('quest', {
-      data: new SlashCommandBuilder().setName('quest').setDescription('Xem nhiệm vụ và tiến độ hoàn thành của bạn'),
+      data: new SlashCommandBuilder().setName('quest').setDescription('Xem nhiệm vụ và tiến độ'),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const startTime = Date.now();
         

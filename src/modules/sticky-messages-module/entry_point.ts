@@ -232,7 +232,7 @@ export default class StickyMessagesModule {
     const messageCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-message')
-        .setDescription('Tạo tin nhắn ghim tự động trong một kênh')
+        .setDescription('Tạo tin nhắn ghim tự động')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh văn bản sẽ đăng tin nhắn ghim').addChannelTypes(...textChannelTypes).setRequired(true)
@@ -268,7 +268,7 @@ export default class StickyMessagesModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-remove')
-        .setDescription('Xóa tin nhắn ghim tự động khỏi một kênh')
+        .setDescription('Xóa tin nhắn ghim tự động')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh có tin nhắn ghim cần xóa').addChannelTypes(...textChannelTypes).setRequired(true)
@@ -292,7 +292,7 @@ export default class StickyMessagesModule {
     const modeCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-mode')
-        .setDescription('Thay đổi cách tin nhắn ghim được đăng lại')
+        .setDescription('Đổi chế độ đăng lại tin ghim')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh cần thay đổi chế độ ghim').addChannelTypes(...textChannelTypes).setRequired(true)
@@ -328,7 +328,7 @@ export default class StickyMessagesModule {
     const thresholdCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-threshold')
-        .setDescription('Cài số tin nhắn mới trước khi đăng lại tin ghim')
+        .setDescription('Cài ngưỡng đăng lại tin ghim')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh cần chỉnh ngưỡng tin nhắn').addChannelTypes(...textChannelTypes).setRequired(true)
@@ -361,7 +361,7 @@ export default class StickyMessagesModule {
     const delayCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-delay')
-        .setDescription('Cài thời gian chờ trước khi đăng lại tin ghim')
+        .setDescription('Cài thời gian đăng lại tin ghim')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh cần chỉnh thời gian chờ').addChannelTypes(...textChannelTypes).setRequired(true)
@@ -394,7 +394,7 @@ export default class StickyMessagesModule {
     const configCommand = {
       data: new SlashCommandBuilder()
         .setName('sticky-config')
-        .setDescription('Xem cấu hình tin nhắn ghim của một kênh')
+        .setDescription('Xem cấu hình tin ghim')
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Kênh cần xem cấu hình tin ghim').addChannelTypes(...textChannelTypes).setRequired(true)
         ),
@@ -470,7 +470,7 @@ export default class StickyMessagesModule {
 
     // ==================== /sticky-list ====================
     const listCommand = {
-      data: new SlashCommandBuilder().setName('sticky-list').setDescription('Liệt kê các tin nhắn ghim tự động trong máy chủ'),
+      data: new SlashCommandBuilder().setName('sticky-list').setDescription('Xem danh sách tin ghim tự động'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         const stickies = stickyManager.getAll(interaction.guildId!);

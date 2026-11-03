@@ -97,7 +97,7 @@ export default class SecurityModule {
     this.commands.set('lock-invites', {
       data: new SlashCommandBuilder()
         .setName('lock-invites')
-        .setDescription('Quản lý việc tạo liên kết mời vào máy chủ')
+        .setDescription('Quản lý liên kết mời')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .setDMPermission(false)
         .addSubcommand(s =>
@@ -135,7 +135,7 @@ export default class SecurityModule {
     this.commands.set('performance', {
       data: new SlashCommandBuilder()
         .setName('performance')
-        .setDescription('Theo dõi hiệu năng và mức sử dụng bộ nhớ của bot')
+        .setDescription('Xem hiệu năng bot')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(s => s.setName('stats').setDescription('Xem số liệu hiệu năng hiện tại'))
         .addSubcommand(s => s.setName('cleanup').setDescription('Giải phóng bộ nhớ đang sử dụng'))

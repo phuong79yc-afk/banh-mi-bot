@@ -438,7 +438,7 @@ export default class UtilityModule {
     // ───────── POLL ─────────
     const pollCommand = {
       data: new SlashCommandBuilder()
-        .setName('poll').setDescription('Tạo bình chọn để thành viên chọn một phương án')
+        .setName('poll').setDescription('Tạo bình chọn')
         .addStringOption(o => o.setName('question').setDescription('Câu hỏi cần bình chọn').setRequired(true))
         .addStringOption(o => o.setName('options').setDescription('Từ 2 đến 10 lựa chọn, phân cách bằng dấu phẩy').setRequired(true)),
 
@@ -469,7 +469,7 @@ export default class UtilityModule {
     // ───────── CALC ─────────
     const calcCommand = {
       data: new SlashCommandBuilder()
-        .setName('calc').setDescription('Tính giá trị của một biểu thức số học')
+        .setName('calc').setDescription('Tính biểu thức số học')
         .addStringOption(o => o.setName('expression').setDescription('Biểu thức gồm số và phép tính, ví dụ 2+2 hoặc 5*10').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -496,7 +496,7 @@ export default class UtilityModule {
     // ───────── RANDOM ─────────
     const randomCommand = {
       data: new SlashCommandBuilder()
-        .setName('random').setDescription('Tạo một số nguyên ngẫu nhiên trong khoảng đã chọn')
+        .setName('random').setDescription('Tạo số ngẫu nhiên')
         .addIntegerOption(o => o.setName('min').setDescription('Giá trị nhỏ nhất (mặc định: 1)').setRequired(false))
         .addIntegerOption(o => o.setName('max').setDescription('Giá trị lớn nhất (mặc định: 100)').setRequired(false)),
 
@@ -521,7 +521,7 @@ export default class UtilityModule {
     // ───────── CHOOSE ─────────
     const chooseCommand = {
       data: new SlashCommandBuilder()
-        .setName('choose').setDescription('Chọn ngẫu nhiên một phương án từ danh sách')
+        .setName('choose').setDescription('Chọn ngẫu nhiên một phương án')
         .addStringOption(o => o.setName('options').setDescription('Ít nhất 2 lựa chọn, phân cách bằng dấu phẩy').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -565,7 +565,7 @@ export default class UtilityModule {
 
     // ───────── HELP ─────────
     const helpCommand = {
-      data: new SlashCommandBuilder().setName('help').setDescription('Xem danh sách lệnh và hướng dẫn sử dụng bot'),
+      data: new SlashCommandBuilder().setName('help').setDescription('Xem lệnh và hướng dẫn sử dụng'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply(); }
@@ -691,7 +691,7 @@ export default class UtilityModule {
 
     // ───────── INFORMATION ─────────
     const infoCommand = {
-      data: new SlashCommandBuilder().setName('information').setDescription('Xem thông tin phiên bản và hoạt động của bot'),
+      data: new SlashCommandBuilder().setName('information').setDescription('Xem thông tin bot'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply(); }
@@ -764,7 +764,7 @@ export default class UtilityModule {
 
     // ───────── RULE ─────────
     const ruleCommand = {
-      data: new SlashCommandBuilder().setName('rule').setDescription('Xem nội quy của máy chủ'),
+      data: new SlashCommandBuilder().setName('rule').setDescription('Xem nội quy máy chủ'),
 
       execute: async (interaction: ChatInputCommandInteraction) => {
         try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); }
@@ -789,7 +789,7 @@ export default class UtilityModule {
     // ───────── RULE SETUP ─────────
     const ruleSetupCommand = {
       data: new SlashCommandBuilder()
-        .setName('rule-setup').setDescription('Tạo danh mục và kênh nội quy cho máy chủ')
+        .setName('rule-setup').setDescription('Thiết lập kênh nội quy')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addBooleanOption(o => o.setName('force').setDescription('Tạo lại kênh và nội dung nội quy hiện có').setRequired(false)),
 
@@ -961,7 +961,7 @@ export default class UtilityModule {
     const eventTestCommand = {
       data: new SlashCommandBuilder()
         .setName('event-test')
-        .setDescription('Kiểm tra trước nội dung thông báo của một sự kiện')
+        .setDescription('Xem thử thông báo sự kiện')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(o => o.setName('event')
           .setDescription('Chọn loại thông báo cần kiểm tra')

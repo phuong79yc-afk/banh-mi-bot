@@ -79,7 +79,7 @@ function rolePanel(userId: string, data: CustomRoleData | undefined, enabled: bo
 export const customRoleCommand = {
   data: new SlashCommandBuilder()
     .setName('customrole')
-    .setDescription('Tạo và quản lý role cá nhân trong máy chủ')
+    .setDescription('Quản lý role cá nhân')
     .setDMPermission(false)
     .addSubcommand(s => s.setName('panel').setDescription('Xem và quản lý các role cá nhân của bạn'))
     .addSubcommand(s =>
@@ -106,7 +106,7 @@ export const customRoleCommand = {
         .addRoleOption(o => o.setName('required').setDescription('Role thành viên phải có để sử dụng'))
         .addBooleanOption(o => o.setName('clear-required').setDescription('Gỡ yêu cầu phải có role'))
         .addIntegerOption(o => o.setName('max-roles').setDescription('Số role tối đa mỗi thành viên (1–5)').setMinValue(1).setMaxValue(5))
-        .addStringOption(o => o.setName('colors').setDescription('Danh sách màu HEX phân cách bằng dấu phẩy; nhập all để cho phép mọi màu')),
+        .addStringOption(o => o.setName('colors').setDescription('Mã màu HEX: cách nhau bằng dấu phẩy; all để mở mọi màu')),
     ),
 
   async execute(i: ChatInputCommandInteraction) {

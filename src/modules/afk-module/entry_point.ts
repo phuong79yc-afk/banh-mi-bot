@@ -89,7 +89,7 @@ export default class AFKModule {
     const afkCommand = {
       data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Bật trạng thái vắng mặt và thông báo lý do')
+        .setDescription('Bật trạng thái vắng mặt')
         .setContexts(InteractionContextType.Guild)
         .addStringOption(o =>
           o.setName('reason').setDescription('Lý do vắng mặt (tối đa 100 ký tự)').setMaxLength(100).setRequired(false),
@@ -153,7 +153,7 @@ export default class AFKModule {
     const removeCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-remove')
-        .setDescription('Tắt trạng thái vắng mặt của bạn')
+        .setDescription('Tắt trạng thái vắng mặt')
         .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const afkUser = afkManager.removeAFK(interaction.guildId!, interaction.user.id);
@@ -188,7 +188,7 @@ export default class AFKModule {
     const listCommand = {
       data: new SlashCommandBuilder()
         .setName('afk-list')
-        .setDescription('Liệt kê các thành viên đang bật trạng thái vắng mặt')
+        .setDescription('Xem danh sách thành viên đang vắng mặt')
         .setContexts(InteractionContextType.Guild),
       execute: async (interaction: ChatInputCommandInteraction) => {
         const guildAFK = afkManager

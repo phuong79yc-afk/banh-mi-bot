@@ -1036,7 +1036,7 @@ export default class TikTokModule {
     const liveCommand = {
       data: new SlashCommandBuilder()
         .setName('tiktok-live')
-        .setDescription('Tự động thông báo khi creator TikTok bắt đầu livestream')
+        .setDescription('Cài đặt thông báo TikTok LIVE')
         .setContexts(InteractionContextType.Guild)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand((subcommand) =>
@@ -1159,7 +1159,7 @@ export default class TikTokModule {
     const tiktokCommand = {
       data: new SlashCommandBuilder()
         .setName('tiktok')
-        .setDescription(`${emojis.tt_music} Tạo thẻ xem trước từ liên kết TikTok`)
+        .setDescription('Xem trước bài đăng TikTok')
         .addStringOption((o) => o.setName('link').setDescription('Liên kết video hoặc bài đăng TikTok').setRequired(true)),
 
       execute: async (interaction: ChatInputCommandInteraction) => {

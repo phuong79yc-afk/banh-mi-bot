@@ -449,7 +449,7 @@ export default class AIModule {
     const aiCommand = {
       data: new SlashCommandBuilder()
         .setName('ai')
-        .setDescription('Trò chuyện với AI; cuộc trò chuyện có lưu ngữ cảnh')
+        .setDescription('Trò chuyện với AI')
         .addStringOption(o => o.setName('message').setDescription('Nội dung bạn muốn hỏi hoặc yêu cầu AI').setRequired(true))
         .addStringOption(o =>
           o.setName('model').setDescription('Chọn mô hình AI (mặc định bot tự chọn)').setRequired(false)
@@ -484,7 +484,7 @@ export default class AIModule {
     const memoryCommand = {
       data: new SlashCommandBuilder()
         .setName('ai-memory')
-        .setDescription('Xem hoặc xóa ngữ cảnh trò chuyện AI đã lưu')
+        .setDescription('Quản lý lịch sử trò chuyện AI')
         .addSubcommand(s => s.setName('view').setDescription('Xem lịch sử trò chuyện AI của bạn'))
         .addSubcommand(s => s.setName('clear').setDescription('Xóa lịch sử trò chuyện AI đã lưu')),
       execute: async (interaction: ChatInputCommandInteraction) => {
@@ -499,7 +499,7 @@ export default class AIModule {
         .addStringOption(option =>
           option
             .setName('prompt')
-            .setDescription('Mô tả hình ảnh bạn muốn tạo')
+            .setDescription('Tạo ảnh từ mô tả')
             .setMinLength(3)
             .setMaxLength(2000)
             .setRequired(true),

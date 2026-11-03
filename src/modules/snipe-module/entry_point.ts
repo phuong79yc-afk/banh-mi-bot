@@ -214,7 +214,7 @@ export default class SnipeModule {
     const snipeCommand = {
       data: new SlashCommandBuilder()
         .setName('snipe')
-        .setDescription('Xem lại các tin nhắn vừa bị xóa')
+        .setDescription('Xem tin nhắn đã xóa')
         .addIntegerOption((option) =>
           option
             .setName('page')
@@ -236,7 +236,7 @@ export default class SnipeModule {
     const editsnipeCommand = {
       data: new SlashCommandBuilder()
         .setName('editsnipe')
-        .setDescription('Xem lại nội dung tin nhắn vừa được chỉnh sửa')
+        .setDescription('Xem nội dung tin nhắn đã sửa')
         .addIntegerOption((option) =>
           option
             .setName('page')
