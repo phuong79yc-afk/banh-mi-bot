@@ -20,7 +20,7 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
 } from 'discord.js';
-import { EMOJI_IDS, emojis } from '../../config/emojis';
+import { getEmoji, emojis, PIXEL_EMOJI_IDS } from '../../config/emojis';
 import { addTransaction } from '../balance-module/entry_point';
 import { syncVipRolesForMember } from '../vip-module/entry_point';
 import { addCoins, addGems, getCurrencyBalance, spendCoins } from '../../utils/currency';
@@ -335,14 +335,15 @@ function decrementSold(itemId: string): void {
 
 function componentEmoji(client: Client, guildId: string | null, name: string, fallback: string): string {
   const guild = guildId ? client.guilds.cache.get(guildId) : undefined;
-  const emojiId = EMOJI_IDS[name];
+  const customEmoji = getEmoji(name);
+  const emojiId = customEmoji.match(/^<:bc_[^:]+:(\d+)>$/)?.[1];
   const canUseCustomEmoji =
     !!guild &&
     !!emojiId &&
     (guild.emojis.cache.has(emojiId) ||
       !!guild.members.me?.permissions.has(PermissionFlagsBits.UseExternalEmojis));
 
-  return canUseCustomEmoji ? emojis[name] : fallback;
+  return canUseCustomEmoji ? customEmoji : fallback;
 }
 
 function buildShop(client: Client, guildId: string | null, userId?: string, page: number = 1, disabled = false) {

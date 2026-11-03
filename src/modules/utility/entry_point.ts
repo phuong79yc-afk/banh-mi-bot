@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { emojis, getEmoji } from '../../config/emojis';
+import { getCommandEmoji } from '../../config/commandEmojis';
 import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
@@ -649,7 +650,7 @@ export default class UtilityModule {
         const buildCategory = (name: string) => {
           const data = categories[name];
           let list = data.commands
-            .map((cmd, i) => `**${i + 1}. ${cmd.description}**\n-# \`/${cmd.name}\``)
+            .map((cmd, i) => `**${i + 1}. ${getCommandEmoji(cmd.name)} ${cmd.description}**\n-# \`/${cmd.name}\``)
             .join('\n');
 
           // Giới hạn tổng text của message V2 là 4000 ký tự

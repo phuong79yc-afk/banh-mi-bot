@@ -3,7 +3,7 @@
  */
 
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { EMOJI_IDS, emojis } from '../../config/emojis';
+import { PIXEL_EMOJI_IDS, emojis } from '../../config/emojis';
 
 export default {
   data: new SlashCommandBuilder()
@@ -11,17 +11,22 @@ export default {
     .setDescription('Hiển thị toàn bộ icon custom của bot'),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const iconList = Object.keys(EMOJI_IDS)
+    const emojiNames = Object.keys(PIXEL_EMOJI_IDS)
       .sort()
-      .map((name) => `${emojis[name]} \`${name}\``)
-      .join('  ');
+      .map((name) => `${emojis[`bc_${name}`]} \`${name}\``);
+    const embeds = [];
+    for (let index = 0; index < emojiNames.length; index += 30) {
+      embeds.push(
+        new EmbedBuilder()
+          .setTitle(`${emojis.sparkles} Bộ icon pixel • ${emojiNames.length} emoji`)
+          .setDescription(emojiNames.slice(index, index + 30).join('  '))
+          .setColor(0x5865F2)
+          .setFooter({
+            text: `Trang ${Math.floor(index / 30) + 1}/${Math.ceil(emojiNames.length / 30)} • Bot có ${interaction.client.emojis.cache.size} emoji trong cache`,
+          }),
+      );
+    }
 
-    const embed = new EmbedBuilder()
-      .setTitle(`${emojis.sparkles} Bộ icon mới • ${Object.keys(EMOJI_IDS).length} emoji`)
-      .setDescription(iconList)
-      .setColor(0x5865F2)
-      .setFooter({ text: `Bot có ${interaction.client.emojis.cache.size} emoji trong cache` });
-
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds });
   }
 };

@@ -95,6 +95,11 @@ const toVoiceChannelName = (name: string): string =>
 
 // Theme-specific decorative characters from kituhay.com
 const THEME_STYLES = {
+  pixel: {
+    category: { left: '▛▀', right: '▀▜', icon: '▣' },
+    voice: { left: '▌', right: '▐', icon: '◧' },
+    text: { icon: '▪', separator: '·' }
+  },
   gaming: {
     category: { left: '▰▰', right: '▰▰', icon: '⚔' },
     voice: { left: '╠', right: '╣', icon: '🎮' },
@@ -529,7 +534,7 @@ const THEME_STYLES = {
 };
 
 const PREFERRED_THEME_STYLE_PRIORITY: (keyof typeof THEME_STYLES)[] = [
-  'valorant', 'league', 'dota', 'fortnite', 'pubg', 'genshin', 'roblox',
+  'pixel', 'valorant', 'league', 'dota', 'fortnite', 'pubg', 'genshin', 'roblox',
   'minecraft', 'fps', 'moba', 'esports', 'mmorpg', 'rpg', 'gaming',
   'vocaloid', 'kpop', 'jpop', 'rock', 'hiphop', 'edm', 'music',
   'kawaii', 'cute', 'pink', 'pastel', 'aesthetic', 'soft', 'cottagecore', 'vintage',
@@ -2607,8 +2612,9 @@ export default class ServerGeneratorModule {
               channelName = `${style.voice.left} ${emoji} ${cleanName} ${style.voice.right}`;
             } else {
               // Text channels with theme separator
-              channelName = ch.emoji 
-                ? `${ch.emoji} ${style.text.separator} ${cleanName}`
+              const textIcon = ch.emoji || ('icon' in style.text ? style.text.icon : undefined);
+              channelName = textIcon
+                ? `${textIcon} ${style.text.separator} ${cleanName}`
                 : cleanName;
             }
 

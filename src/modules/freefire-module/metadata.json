@@ -1,0 +1,7 @@
+{
+  "name": "freefire-module",
+  "version": "1.0.0",
+  "description": "Free Fire - Cap nhat va tin tuc game tu Garena",
+  "enabled": true,
+  "priority": 18
+}

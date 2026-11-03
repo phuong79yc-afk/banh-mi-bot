@@ -48,6 +48,7 @@ export interface ValidationReport {
 const VALID_TYPES = [ChannelType.GuildText, ChannelType.GuildVoice, ChannelType.GuildStageVoice];
 
 const THEMES: Record<string, string[]> = {
+  pixel: ['pixel', 'pixel art', 'pixel-art', '8-bit', '8 bit', 'retro game'],
   gaming: ['gaming', 'game', 'esport', 'gamer', 'tournament', 'lfg', 'scrim', 'clan', 'guild', 'pvp', 'pve', 'fps', 'moba', 'mmo'],
   valorant: ['valorant', 'valo'],
   league: ['league of legends', 'league', 'lol'],
@@ -155,6 +156,7 @@ export function detectThemes(prompt: string): string[] {
 }
 
 const THEME_GUIDANCE: Record<string, string> = {
+  pixel: 'Use a consistent pixel-art look with blocky Unicode icons such as ▣, ◧, and ▪ for categories, voice, and text channels; keep names readable.',
   gaming: 'Build around the named games, team-finding, match coordination, clips, events, and voice rooms.',
   valorant: 'Use Valorant-specific spaces for LFG, agents, maps, patch notes, clips, coaching, scrims, and team voice.',
   league: 'Use League of Legends spaces for roles, champions, patch notes, LFG, ranked teams, coaching, and esports.',

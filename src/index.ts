@@ -10,6 +10,7 @@ import { validateEnv } from './utils/envValidator';
 import { setupPrefixCommands } from './handlers/prefixCommandHandler';
 import { ModuleLoader } from './core/ModuleLoader';
 import { memoryOptimizer } from './utils/memoryOptimizer';
+import { installPixelEmojiMiddleware } from './utils/pixelEmojiMiddleware';
 import { initializeDatabase } from './database/init';
 import {
   auditSlashCommands,
@@ -111,6 +112,8 @@ function startBot() {
       GatewayIntentBits.GuildMessageReactions,
     ],
   });
+
+  installPixelEmojiMiddleware(client);
 
   // Increase max listeners to prevent warning
   client.setMaxListeners(20);

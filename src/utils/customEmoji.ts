@@ -2,7 +2,7 @@
  * Shared emoji aliases for command utilities.
  * Uses the server icon set for common bot statuses and Unicode elsewhere.
  */
-import { emojis } from '../config/emojis';
+import { emojis, getPixelEmoji } from '../config/emojis';
 
 export const CUSTOM_EMOJI = {
   // 🎵 Music Commands
@@ -295,6 +295,8 @@ export type CustomEmojiKey = keyof typeof CUSTOM_EMOJI;
  * Get emoji by key with fallback
  */
 export function getCustomEmoji(key: string): string {
+  const pixelEmoji = getPixelEmoji(key);
+  if (pixelEmoji) return pixelEmoji;
   const emoji = CUSTOM_EMOJI[key as CustomEmojiKey];
   return emoji || '❓'; // Fallback to question mark if not found
 }
@@ -303,7 +305,7 @@ export function getCustomEmoji(key: string): string {
  * Get emoji by key (type-safe)
  */
 export function getEmoji(key: CustomEmojiKey): string {
-  return CUSTOM_EMOJI[key];
+  return getCustomEmoji(key);
 }
 
 /**
@@ -311,21 +313,21 @@ export function getEmoji(key: CustomEmojiKey): string {
  */
 export function getRandomEmoji(keys: CustomEmojiKey[]): string {
   const randomKey = keys[Math.floor(Math.random() * keys.length)];
-  return CUSTOM_EMOJI[randomKey];
+  return getCustomEmoji(randomKey);
 }
 
 /**
  * Create emoji string with count
  */
 export function emojiWithCount(key: CustomEmojiKey, count: number): string {
-  return `${CUSTOM_EMOJI[key]} ${count}`;
+  return `${getCustomEmoji(key)} ${count}`;
 }
 
 /**
  * Combine multiple emojis
  */
 export function combineEmojis(...keys: CustomEmojiKey[]): string {
-  return keys.map(key => CUSTOM_EMOJI[key]).join(' ');
+  return keys.map(getCustomEmoji).join(' ');
 }
 
 /**

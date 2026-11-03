@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Bot Command Emojis Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .category {
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+        }
+        
+        .category-title {
+            font-size: 2em;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .emoji-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .emoji-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .emoji-large {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .command-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .command-desc {
+            font-size: 0.9em;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        .stat-label {
+            font-size: 1em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .top-emojis {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .top-emoji {
+            font-size: 3em;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            transition: transform 0.3s ease;
+        }
+        
+        .top-emoji:hover {
+            transform: scale(1.2) rotate(10deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Bot Command Emojis</h1>
+        <p class="subtitle">Minecraft/Pixel Art Style • 86+ Commands</p>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">86</div>
+                <div class="stat-label">Lệnh</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">120+</div>
+                <div class="stat-label">Emoji</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">7</div>
+                <div class="stat-label">Nhóm chức năng</div>
+            </div>
+        </div>
+        
+        <h3 style="text-align: center; margin-bottom: 15px;">🌟 Top 10 Emoji được dùng nhiều nhất:</h3>
+        <div class="top-emojis">
+            <div class="top-emoji" title="Daily/Achievement">⭐</div>
+            <div class="top-emoji" title="Balance/Currency">💰</div>
+            <div class="top-emoji" title="Diamond/Premium">💎</div>
+            <div class="top-emoji" title="Success">✅</div>
+            <div class="top-emoji" title="Error/Delete">❌</div>
+            <div class="top-emoji" title="Information">ℹ️</div>
+            <div class="top-emoji" title="Settings">⚙️</div>
+            <div class="top-emoji" title="List/View">📋</div>
+            <div class="top-emoji" title="Inventory">🎒</div>
+            <div class="top-emoji" title="Shop">🏪</div>
+        </div>
+        
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Tìm kiếm lệnh hoặc emoji...">
+        
+        <!-- ECONOMY -->
+        <div class="category">
+            <div class="category-title">💰 ECONOMY & CURRENCY</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">💰</div>
+                    <div class="command-name">/balance</div>
+                    <div class="command-desc">Túi vàng - Hiển thị số dư xu</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⭐</div>
+                    <div class="command-name">/daily</div>
+                    <div class="command-desc">Ngôi sao vàng - Điểm danh hàng ngày</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">📊</div>
+                    <div class="command-name">/daily-stats</div>
+                    <div class="command-desc">Biểu đồ - Thống kê chuỗi điểm danh</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🏆</div>
+                    <div class="command-name">/daily-leaderboard</div>
+                    <div class="command-desc">Cúp vàng - Bảng xếp hạng</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🏪</div>
+                    <div class="command-name">/shop</div>
+                    <div class="command-desc">Cửa hàng - Mua vật phẩm</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎒</div>
+                    <div class="command-name">/inventory</div>
+                    <div class="command-desc">Ba lô - Túi đồ Minecraft</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">📋</div>
+                    <div class="command-name">/quest</div>
+                    <div class="command-desc">Bảng nhiệm vụ - Quest system</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎁</div>
+                    <div class="command-name">/compensate</div>
+                    <div class="command-desc">Quà tặng - Bồi thường xu</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- GAMES -->
+        <div class="category">
+            <div class="category-title">🎮 GAMES & FUN</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">🎉</div>
+                    <div class="command-name">/giveaway-create</div>
+                    <div class="command-desc">Pháo hoa - Tạo giveaway</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎲</div>
+                    <div class="command-name">/gtn-start</div>
+                    <div class="command-desc">Xúc xắc - Game đoán số</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎯</div>
+                    <div class="command-name">/choose</div>
+                    <div class="command-desc">Bia tiêu - Chọn ngẫu nhiên</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎰</div>
+                    <div class="command-name">/random</div>
+                    <div class="command-desc">Máy slot - Random số/item</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI -->
+        <div class="category">
+            <div class="category-title">🤖 AI & AUTOMATION</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">🧠</div>
+                    <div class="command-name">/ai</div>
+                    <div class="command-desc">Não - Trò chuyện AI thông minh</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">💭</div>
+                    <div class="command-name">/ai-memory</div>
+                    <div class="command-desc">Bong bóng suy nghĩ - Quản lý ngữ cảnh</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🖼️</div>
+                    <div class="command-name">/image</div>
+                    <div class="command-desc">Khung tranh - Tạo ảnh AI</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">➕</div>
+                    <div class="command-name">/autoresponder-add</div>
+                    <div class="command-desc">Thêm - Tạo phản hồi tự động</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MODERATION -->
+        <div class="category">
+            <div class="category-title">🛡️ MODERATION & SECURITY</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">👢</div>
+                    <div class="command-name">/moderation-kick</div>
+                    <div class="command-desc">Giày - Đá khỏi server</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🔨</div>
+                    <div class="command-name">/moderation-ban</div>
+                    <div class="command-desc">Búa - Ban hammer</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🔒</div>
+                    <div class="command-name">/moderation-lock</div>
+                    <div class="command-desc">Khóa - Lock kênh</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🧹</div>
+                    <div class="command-name">/moderation-clear</div>
+                    <div class="command-desc">Chổi - Xóa tin nhắn</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CUSTOMIZATION -->
+        <div class="category">
+            <div class="category-title">🎭 CUSTOMIZATION</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">🎭</div>
+                    <div class="command-name">/customrole</div>
+                    <div class="command-desc">Mặt nạ - Role cá nhân</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🎨</div>
+                    <div class="command-name">/customrole-admin-color-palette</div>
+                    <div class="command-desc">Bảng màu - Giới hạn màu role</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🏗️</div>
+                    <div class="command-name">/customrole-admin-create</div>
+                    <div class="command-desc">Xây dựng - Admin tạo role</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MANAGEMENT -->
+        <div class="category">
+            <div class="category-title">⚙️ MANAGEMENT & UTILITY</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">🛠️</div>
+                    <div class="command-name">/manage</div>
+                    <div class="command-desc">Công cụ - Quản trị bot</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">📡</div>
+                    <div class="command-name">/manage status</div>
+                    <div class="command-desc">Trạng thái bot</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">❤️</div>
+                    <div class="command-name">/manage health</div>
+                    <div class="command-desc">Sức khỏe bot</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">💾</div>
+                    <div class="command-name">/manage backup</div>
+                    <div class="command-desc">Sao lưu dữ liệu</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">❓</div>
+                    <div class="command-name">/help</div>
+                    <div class="command-desc">Hỏi - Hướng dẫn sử dụng</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">ℹ️</div>
+                    <div class="command-name">/information</div>
+                    <div class="command-desc">Info - Thông tin bot</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SPECIAL -->
+        <div class="category">
+            <div class="category-title">🎵 SPECIAL FEATURES</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">🎵</div>
+                    <div class="command-name">/tiktok</div>
+                    <div class="command-desc">Nốt nhạc - TikTok download/info</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">😴</div>
+                    <div class="command-name">/afk</div>
+                    <div class="command-desc">Ngủ - Trạng thái AFK</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">👑</div>
+                    <div class="command-name">/vipinfo</div>
+                    <div class="command-desc">Vương miện - Thông tin VIP</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⛏️</div>
+                    <div class="command-name">/minecraft-server</div>
+                    <div class="command-desc">Cuốc - Kiểm tra server Minecraft</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🏗️</div>
+                    <div class="command-name">/generator</div>
+                    <div class="command-desc">Công trường - Tạo server từ template</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- STATUS -->
+        <div class="category">
+            <div class="category-title">✨ STATUS & INDICATORS</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">✅</div>
+                    <div class="command-name">Success</div>
+                    <div class="command-desc">Dấu tick xanh - Thành công</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">❌</div>
+                    <div class="command-name">Error</div>
+                    <div class="command-desc">Dấu X đỏ - Lỗi</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⚠️</div>
+                    <div class="command-name">Warning</div>
+                    <div class="command-desc">Cảnh báo vàng</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⏳</div>
+                    <div class="command-name">Loading</div>
+                    <div class="command-desc">Đồng hồ cát - Đang xử lý</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🟢</div>
+                    <div class="command-name">Online</div>
+                    <div class="command-desc">Chấm xanh - Trực tuyến</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🔴</div>
+                    <div class="command-name">Offline</div>
+                    <div class="command-desc">Chấm đỏ - Ngoại tuyến</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MINECRAFT -->
+        <div class="category">
+            <div class="category-title">⛏️ MINECRAFT THEMED</div>
+            <div class="emoji-grid">
+                <div class="emoji-card">
+                    <div class="emoji-large">💎</div>
+                    <div class="command-name">Diamond</div>
+                    <div class="command-desc">Kim cương - Premium/Rare</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⛏️</div>
+                    <div class="command-name">Pickaxe</div>
+                    <div class="command-desc">Cuốc - Mining/Work</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">⚔️</div>
+                    <div class="command-name">Sword</div>
+                    <div class="command-desc">Kiếm - Combat/Fight</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🛡️</div>
+                    <div class="command-name">Shield</div>
+                    <div class="command-desc">Khiên - Defense/Protection</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">🧪</div>
+                    <div class="command-name">Potion</div>
+                    <div class="command-desc">Thuốc - Alchemy/Magic</div>
+                </div>
+                <div class="emoji-card">
+                    <div class="emoji-large">📦</div>
+                    <div class="command-name">Chest</div>
+                    <div class="command-desc">Rương - Storage/Reward</div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <script>
+        // Search functionality
+        const searchBox = document.getElementById('searchBox');
+        const emojiCards = document.querySelectorAll('.emoji-card');
+        
+        searchBox.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            emojiCards.forEach(card => {
+                const commandName = card.querySelector('.command-name').textContent.toLowerCase();
+                const commandDesc = card.querySelector('.command-desc').textContent.toLowerCase();
+                
+                if (commandName.includes(searchTerm) || commandDesc.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        // Copy to clipboard on click
+        emojiCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const emoji = card.querySelector('.emoji-large').textContent;
+                const commandName = card.querySelector('.command-name').textContent;
+                
+                navigator.clipboard.writeText(emoji).then(() => {
+                    card.style.background = 'rgba(0, 255, 0, 0.3)';
+                    setTimeout(() => {
+                        card.style.background = 'rgba(255, 255, 255, 0.1)';
+                    }, 500);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
