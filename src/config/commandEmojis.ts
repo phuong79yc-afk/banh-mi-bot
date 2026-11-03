@@ -82,6 +82,7 @@ const commandPixelEmojis = {
   'minecraft-custom-server-banner': 'banner',
   freefire: 'explosion',
   'freefire-article': 'scroll',
+  'freefire-notify': 'fire',
   tiktok: 'music',
   generator: 'construction',
   vipinfo: 'crown',

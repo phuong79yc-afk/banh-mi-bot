@@ -47,6 +47,22 @@ export async function initializeDatabase() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS freefire_notification_config (
+      guild_id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS freefire_notified_articles (
+      guild_id TEXT NOT NULL,
+      article_id TEXT NOT NULL,
+      PRIMARY KEY (guild_id, article_id)
+    )
+  `);
+
   // Add indexes for better query performance
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_gold_transactions_user ON gold_transactions(user_id)`);

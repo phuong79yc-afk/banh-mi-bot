@@ -34,6 +34,7 @@
 /event-test - Module: utility
 /freefire - Module: freefire-module
 /freefire-article - Module: freefire-module
+/freefire-notify - Module: freefire-module
 /generator - Module: server-generator-module
 /giveaway-create - Module: giveaway-module
 /giveaway-delete - Module: giveaway-module
@@ -89,5 +90,5 @@
 /vip-tiers - Module: vip-module
 /vipinfo - Module: vip-module
 
-Total main commands: 88
+Total main commands: 89
 Total subcommands: 

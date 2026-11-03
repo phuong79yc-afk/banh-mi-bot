@@ -8,16 +8,20 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   AutocompleteInteraction,
+  ChannelType,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
   MessageFlags,
+  PermissionFlagsBits,
+  InteractionContextType,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   escapeMarkdown,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
+import { getTursoDatabase } from '../../database/turso';
 
 // ==================== COMPONENTS V2 HELPERS ====================
 const V2 = MessageFlags.IsComponentsV2;
@@ -61,6 +65,7 @@ const FF_ARTICLE_URL = (id: number) => `${FF_BASE_URL}/vn/article/${id}/`;
 const MAX_TEXT_LENGTH = 4000;
 // Truncate article content preview to leave room for other UI elements
 const CONTENT_PREVIEW_LENGTH = 3000;
+const NOTIFICATION_POLL_INTERVAL = 10 * 60 * 1000;
 
 // ==================== CACHE ====================
 let newsCache: { data: NewsData; timestamp: number } | null = null;
@@ -282,6 +287,8 @@ export default class FreeFireModule {
   enabled = true;
   client: Client;
   commands: Collection<string, any>;
+  private notificationTimer: NodeJS.Timeout | null = null;
+  private pollingNotifications = false;
 
   constructor(client: Client) {
     this.client = client;
@@ -291,10 +298,184 @@ export default class FreeFireModule {
   async initialize() {
     console.log('🔥 Free Fire module initialized');
     this.registerCommands();
+    this.startNotificationPolling();
     console.log(`✅ Free Fire module registered ${this.commands.size} commands`);
   }
 
+  private startNotificationPolling() {
+    if (this.notificationTimer) clearInterval(this.notificationTimer);
+    this.notificationTimer = setInterval(() => {
+      void this.pollNotifications();
+    }, NOTIFICATION_POLL_INTERVAL);
+    this.notificationTimer.unref();
+    void this.pollNotifications();
+  }
+
+  private async pollNotifications() {
+    if (this.pollingNotifications) return;
+    this.pollingNotifications = true;
+
+    try {
+      const db = getTursoDatabase();
+      const configs = await db.execute(
+        'SELECT guild_id, channel_id FROM freefire_notification_config WHERE enabled = 1',
+      );
+      if (!configs.rows.length) return;
+
+      const news = getAllArticles(await fetchFreeFireNews()).sort((a, b) => a.time - b.time);
+      for (const row of configs.rows) {
+        const guildId = String(row[configs.columns.indexOf('guild_id')]);
+        const channelId = String(row[configs.columns.indexOf('channel_id')]);
+
+        try {
+          const channel = await this.client.channels.fetch(channelId);
+          if (!channel || !channel.isTextBased() || !('send' in channel)) {
+            console.error(`[Free Fire] Notification channel ${channelId} is unavailable for guild ${guildId}`);
+            continue;
+          }
+
+          const seenResult = await db.execute({
+            sql: 'SELECT article_id FROM freefire_notified_articles WHERE guild_id = ?',
+            args: [guildId],
+          });
+          const seen = new Set(
+            seenResult.rows.map((seenRow: any) =>
+              String(seenRow[seenResult.columns.indexOf('article_id')]),
+            ),
+          );
+          const unseenArticles = news.filter((article) => !seen.has(String(article.id)));
+
+          for (const article of unseenArticles) {
+            await channel.send({
+              components: [this.buildNotification(article)],
+              flags: V2,
+              allowedMentions: NO_PING,
+            });
+            await db.execute({
+              sql: 'INSERT OR IGNORE INTO freefire_notified_articles (guild_id, article_id) VALUES (?, ?)',
+              args: [guildId, String(article.id)],
+            });
+          }
+        } catch (error) {
+          console.error(`[Free Fire] Failed to notify guild ${guildId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('[Free Fire] Notification polling failed:', error);
+    } finally {
+      this.pollingNotifications = false;
+    }
+  }
+
+  private buildNotification(article: FreeFireArticle): ContainerBuilder {
+    const card = new ContainerBuilder().addTextDisplayComponents(
+      txt(`## 🔥 Free Fire có tin mới`),
+      txt(
+        `### ${categoryEmoji(article.category)} ${escapeMarkdown(article.title)}\n` +
+          `📅 ${formatDate(article.time)} • 🏷️ **${escapeMarkdown(article.category)}**\n` +
+          (article.desc ? `${escapeMarkdown(truncate(article.desc, 250))}\n` : '') +
+          `🔗 [Đọc chi tiết](${FF_BASE_URL}${article.link})`,
+      ),
+    );
+
+    if (article.cover) {
+      card.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(article.cover)),
+      );
+    }
+    return card;
+  }
+
   private registerCommands() {
+    const notificationCommand = {
+      data: new SlashCommandBuilder()
+        .setName('freefire-notify')
+        .setDescription('Bật, tắt hoặc xem trạng thái thông báo tin Free Fire tự động')
+        .setContexts(InteractionContextType.Guild)
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .addStringOption((option) =>
+          option
+            .setName('action')
+            .setDescription('Thao tác cấu hình thông báo')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Bật thông báo', value: 'enable' },
+              { name: 'Tắt thông báo', value: 'disable' },
+              { name: 'Xem trạng thái', value: 'status' },
+            ),
+        )
+        .addChannelOption((option) =>
+          option
+            .setName('channel')
+            .setDescription('Kênh nhận thông báo (bắt buộc khi bật)')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setRequired(false),
+        ),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const guildId = interaction.guildId;
+        if (!guildId) {
+          return interaction.editReply('Lệnh này chỉ dùng được trong máy chủ Discord.');
+        }
+
+        const action = interaction.options.getString('action', true);
+        const db = getTursoDatabase();
+        try {
+          if (action === 'enable') {
+            const channel = interaction.options.getChannel('channel');
+            if (!channel || !('send' in channel)) {
+              return interaction.editReply('Hãy chọn một kênh văn bản hợp lệ để nhận thông báo.');
+            }
+
+            const articles = getAllArticles(await fetchFreeFireNews());
+            await db.execute({
+              sql: `INSERT INTO freefire_notification_config (guild_id, channel_id, enabled)
+                    VALUES (?, ?, 1)
+                    ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id, enabled = 1`,
+              args: [guildId, channel.id],
+            });
+            for (const article of articles) {
+              await db.execute({
+                sql: 'INSERT OR IGNORE INTO freefire_notified_articles (guild_id, article_id) VALUES (?, ?)',
+                args: [guildId, String(article.id)],
+              });
+            }
+
+            return interaction.editReply(
+              `Đã bật thông báo Free Fire tại <#${channel.id}>. Bot kiểm tra tin mới mỗi 10 phút; tin đã đăng trước đó sẽ không được gửi lại.`,
+            );
+          }
+
+          if (action === 'disable') {
+            await db.execute({
+              sql: 'UPDATE freefire_notification_config SET enabled = 0 WHERE guild_id = ?',
+              args: [guildId],
+            });
+            return interaction.editReply('Đã tắt thông báo Free Fire tự động cho máy chủ này.');
+          }
+
+          const result = await db.execute({
+            sql: 'SELECT channel_id, enabled FROM freefire_notification_config WHERE guild_id = ?',
+            args: [guildId],
+          });
+          if (!result.rows.length) {
+            return interaction.editReply('Máy chủ chưa cấu hình thông báo Free Fire. Dùng action `Bật thông báo` và chọn kênh.');
+          }
+
+          const row = result.rows[0];
+          const channelId = String(row[result.columns.indexOf('channel_id')]);
+          const enabled = Number(row[result.columns.indexOf('enabled')]) === 1;
+          return interaction.editReply(
+            `Thông báo Free Fire: **${enabled ? 'Đang bật' : 'Đang tắt'}**\nKênh: <#${channelId}>\nChu kỳ kiểm tra: 10 phút.`,
+          );
+        } catch (error) {
+          console.error(`[Free Fire] Notification configuration failed for guild ${guildId}:`, error);
+          return interaction.editReply('Không thể cập nhật cấu hình thông báo Free Fire. Vui lòng thử lại sau.');
+        }
+      },
+    };
+    this.commands.set('freefire-notify', notificationCommand);
+
     // ========================================
     // /freefire — Browse latest news & updates
     // ========================================
@@ -562,6 +743,10 @@ export default class FreeFireModule {
 
   async cleanup() {
     console.log('🧹 Free Fire module cleanup');
+    if (this.notificationTimer) {
+      clearInterval(this.notificationTimer);
+      this.notificationTimer = null;
+    }
     newsCache = null;
     articleCache.clear();
   }
