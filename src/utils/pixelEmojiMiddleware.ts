@@ -1,4 +1,4 @@
-import { Client } from 'discord.js';
+import { AttachmentBuilder, Client } from 'discord.js';
 import { getPixelEmoji } from '../config/emojis';
 import { getCommandEmoji } from '../config/commandEmojis';
 
@@ -89,6 +89,7 @@ function transformPayload(value: unknown, key = ''): unknown {
     return value;
   }
   if (!value || typeof value !== 'object' || ArrayBuffer.isView(value)) return value;
+  if (value instanceof AttachmentBuilder) return value;
 
   if (Array.isArray(value)) {
     return value.map((entry) => transformPayload(entry));
