@@ -11,8 +11,11 @@ import {
   Guild,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   AttachmentBuilder,
   ActionRowBuilder,
+  PermissionFlagsBits,
+  InteractionContextType,
   // ===== Components V2 =====
   ContainerBuilder,
   TextDisplayBuilder,
@@ -21,8 +24,10 @@ import {
   SeparatorBuilder,
   SeparatorSpacingSize,
   MessageFlags,
+  escapeMarkdown,
 } from 'discord.js';
 import { emojis } from '../../config/emojis';
+import { getTursoDatabase } from '../../database/turso';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import { createReadStream, promises as fsp } from 'fs';
@@ -65,6 +70,8 @@ const MAX_COMPRESS_SOURCE_BYTES = 60 * 1024 * 1024; // chỉ nén video gốc t�
 const COMPRESS_TIMEOUT_MS = 60000;
 const TRANSCRIPT_TIMEOUT_MS = 120000;
 const TRANSCRIPT_SOURCE_MAX_BYTES = 60 * 1024 * 1024;
+const TIKTOK_LIVE_POLL_INTERVAL = 60 * 1000;
+const MAX_LIVE_MONITORS_PER_GUILD = 20;
 /** Thời gian lưu cache kết quả (ms) */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
@@ -115,6 +122,16 @@ interface TikTokData {
   videoUrl?: string;
   videoSize?: number; // bytes (nếu API cho biết)
   duration?: number; // giây
+}
+
+interface TikTokLiveStatus {
+  username: string;
+  nickname: string;
+  roomId: string | null;
+  isLive: boolean;
+  title?: string;
+  coverUrl?: string;
+  viewerCount?: number;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
@@ -761,6 +778,8 @@ export default class TikTokModule {
   commands: Collection<string, any>;
   private messageHandler?: (message: Message) => void;
   private interactionHandler?: (interaction: Interaction) => void;
+  private livePollTimer: NodeJS.Timeout | null = null;
+  private pollingLiveMonitors = false;
 
   constructor(client: Client) {
     this.client = client;
@@ -772,7 +791,167 @@ export default class TikTokModule {
     this.registerCommands();
     if (AUTO_EMBED) this.registerEvents();
     this.registerInteractions();
+    this.startLiveMonitorPolling();
     console.log(`✅ TikTok module registered ${this.commands.size} commands`);
+  }
+
+  private startLiveMonitorPolling() {
+    if (this.livePollTimer) clearInterval(this.livePollTimer);
+    this.livePollTimer = setInterval(() => {
+      void this.pollLiveMonitors();
+    }, TIKTOK_LIVE_POLL_INTERVAL);
+    this.livePollTimer.unref();
+    void this.pollLiveMonitors();
+  }
+
+  private async fetchLiveStatus(username: string): Promise<TikTokLiveStatus> {
+    const url = new URL('https://www.tiktok.com/api-live/user/room/');
+    url.search = new URLSearchParams({
+      aid: '1988',
+      sourceType: '54',
+      uniqueId: username,
+    }).toString();
+
+    const response = await fetchWithTimeout(url.toString(), {
+      headers: { Accept: 'application/json', Referer: 'https://www.tiktok.com/' },
+    });
+    if (!response.ok) throw new Error(`TikTok returned HTTP ${response.status}`);
+
+    const payload: any = await response.json();
+    const data = payload?.data;
+    const user = data?.user;
+    const liveRoom = data?.liveRoom;
+    if (!user?.uniqueId || !liveRoom) {
+      throw new Error(`TikTok did not return live-room data for @${username}`);
+    }
+
+    const roomId = user.roomId ? String(user.roomId) : null;
+    let isLive = Number(liveRoom.status) === 2;
+    if (roomId && isLive) {
+      try {
+        const aliveUrl = new URL('https://webcast.tiktok.com/webcast/room/check_alive/');
+        aliveUrl.search = new URLSearchParams({ aid: '1988', room_ids: roomId }).toString();
+        const aliveResponse = await fetchWithTimeout(aliveUrl.toString(), {
+          headers: { Accept: 'application/json', Referer: 'https://www.tiktok.com/' },
+        });
+        if (aliveResponse.ok) {
+          const alivePayload: any = await aliveResponse.json();
+          const alive = alivePayload?.data?.[0]?.alive;
+          if (typeof alive === 'boolean') isLive = alive;
+        }
+      } catch (error) {
+        console.error(`[TikTok Live] Could not verify room status for @${username}:`, error);
+      }
+    }
+
+    const viewerCount = Number(liveRoom.liveRoomStats?.userCount);
+    return {
+      username: String(user.uniqueId),
+      nickname: String(user.nickname || user.uniqueId),
+      roomId,
+      isLive,
+      title: typeof liveRoom.title === 'string' ? liveRoom.title : undefined,
+      coverUrl: typeof liveRoom.coverUrl === 'string' ? liveRoom.coverUrl : undefined,
+      viewerCount: Number.isFinite(viewerCount) ? viewerCount : undefined,
+    };
+  }
+
+  private async pollLiveMonitors() {
+    if (this.pollingLiveMonitors) return;
+    this.pollingLiveMonitors = true;
+
+    try {
+      const db = getTursoDatabase();
+      const result = await db.execute(
+        `SELECT guild_id, username, channel_id, last_notified_room_id
+         FROM tiktok_live_monitors WHERE enabled = 1`,
+      );
+      if (!result.rows.length) return;
+
+      const column = (row: any, name: string) => row[result.columns.indexOf(name)];
+      const monitors: Array<{
+        guildId: string;
+        username: string;
+        channelId: string;
+        lastRoomId: string | null;
+      }> = result.rows.map((row: any) => ({
+        guildId: String(column(row, 'guild_id')),
+        username: String(column(row, 'username')),
+        channelId: String(column(row, 'channel_id')),
+        lastRoomId: column(row, 'last_notified_room_id')
+          ? String(column(row, 'last_notified_room_id'))
+          : null,
+      }));
+      const usernames: string[] = [...new Set<string>(monitors.map((monitor) => monitor.username))];
+      const statuses = new Map<string, TikTokLiveStatus>();
+
+      for (let index = 0; index < usernames.length; index += 5) {
+        await Promise.all(
+          usernames.slice(index, index + 5).map(async (username) => {
+            try {
+              statuses.set(username, await this.fetchLiveStatus(username));
+            } catch (error) {
+              console.error(`[TikTok Live] Failed to check @${username}:`, error);
+            }
+          }),
+        );
+      }
+
+      for (const monitor of monitors) {
+        const status = statuses.get(monitor.username);
+        if (!status?.isLive || !status.roomId || status.roomId === monitor.lastRoomId) continue;
+
+        try {
+          const channel = await this.client.channels.fetch(monitor.channelId);
+          if (!channel || !('send' in channel)) {
+            console.error(
+              `[TikTok Live] Notification channel ${monitor.channelId} is unavailable for guild ${monitor.guildId}`,
+            );
+            continue;
+          }
+
+          await channel.send({
+            components: [this.buildLiveNotification(status)],
+            flags: V2,
+            allowedMentions: NO_PING,
+          });
+          await db.execute({
+            sql: `UPDATE tiktok_live_monitors SET last_notified_room_id = ?
+                  WHERE guild_id = ? AND username = ?`,
+            args: [status.roomId, monitor.guildId, monitor.username],
+          });
+        } catch (error) {
+          console.error(
+            `[TikTok Live] Failed to notify @${monitor.username} in guild ${monitor.guildId}:`,
+            error,
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[TikTok Live] Monitor polling failed:', error);
+    } finally {
+      this.pollingLiveMonitors = false;
+    }
+  }
+
+  private buildLiveNotification(status: TikTokLiveStatus): ContainerBuilder {
+    const profileUrl = `https://www.tiktok.com/@${encodeURIComponent(status.username)}/live`;
+    const details = [
+      `## 🔴 ${escapeMarkdown(status.nickname)} đang LIVE trên TikTok!`,
+      status.title ? `**${escapeMarkdown(status.title)}**` : `**@${escapeMarkdown(status.username)}**`,
+      status.viewerCount !== undefined
+        ? `👀 ${status.viewerCount.toLocaleString('vi-VN')} người đang xem`
+        : undefined,
+      `↗ [Xem livestream](${profileUrl})`,
+    ].filter((line): line is string => Boolean(line));
+    const notification = new ContainerBuilder().addTextDisplayComponents(text(details.join('\n')));
+
+    if (status.coverUrl) {
+      notification.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(status.coverUrl)),
+      );
+    }
+    return notification;
   }
 
   private registerInteractions() {
@@ -854,6 +1033,129 @@ export default class TikTokModule {
   }
 
   private registerCommands() {
+    const liveCommand = {
+      data: new SlashCommandBuilder()
+        .setName('tiktok-live')
+        .setDescription('Tự động thông báo khi creator TikTok bắt đầu livestream')
+        .setContexts(InteractionContextType.Guild)
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('add')
+            .setDescription('Theo dõi một creator TikTok và chọn kênh nhận thông báo')
+            .addStringOption((option) =>
+              option.setName('username').setDescription('Username TikTok, có thể nhập kèm @').setRequired(true),
+            )
+            .addChannelOption((option) =>
+              option
+                .setName('channel')
+                .setDescription('Kênh Discord nhận thông báo live')
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                .setRequired(true),
+            ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('remove')
+            .setDescription('Ngừng theo dõi một creator TikTok')
+            .addStringOption((option) =>
+              option.setName('username').setDescription('Username TikTok, có thể nhập kèm @').setRequired(true),
+            ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand.setName('list').setDescription('Xem danh sách creator đang được theo dõi'),
+        ),
+      execute: async (interaction: ChatInputCommandInteraction) => {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const guildId = interaction.guildId;
+        if (!guildId) return interaction.editReply('Lệnh này chỉ dùng được trong máy chủ Discord.');
+
+        const db = getTursoDatabase();
+        const action = interaction.options.getSubcommand();
+        try {
+          if (action === 'add') {
+            const username = interaction.options
+              .getString('username', true)
+              .trim()
+              .replace(/^@/, '')
+              .toLowerCase();
+            if (!/^[A-Za-z0-9._]{2,24}$/.test(username)) {
+              return interaction.editReply('Username TikTok không hợp lệ. Chỉ nhập username, ví dụ `@tiktok`.');
+            }
+
+            const channel = interaction.options.getChannel('channel', true);
+            if (!('send' in channel)) {
+              return interaction.editReply('Hãy chọn một kênh văn bản hợp lệ để nhận thông báo.');
+            }
+
+            const existing = await db.execute({
+              sql: 'SELECT username FROM tiktok_live_monitors WHERE guild_id = ? AND enabled = 1',
+              args: [guildId],
+            });
+            const isAlreadyTracked = existing.rows.some(
+              (row: any) =>
+                String(row[existing.columns.indexOf('username')]).toLowerCase() === username.toLowerCase(),
+            );
+            if (!isAlreadyTracked && existing.rows.length >= MAX_LIVE_MONITORS_PER_GUILD) {
+              return interaction.editReply(
+                `Máy chủ đã đạt giới hạn ${MAX_LIVE_MONITORS_PER_GUILD} creator. Hãy xóa một theo dõi trước.`,
+              );
+            }
+
+            await db.execute({
+              sql: `INSERT INTO tiktok_live_monitors (guild_id, username, channel_id, enabled)
+                    VALUES (?, ?, ?, 1)
+                    ON CONFLICT(guild_id, username)
+                    DO UPDATE SET channel_id = excluded.channel_id, enabled = 1`,
+              args: [guildId, username, channel.id],
+            });
+            void this.pollLiveMonitors();
+            return interaction.editReply(
+              `Đã theo dõi **@${username}**. Khi creator bắt đầu live, bot sẽ thông báo tại <#${channel.id}>. Kiểm tra mỗi phút.`,
+            );
+          }
+
+          if (action === 'remove') {
+            const username = interaction.options
+              .getString('username', true)
+              .trim()
+              .replace(/^@/, '')
+              .toLowerCase();
+            const removed = await db.execute({
+              sql: 'DELETE FROM tiktok_live_monitors WHERE guild_id = ? AND lower(username) = lower(?)',
+              args: [guildId, username],
+            });
+            return interaction.editReply(
+              removed.rowsAffected
+                ? `Đã ngừng theo dõi **@${username}**.`
+                : `Không tìm thấy theo dõi cho **@${username}**.`,
+            );
+          }
+
+          const tracked = await db.execute({
+            sql: `SELECT username, channel_id FROM tiktok_live_monitors
+                  WHERE guild_id = ? AND enabled = 1 ORDER BY username`,
+            args: [guildId],
+          });
+          if (!tracked.rows.length) {
+            return interaction.editReply('Máy chủ chưa theo dõi creator nào. Dùng `/tiktok-live add` để bắt đầu.');
+          }
+          const lines = tracked.rows.map((row: any) => {
+            const username = String(row[tracked.columns.indexOf('username')]);
+            const channelId = String(row[tracked.columns.indexOf('channel_id')]);
+            return `• **@${username}** → <#${channelId}>`;
+          });
+          return interaction.editReply(
+            `**Đang theo dõi ${lines.length}/${MAX_LIVE_MONITORS_PER_GUILD} creator:**\n${lines.join('\n')}`,
+          );
+        } catch (error) {
+          console.error(`[TikTok Live] Failed to ${action} monitor for guild ${guildId}:`, error);
+          return interaction.editReply('Không thể cập nhật danh sách theo dõi TikTok Live. Vui lòng thử lại sau.');
+        }
+      },
+    };
+    this.commands.set('tiktok-live', liveCommand);
+
     const tiktokCommand = {
       data: new SlashCommandBuilder()
         .setName('tiktok')
@@ -926,6 +1228,10 @@ export default class TikTokModule {
   async cleanup() {
     if (this.messageHandler) this.client.off('messageCreate', this.messageHandler);
     if (this.interactionHandler) this.client.off('interactionCreate', this.interactionHandler);
+    if (this.livePollTimer) {
+      clearInterval(this.livePollTimer);
+      this.livePollTimer = null;
+    }
     cache.clear();
     cardContexts.clear();
     console.log('🧹 TikTok module cleanup');

@@ -85,10 +85,11 @@
 /ticket-setup - Module: ticket-module
 /ticket-stats - Module: ticket-module
 /tiktok - Module: tiktok-module
+/tiktok-live - Module: tiktok-module
 /transaction-history - Module: balance-module
 /vip-bonus - Module: vip-module
 /vip-tiers - Module: vip-module
 /vipinfo - Module: vip-module
 
-Total main commands: 89
+Total main commands: 90
 Total subcommands: 

@@ -63,6 +63,17 @@ export async function initializeDatabase() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tiktok_live_monitors (
+      guild_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      last_notified_room_id TEXT,
+      PRIMARY KEY (guild_id, username)
+    )
+  `);
+
   // Add indexes for better query performance
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_gold_transactions_user ON gold_transactions(user_id)`);

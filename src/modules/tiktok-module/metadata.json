@@ -6,6 +6,7 @@
   "priority": 30,
   "type": 1,
   "slashCommands": [
-    "/tiktok"
+    "/tiktok",
+    "/tiktok-live"
   ]
 }
