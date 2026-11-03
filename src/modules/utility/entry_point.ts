@@ -7,7 +7,7 @@ import {
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { emojis, getEmoji } from '../../config/emojis';
+import { emojis } from '../../config/emojis';
 import { getCommandEmoji } from '../../config/commandEmojis';
 import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
@@ -341,20 +341,18 @@ export default class UtilityModule {
     return categories;
   }
 
-  // Convert emoji string to dropdown-compatible format
-  private getCategoryEmojiForDropdown(category: string): { id: string; name: string } | string {
-    // Map category names to emoji IDs
+  private getCategoryEmojiForDropdown(category: string): string {
     const emojiMap: Record<string, string> = {
-      'Hệ thống xử lí tin nhắn': getEmoji('message'),
-      'Giải trí': getEmoji('sparkles'),
-      Economy: getEmoji('coin'),
-      Management: getEmoji('gear'),
-      Moderation: getEmoji('shield'),
-      Utility: getEmoji('wrench'),
-      'Khác': getEmoji('art'),
+      'Hệ thống xử lí tin nhắn': '💬',
+      'Giải trí': '✨',
+      Economy: '🪙',
+      Management: '⚙️',
+      Moderation: '🛡️',
+      Utility: '🔧',
+      'Khác': '🎨',
     };
 
-    return emojiMap[category] || '📦';
+    return emojiMap[category] ?? '📦';
   }
 
   // Lấy thông tin git cho /information
