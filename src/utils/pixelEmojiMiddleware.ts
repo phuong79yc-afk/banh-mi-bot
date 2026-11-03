@@ -66,24 +66,25 @@ function convertText(value: string): string {
   return value.replace(EMOJI_PATTERN, (glyph) => pixelEmojiForGlyph(glyph) ?? glyph);
 }
 
-function convertComponentLabel(target: Record<string, unknown>): void {
-  if (typeof target.label !== 'string') return;
+function convertComponentLabel(target: Record<string, unknown>): boolean {
+  if (typeof target.label !== 'string') return false;
 
   const matches = [...target.label.matchAll(EMOJI_PATTERN)];
-  if (!matches.length) return;
+  if (!matches.length) return false;
 
   const pixelEmoji = pixelEmojiForGlyph(matches[0][0]);
   const parsedEmoji = pixelEmoji?.match(/^<:([^:]+):(\d+)>$/);
-  if (!parsedEmoji) return;
+  if (!parsedEmoji) return false;
 
   target.emoji = { name: parsedEmoji[1], id: parsedEmoji[2] };
   const label = target.label.replace(EMOJI_PATTERN, '').trim();
   target.label = label.trim() ? label : 'pixel';
+  return true;
 }
 
 function transformPayload(value: unknown, key = ''): unknown {
   if (typeof value === 'string') {
-    if (!key || ['content', 'title', 'description', 'name', 'value'].includes(key)) {
+    if (!key || ['content', 'title', 'description'].includes(key)) {
       return convertText(value);
     }
     return value;
@@ -109,16 +110,19 @@ function transformPayload(value: unknown, key = ''): unknown {
     'label' in transformed &&
     (transformed.type === 2 ||
       ('value' in transformed && !('custom_id' in transformed) && !('style' in transformed)));
-  if (supportsPixelEmoji) {
-    convertComponentLabel(transformed);
-  }
+  const convertedComponentEmoji = supportsPixelEmoji && convertComponentLabel(transformed);
 
   for (const [property, child] of Object.entries(object)) {
+    if (property === 'files' || property === 'attachments') {
+      transformed[property] = child;
+      continue;
+    }
     if (property === 'label' && 'label' in transformed) {
       if (supportsPixelEmoji) continue;
       transformed[property] = child;
       continue;
     }
+    if (property === 'emoji' && convertedComponentEmoji) continue;
     if (property === 'value' && 'label' in object && 'value' in object) {
       transformed[property] = child;
       continue;

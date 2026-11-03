@@ -336,7 +336,7 @@ function decrementSold(itemId: string): void {
 function componentEmoji(client: Client, guildId: string | null, name: string, fallback: string): string {
   const guild = guildId ? client.guilds.cache.get(guildId) : undefined;
   const customEmoji = getEmoji(name);
-  const emojiId = customEmoji.match(/^<:bc_[^:]+:(\d+)>$/)?.[1];
+  const emojiId = customEmoji.match(/^<:px_[^:]+:(\d+)>$/)?.[1];
   const canUseCustomEmoji =
     !!guild &&
     !!emojiId &&
