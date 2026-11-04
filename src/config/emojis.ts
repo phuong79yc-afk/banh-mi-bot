@@ -84,7 +84,7 @@ const PIXEL_EMOJI_ALIASES: Record<string, string> = {
   bulb: 'bulb',
   boot: 'boot',
   hammer: 'hammer',
-  pause: 'music',
+  pause: 'pause',
   lock: 'lock',
   unlock: 'unlock',
   check: 'check',
