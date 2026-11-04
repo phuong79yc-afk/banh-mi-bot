@@ -28,7 +28,6 @@ export const PREFIX_HELP_GROUPS: PrefixHelpGroup[] = [
       { usage: '!uptime', description: 'Xem thời gian bot đã hoạt động', emoji: '⏱️' },
       { usage: '!invite', description: 'Lấy liên kết mời bot', emoji: '📨' },
       { usage: '!profile [@user]', description: 'Xem thẻ hồ sơ người dùng', emoji: '🪪' },
-      { usage: '!embed [1-9]', description: 'Xem thử các kiểu giao diện tin nhắn', emoji: '🧩' },
     ],
   },
   {

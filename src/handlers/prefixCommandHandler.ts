@@ -3,7 +3,6 @@ import {
   Message,
   User,
   GuildMember,
-  EmbedBuilder,
   ChannelType,
   ActionRowBuilder,
   ButtonBuilder,
@@ -433,95 +432,6 @@ register(['invite'], async ({ client, message }) => {
       })
     )
   );
-});
-
-// ---------- !embed (demo các kiểu hiển thị) ----------
-register(['embed'], async ({ message, args }) => {
-  const type = args[0]?.toLowerCase() || 'help';
-  const demo = (title: string, description: string, color?: number) => {
-    const e = new EmbedBuilder()
-      .setTitle(title)
-      .setDescription(description)
-      .addFields(
-        { name: 'Field 1', value: 'Giá trị 1', inline: true },
-        { name: 'Field 2', value: 'Giá trị 2', inline: true }
-      )
-      .setFooter({ text: 'Footer text' })
-      .setTimestamp();
-    if (color !== undefined) e.setColor(color);
-    return e;
-  };
-  const music = (color?: number) => {
-    const e = new EmbedBuilder()
-      .setTitle('Alone - Marshmello')
-      .setDescription('04:34\n\nRequested by flytri')
-      .setThumbnail('https://i.scdn.co/image/ab67616d0000b273a1c77682c126bd92dbb8d912')
-      .setTimestamp();
-    if (color !== undefined) e.setColor(color);
-    return e;
-  };
-  switch (type) {
-    case '1':
-      return message.reply({ embeds: [demo(`${emojis.art} Embed Type 1: Có viền màu`, 'Embed bình thường với viền xanh ngọc', 0x1abc9c)] });
-    case '2':
-      return message.reply({ embeds: [demo('⚪ Embed Type 2: Không màu', 'Embed không set color (viền xám nhạt mặc định)')] });
-    case '3':
-      return message.reply({ embeds: [demo('🌑 Embed Type 3: Màu tối', 'Viền màu gần nền Discord', 0x2b2d31)] });
-    case '4':
-      return message.reply(
-        `**📝 Type 4: Message thường (không embed)**\n\nĐây là message thường không có viền\n**Field 1:** Giá trị 1\n**Field 2:** Giá trị 2\n\n_Footer text_`
-      );
-    case '5':
-      return message.reply({ embeds: [demo('⚫ Embed Type 5: Màu đen', 'Viền màu đen (#000000)', 0x000000)] });
-    case '6':
-      return message.reply({ embeds: [music(0x2f3136)] });
-    case '7':
-      return message.reply({ embeds: [music()] });
-    case '8':
-      return message.reply(
-        view(
-          card({
-            color: COLOR_TEAL,
-            title: '✨ Type 8: Components V2 (có viền màu)',
-            sections: ['**Field 1:** Giá trị 1\n**Field 2:** Giá trị 2'],
-            footer: 'Footer text',
-          })
-        )
-      );
-    case '9':
-      // Container không setAccentColor -> không có thanh viền màu bên trái
-      return message.reply(
-        view(
-          card({
-            title: '🫥 Type 9: Components V2 (không viền)',
-            sections: ['**Field 1:** Giá trị 1\n**Field 2:** Giá trị 2'],
-            footer: 'Footer text',
-          })
-        )
-      );
-    default:
-      return message.reply(
-        view(
-          card({
-            color: COLOR_TEAL,
-            title: `${emojis.art} Test các kiểu hiển thị`,
-            sections: [
-              [
-                `\`!embed 1\` – Embed xanh ngọc (0x1ABC9C)`,
-                `\`!embed 2\` – Embed không màu (xám nhạt mặc định)`,
-                `\`!embed 3\` – Embed màu tối gần nền Discord (0x2B2D31)`,
-                `\`!embed 4\` – Message thường (không viền)`,
-                `\`!embed 5\` – Embed màu đen (0x000000)`,
-                `\`!embed 6\` – Embed màu nền Discord (0x2F3136) ✨`,
-                `\`!embed 7\` – Embed không set color ✨`,
-                `\`!embed 8\` – Components V2 có viền màu`,
-                `\`!embed 9\` – Components V2 **không viền** ✨`,
-              ].join('\n'),
-            ],
-          })
-        )
-      );
-  }
 });
 
 // ---------- !mute ----------
