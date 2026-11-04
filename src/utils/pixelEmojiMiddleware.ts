@@ -73,7 +73,12 @@ function pixelEmojiForGlyph(glyph: string): string | undefined {
 }
 
 function convertText(value: string): string {
-  return value.replace(EMOJI_PATTERN, (glyph) => pixelEmojiForGlyph(glyph) ?? glyph);
+  return value
+    .split(/(```[\s\S]*?```)/g)
+    .map((part) =>
+      part.startsWith('```') ? part : part.replace(EMOJI_PATTERN, (glyph) => pixelEmojiForGlyph(glyph) ?? glyph),
+    )
+    .join('');
 }
 
 function convertComponentLabel(target: Record<string, unknown>): boolean {
