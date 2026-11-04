@@ -38,7 +38,7 @@ export default class UtilityModule {
   }
 
   // Generate Help Banner
-  private async generateHelpBanner(): Promise<Buffer> {
+  private async generateHelpBanner(commandCount: number): Promise<Buffer> {
     const width = 940;
     const height = 96;
     const canvas = createCanvas(width, height);
@@ -107,13 +107,13 @@ export default class UtilityModule {
     drawText('View all available commands', 88, 56, 16, '#AAAAAA');
 
     // Command count badge (right side)
-    const totalCommands = '72+';
+    const totalCommands = String(commandCount);
     ctx.fillStyle = '#5865F2';
-    ctx.fillRect(820, 24, 100, 48);
+    ctx.fillRect(800, 24, 120, 48);
     ctx.fillStyle = '#4752C4';
-    ctx.fillRect(822, 26, 96, 44);
-    drawText(totalCommands, 845, 32, 24, '#FFFFFF');
-    drawText('COMMANDS', 832, 58, 12, '#AAAAAA');
+    ctx.fillRect(802, 26, 116, 44);
+    drawText(totalCommands, 860 - totalCommands.length * 7, 32, 24, '#FFFFFF');
+    drawText('COMMANDS', 812, 58, 12, '#AAAAAA');
 
     return canvas.toBuffer('image/png');
   }
@@ -571,13 +571,16 @@ export default class UtilityModule {
         try { await interaction.deferReply(); }
         catch (error: any) { if (error.code === 10062 || error.code === 40060) return; throw error; }
 
-        let bannerAttachment: AttachmentBuilder | null = null;
-        try {
-          bannerAttachment = new AttachmentBuilder(await self.generateHelpBanner(), { name: 'help-banner.png' });
-        } catch (error) { console.error('❌ Error generating help banner:', error); }
-
         const allCommands: any[] = [];
         interaction.client.emit('getAllCommands' as any, allCommands);
+
+        let bannerAttachment: AttachmentBuilder | null = null;
+        try {
+          bannerAttachment = new AttachmentBuilder(
+            await self.generateHelpBanner(allCommands.length),
+            { name: 'help-banner.png' },
+          );
+        } catch (error) { console.error('❌ Error generating help banner:', error); }
 
         const categories = self.categorize(allCommands);
         const order = ['Hệ thống xử lí tin nhắn', 'Giải trí', 'Economy', 'Management', 'Moderation', 'Utility', 'Khác'];
@@ -624,19 +627,13 @@ export default class UtilityModule {
               `[Mời bot](https://invite.bot.com) • [Website](https://banhcuonbot.com)`,
             ))
             .addSeparatorComponents(sep(true))
-            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh nhạc prefix:** \`13\``))
+            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh nhạc prefix:** \`12\``))
             .addSeparatorComponents(sep())
             .addTextDisplayComponents(txt(
               `### ${emojis.music} Music Commands (Prefix: \`!bc\`)\n` +
-              `\`play\` \`pause\` \`resume\` \`skip\` \`stop\` \`queue\` \`volume\` \`loop\`\n` +
-              `\`shuffle\` \`nowplaying/np\` \`seek\` \`pin\` \`pinned\`\n` +
+              `\`play/p\` \`skip/sk/next\` \`pause\` \`resume\` \`queue/q\` \`volume/vol/v\`\n` +
+              `\`loop/repeat\` \`shuffle\` \`nowplaying/np\` \`seek\` \`pin\` \`pinned\`\n` +
               `-# ${emojis.info} Ví dụ: \`!bc play never gonna give you up\``
-            ))
-            .addSeparatorComponents(sep())
-            .addTextDisplayComponents(txt(
-              `### ⚡ Phím tắt hữu ích\n` +
-              `\`!bc q\` — Xem hàng chờ nhạc  •  \`!bc bal\`, \`!bc s\`, \`!bc cv\` hiện chưa được hỗ trợ\n` +
-              `-# ${emojis.info} Gõ \`!help\` để xem tất cả prefix commands`
             ))
             .addSeparatorComponents(sep())
             .addTextDisplayComponents(txt('📋 Chọn module ở dropdown bên dưới để xem chi tiết slash commands.'))
@@ -644,21 +641,53 @@ export default class UtilityModule {
             .addTextDisplayComponents(txt(footer));
         };
 
-        const buildCategory = (name: string) => {
+        const categoryPages = (name: string): string[][] => {
           const data = categories[name];
-          let list = data.commands
-            .map((cmd, i) => `**${i + 1}. ${getCommandEmoji(cmd.name)} ${cmd.description}**\n-# \`/${cmd.name}\``)
-            .join('\n');
+          const pages: string[][] = [];
+          let currentPage: string[] = [];
+          let currentLength = 0;
+          for (const [index, cmd] of data.commands.entries()) {
+            const entry = `**${index + 1}. ${getCommandEmoji(cmd.name)} ${cmd.description}**\n-# \`/${cmd.name}\``;
+            const entryLength = entry.length + (currentPage.length ? 1 : 0);
+            if (currentPage.length && currentLength + entryLength > 3000) {
+              pages.push(currentPage);
+              currentPage = [];
+              currentLength = 0;
+            }
+            currentPage.push(entry);
+            currentLength += entry.length + (currentPage.length > 1 ? 1 : 0);
+          }
+          if (currentPage.length) pages.push(currentPage);
+          return pages;
+        };
 
-          // Giới hạn tổng text của message V2 là 4000 ký tự
-          if (list.length > 3300) list = list.slice(0, 3300).replace(/\n[^\n]*$/, '') + '\n…';
+        let activeCategory: string | null = null;
+        let activePage = 0;
+        const buildCategory = (name: string, requestedPage = 0, disabled = false) => {
+          const data = categories[name];
+          const pages = categoryPages(name);
+          const page = Math.min(Math.max(requestedPage, 0), pages.length - 1);
+          activeCategory = name;
+          activePage = page;
+          const pageNavigation = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId('help_page_prev')
+              .setLabel('Trước')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(disabled || page === 0),
+            new ButtonBuilder()
+              .setCustomId('help_page_next')
+              .setLabel('Sau')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(disabled || page === pages.length - 1),
+          );
 
-          return new ContainerBuilder().addTextDisplayComponents(txt(`## ${data.emoji} ${name}`), txt(`-# ${data.commands.length} lệnh trong module này`))
+          return new ContainerBuilder().addTextDisplayComponents(txt(`## ${data.emoji} ${name}`), txt(`-# ${data.commands.length} lệnh • Trang ${page + 1}/${pages.length}`))
             .addSeparatorComponents(sep())
-            .addTextDisplayComponents(txt(list))
+            .addTextDisplayComponents(txt(pages[page].join('\n')))
             .addSeparatorComponents(sep())
-            .addActionRowComponents(selectRow())
-            .addActionRowComponents(homeRow())
+            .addActionRowComponents(selectRow(disabled))
+            .addActionRowComponents(pageNavigation, homeRow(disabled))
             .addTextDisplayComponents(txt(footer));
         };
 
@@ -676,9 +705,15 @@ export default class UtilityModule {
         collector.on('collect', async i => {
           try {
             if (i.isStringSelectMenu()) {
-              await i.update({ components: [buildCategory(i.values[0])], flags: V2 });
+              await i.update({ components: [buildCategory(i.values[0], 0)], flags: V2 });
             } else if (i.customId === 'help_home') {
+              activeCategory = null;
+              activePage = 0;
               await i.update({ components: [buildMain()], flags: V2 });
+            } else if (activeCategory && i.customId === 'help_page_prev') {
+              await i.update({ components: [buildCategory(activeCategory, activePage - 1)], flags: V2 });
+            } else if (activeCategory && i.customId === 'help_page_next') {
+              await i.update({ components: [buildCategory(activeCategory, activePage + 1)], flags: V2 });
             }
           } catch (error) { console.error('Error updating help:', error); }
         });
