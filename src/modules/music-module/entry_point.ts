@@ -39,19 +39,19 @@ const controls = (paused = false) =>
   new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('music:toggle')
-      .setEmoji(getEmoji(paused ? 'arrow_forward' : 'pause_button'))
+      .setEmoji(getEmoji(paused ? 'play_anim' : 'music_pause_anim'))
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('music:skip')
-      .setEmoji(getEmoji('track_next'))
+      .setEmoji(getEmoji('next_anim'))
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music:queue')
-      .setEmoji(getEmoji('scroll'))
+      .setEmoji(getEmoji('playlist_anim'))
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('music:stop')
-      .setEmoji(getEmoji('stop_button'))
+      .setEmoji(getEmoji('stop_anim'))
       .setStyle(ButtonStyle.Danger),
   );
 
@@ -86,17 +86,17 @@ const nowPlaying = (
   const { paused = false, position = 0, queue, upcoming } = options;
   const left = upcoming ?? queue?.tracks.size ?? 0;
   const status = paused 
-    ? `${emojis.pause_button} ĐÃ TẠM DỪNG` 
+    ? `${getEmoji('music_pause_anim')} ĐÃ TẠM DỪNG`
     : position 
     ? `${emojis.add} ĐÃ THÊM VÀO HÀNG CHỜ` 
-    : `${emojis.arrow_forward} ĐANG PHÁT`;
+    : `${getEmoji('play_anim')} ĐANG PHÁT`;
 
   const chips = position
     ? [`${emojis.clock} \`${track.duration}\``, `${emojis.pin} vị trí \`#${position}\``]
     : [
         `${emojis.clock} \`${track.duration}\``,
         queue ? `${emojis.bell} \`${queue.node.volume}%\`` : null,
-        `${emojis.scroll} \`${left}\` bài chờ`,
+        `${getEmoji('playlist_anim')} \`${left}\` bài chờ`,
       ].filter(Boolean);
 
   const info = [
@@ -141,7 +141,7 @@ const queueCard = (queue: GuildQueue) => {
   const more = tracks.length > 10 ? `\n-# …và ${tracks.length - 10} bài nữa` : '';
 
   return new ContainerBuilder().addTextDisplayComponents(
-      text(`### ${emojis.scroll} Hàng chờ`),
+      text(`### ${getEmoji('playlist_anim')} Hàng chờ`),
       text(`**Đang phát:** [${cur.title.slice(0, 80)}](${cur.url}) · \`${cur.duration}\``),
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
@@ -223,7 +223,7 @@ async function startPlayback({ voiceChannel, textChannel, user, query }: Playbac
             `# 📋 Playlist đã thêm`,
             `**${searchResult.playlist!.title}**`,
             ``,
-            `${emojis.music} **${searchResult.playlist!.tracks.length}** bài hát`,
+            `${getEmoji('music_anim')} **${searchResult.playlist!.tracks.length}** bài hát`,
             `${emojis.user} Yêu cầu: ${user.displayName}`,
             ``,
             `-# Đang phát: ${firstTrack?.title || 'N/A'}`,
@@ -531,7 +531,7 @@ export default class MusicModule {
       case 'music:stop': {
         queue.delete();
         return interaction.update({
-          components: [notice(`${emojis.stop_button} Đã dừng nhạc bởi ${interaction.user.displayName}.`)],
+          components: [notice(`${getEmoji('stop_anim')} Đã dừng nhạc bởi ${interaction.user.displayName}.`)],
           flags: V2 as any,
         });
       }
@@ -616,14 +616,14 @@ export default class MusicModule {
     if (cmd === 'pause' || cmd === 'resume') {
       const pause = cmd === 'pause';
       if (queue.node.isPaused() === pause) {
-        return reply(notice(pause ? `${emojis.pause_button} Nhạc đã tạm dừng rồi.` : `${emojis.music} Nhạc đang phát rồi.`));
+        return reply(notice(pause ? `${getEmoji('music_pause_anim')} Nhạc đã tạm dừng rồi.` : `${getEmoji('play_anim')} Nhạc đang phát rồi.`));
       }
       queue.node.setPaused(pause);
       return reply(nowPlaying(queue.currentTrack, { paused: pause, queue }));
     }
 
     if (['volume', 'vol', 'v'].includes(cmd)) {
-      if (!args[0]) return reply(notice(`${emojis.bell} Âm lượng hiện tại: **${queue.node.volume}%**`));
+      if (!args[0]) return reply(notice(`${getEmoji('volume_high_anim')} Âm lượng hiện tại: **${queue.node.volume}%**`));
 
       const vol = Number(args[0]);
       if (!Number.isInteger(vol) || vol < 1 || vol > 100) {
@@ -645,14 +645,14 @@ export default class MusicModule {
         }
       }
       
-      return reply(notice(`${emojis.bell} Đã chỉnh âm lượng: **${vol}%**`));
+      return reply(notice(`${getEmoji('volume_high_anim')} Đã chỉnh âm lượng: **${vol}%**`));
     }
 
     if (['loop', 'repeat'].includes(cmd)) {
       const modes = [
-        { value: 0, name: 'Tắt', emoji: emojis.stop_button },
-        { value: 1, name: 'Lặp bài', emoji: emojis.track_next },
-        { value: 2, name: 'Lặp queue', emoji: emojis.refresh },
+        { value: 0, name: 'Tắt', emoji: getEmoji('stop_anim') },
+        { value: 1, name: 'Lặp bài', emoji: getEmoji('loop_one_anim') },
+        { value: 2, name: 'Lặp queue', emoji: getEmoji('loop_anim') },
       ];
       
       const current = queue.repeatMode;
@@ -688,7 +688,7 @@ export default class MusicModule {
         return reply(notice(`${emojis.warning} Cần ít nhất 2 bài trong queue để trộn.`));
       }
       queue.tracks.shuffle();
-      return reply(notice(`${emojis.success} ${emojis.refresh} Đã trộn **${queue.tracks.size}** bài trong queue!`));
+      return reply(notice(`${emojis.success} ${getEmoji('shuffle_anim')} Đã trộn **${queue.tracks.size}** bài trong queue!`));
     }
 
     // !bc nowplaying / np - Xem bài đang phát
@@ -796,7 +796,7 @@ export default class MusicModule {
 
     // stop
     queue.delete();
-    return reply(notice(`${emojis.stop_button} Đã dừng nhạc bởi ${message.author.displayName}.`));
+    return reply(notice(`${getEmoji('stop_anim')} Đã dừng nhạc bởi ${message.author.displayName}.`));
   }
 
   async shutdown(): Promise<void> {

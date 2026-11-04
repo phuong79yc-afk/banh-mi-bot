@@ -2,6 +2,20 @@
 import uploadedPixelEmojiIds from '../../assets/emojis/pixel-pack/emoji-ids.json';
 
 export const PIXEL_EMOJI_IDS: Record<string, string> = uploadedPixelEmojiIds;
+const animatedMusicEmojiIds: Record<string, string> = {};
+
+export function syncAnimatedMusicEmojiIds(
+  emojis: Iterable<{ id: string; name: string | null; animated: boolean }>,
+): void {
+  const ids: Record<string, string> = {};
+  for (const emoji of emojis) {
+    if (emoji.animated && emoji.name?.startsWith('px_') && emoji.name.endsWith('_anim')) {
+      ids[emoji.name.slice(3)] = emoji.id;
+    }
+  }
+  for (const name of Object.keys(animatedMusicEmojiIds)) delete animatedMusicEmojiIds[name];
+  Object.assign(animatedMusicEmojiIds, ids);
+}
 
 const PIXEL_EMOJI_ALIASES: Record<string, string> = {
   turtle: 'robot',
@@ -248,6 +262,9 @@ export const EMOJI_IDS: Record<string, string> = new Proxy(PIXEL_EMOJI_IDS, {
 });
 
 export function getPixelEmoji(name: string): string | undefined {
+  const animatedId = animatedMusicEmojiIds[name.toLowerCase()];
+  if (animatedId) return `<a:px_${name.toLowerCase()}:${animatedId}>`;
+
   const pixelName = resolvePixelEmojiName(name);
   const id = pixelName ? PIXEL_EMOJI_IDS[pixelName] : undefined;
   return id && pixelName ? `<:px_${pixelName}:${id}>` : undefined;
