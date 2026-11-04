@@ -84,7 +84,7 @@ const commandPixelEmojis = {
   'freefire-article': 'scroll',
   'freefire-notify': 'fire',
   tiktok: 'music',
-  'tiktok-live': 'online',
+  'tiktok-live': 'tiktok_live',
   generator: 'construction',
   vipinfo: 'crown',
   'vip-tiers': 'medal',

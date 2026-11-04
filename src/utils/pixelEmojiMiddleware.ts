@@ -1,7 +1,7 @@
 import { AttachmentBuilder, Client } from 'discord.js';
 import { getPixelEmoji } from '../config/emojis';
 import { getCommandEmoji } from '../config/commandEmojis';
-import { syncAnimatedMusicEmojiIds } from '../config/emojis';
+import { syncAnimatedEmojiMarkup } from '../config/emojis';
 
 const EMOJI_PATTERN =
   /(?:\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*(?:\u{1F3FB}-\u{1F3FF})?|\p{Regional_Indicator}{2})/gu;
@@ -236,7 +236,7 @@ function installMessageHooks(client: Client, guildId?: string): void {
 
 export function installPixelEmojiMiddleware(client: Client): void {
   const syncAnimatedEmojis = () => {
-    syncAnimatedMusicEmojiIds(
+    syncAnimatedEmojiMarkup(
       [...client.guilds.cache.values()].flatMap((guild) => [...guild.emojis.cache.values()]),
     );
   };

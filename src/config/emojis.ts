@@ -2,19 +2,23 @@
 import uploadedPixelEmojiIds from '../../assets/emojis/pixel-pack/emoji-ids.json';
 
 export const PIXEL_EMOJI_IDS: Record<string, string> = uploadedPixelEmojiIds;
-const animatedMusicEmojiIds: Record<string, string> = {};
+const animatedEmojiMarkup: Record<string, string> = {};
 
-export function syncAnimatedMusicEmojiIds(
+export function syncAnimatedEmojiMarkup(
   emojis: Iterable<{ id: string; name: string | null; animated: boolean }>,
 ): void {
-  const ids: Record<string, string> = {};
+  const markup: Record<string, string> = {};
   for (const emoji of emojis) {
-    if (emoji.animated && emoji.name?.startsWith('px_') && emoji.name.endsWith('_anim')) {
-      ids[emoji.name.slice(3)] = emoji.id;
-    }
+    if (!emoji.animated || !emoji.name) continue;
+    const key = emoji.name.startsWith('pxa_')
+      ? emoji.name.slice(4)
+      : emoji.name.startsWith('px_') && emoji.name.endsWith('_anim')
+        ? emoji.name.slice(3)
+        : undefined;
+    if (key) markup[key] = `<a:${emoji.name}:${emoji.id}>`;
   }
-  for (const name of Object.keys(animatedMusicEmojiIds)) delete animatedMusicEmojiIds[name];
-  Object.assign(animatedMusicEmojiIds, ids);
+  for (const name of Object.keys(animatedEmojiMarkup)) delete animatedEmojiMarkup[name];
+  Object.assign(animatedEmojiMarkup, markup);
 }
 
 const PIXEL_EMOJI_ALIASES: Record<string, string> = {
@@ -262,8 +266,8 @@ export const EMOJI_IDS: Record<string, string> = new Proxy(PIXEL_EMOJI_IDS, {
 });
 
 export function getPixelEmoji(name: string): string | undefined {
-  const animatedId = animatedMusicEmojiIds[name.toLowerCase()];
-  if (animatedId) return `<a:px_${name.toLowerCase()}:${animatedId}>`;
+  const animatedMarkup = animatedEmojiMarkup[name.toLowerCase()];
+  if (animatedMarkup) return animatedMarkup;
 
   const pixelName = resolvePixelEmojiName(name);
   const id = pixelName ? PIXEL_EMOJI_IDS[pixelName] : undefined;

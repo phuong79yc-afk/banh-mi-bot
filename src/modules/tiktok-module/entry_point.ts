@@ -26,7 +26,7 @@ import {
   MessageFlags,
   escapeMarkdown,
 } from 'discord.js';
-import { emojis } from '../../config/emojis';
+import { emojis, getEmoji } from '../../config/emojis';
 import { getTursoDatabase } from '../../database/turso';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
@@ -899,7 +899,40 @@ export default class TikTokModule {
 
       for (const monitor of monitors) {
         const status = statuses.get(monitor.username);
-        if (!status?.isLive || !status.roomId || status.roomId === monitor.lastRoomId) continue;
+        if (!status) continue;
+
+        if (!status.isLive) {
+          if (!monitor.lastRoomId) continue;
+
+          try {
+            const channel = await this.client.channels.fetch(monitor.channelId);
+            if (!channel || !('send' in channel)) {
+              console.error(
+                `[TikTok Live] Notification channel ${monitor.channelId} is unavailable for guild ${monitor.guildId}`,
+              );
+              continue;
+            }
+
+            await channel.send({
+              components: [this.buildLiveEndedNotification(status)],
+              flags: V2,
+              allowedMentions: NO_PING,
+            });
+            await db.execute({
+              sql: `UPDATE tiktok_live_monitors SET last_notified_room_id = NULL
+                    WHERE guild_id = ? AND username = ?`,
+              args: [monitor.guildId, monitor.username],
+            });
+          } catch (error) {
+            console.error(
+              `[TikTok Live] Failed to notify that @${monitor.username} ended live in guild ${monitor.guildId}:`,
+              error,
+            );
+          }
+          continue;
+        }
+
+        if (!status.roomId || status.roomId === monitor.lastRoomId) continue;
 
         try {
           const channel = await this.client.channels.fetch(monitor.channelId);
@@ -937,12 +970,14 @@ export default class TikTokModule {
   private buildLiveNotification(status: TikTokLiveStatus): ContainerBuilder {
     const profileUrl = `https://www.tiktok.com/@${encodeURIComponent(status.username)}/live`;
     const details = [
-      `## 🔴 ${escapeMarkdown(status.nickname)} đang LIVE trên TikTok!`,
+      `## ${getEmoji('tiktok_live')} ${getEmoji('broadcast')} ${escapeMarkdown(status.nickname)} đang LIVE trên ${getEmoji('tiktok')} TikTok!`,
+      `${getEmoji('live_bell')} Creator vừa bắt đầu phát sóng`,
       status.title ? `**${escapeMarkdown(status.title)}**` : `**@${escapeMarkdown(status.username)}**`,
       status.viewerCount !== undefined
-        ? `👀 ${status.viewerCount.toLocaleString('vi-VN')} người đang xem`
+        ? `${emojis.eye} ${status.viewerCount.toLocaleString('vi-VN')} người đang xem`
         : undefined,
-      `↗ [Xem livestream](${profileUrl})`,
+      `${getEmoji('video')} [Xem livestream](${profileUrl})`,
+      `${getEmoji('megaphone')} Chia sẻ livestream và ${getEmoji('rose')} gửi lời chúc đến creator!`,
     ].filter((line): line is string => Boolean(line));
     const notification = new ContainerBuilder().addTextDisplayComponents(text(details.join('\n')));
 
@@ -952,6 +987,15 @@ export default class TikTokModule {
       );
     }
     return notification;
+  }
+
+  private buildLiveEndedNotification(status: TikTokLiveStatus): ContainerBuilder {
+    return new ContainerBuilder().addTextDisplayComponents(
+      text(
+        `## ${getEmoji('live_off')} ${getEmoji('tiktok')} ${escapeMarkdown(status.nickname)} đã kết thúc LIVE trên TikTok.`,
+      ),
+      text(`${getEmoji('broadcast')} Buổi phát sóng đã kết thúc.`),
+    );
   }
 
   private registerInteractions() {
@@ -1111,7 +1155,7 @@ export default class TikTokModule {
             });
             void this.pollLiveMonitors();
             return interaction.editReply(
-              `Đã theo dõi **@${username}**. Khi creator bắt đầu live, bot sẽ thông báo tại <#${channel.id}>. Kiểm tra mỗi phút.`,
+              `${getEmoji('live_bell')} Đã theo dõi **@${username}** trên ${getEmoji('tiktok')} TikTok. Khi creator bắt đầu live, bot sẽ thông báo tại <#${channel.id}>. Kiểm tra mỗi phút.`,
             );
           }
 
@@ -1127,7 +1171,7 @@ export default class TikTokModule {
             });
             return interaction.editReply(
               removed.rowsAffected
-                ? `Đã ngừng theo dõi **@${username}**.`
+                ? `${getEmoji('live_off')} Đã ngừng theo dõi **@${username}**.`
                 : `Không tìm thấy theo dõi cho **@${username}**.`,
             );
           }
@@ -1143,10 +1187,10 @@ export default class TikTokModule {
           const lines = tracked.rows.map((row: any) => {
             const username = String(row[tracked.columns.indexOf('username')]);
             const channelId = String(row[tracked.columns.indexOf('channel_id')]);
-            return `• **@${username}** → <#${channelId}>`;
+            return `${getEmoji('live_bell')} **@${username}** → <#${channelId}>`;
           });
           return interaction.editReply(
-            `**Đang theo dõi ${lines.length}/${MAX_LIVE_MONITORS_PER_GUILD} creator:**\n${lines.join('\n')}`,
+            `${getEmoji('tiktok')} **Đang theo dõi ${lines.length}/${MAX_LIVE_MONITORS_PER_GUILD} creator:**\n${lines.join('\n')}`,
           );
         } catch (error) {
           console.error(`[TikTok Live] Failed to ${action} monitor for guild ${guildId}:`, error);
