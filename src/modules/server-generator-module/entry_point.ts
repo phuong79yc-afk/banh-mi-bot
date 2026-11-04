@@ -1054,7 +1054,7 @@ const loadingGenerateView = (user: User) =>
 function promptModal(userId: string) {
   return new ModalBuilder()
     .setCustomId(customId('prompt', userId))
-    .setTitle('🎨 Server Generator - AI Design')
+    .setTitle('Server design')
     .addComponents(
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
@@ -1606,7 +1606,7 @@ export default class ServerGeneratorModule {
       // Show modal để chọn welcome hoặc goodbye
       const modal = new ModalBuilder()
         .setCustomId(customId('editwelcbye', i.user.id))
-        .setTitle('✏️ Chỉnh sửa Welcome/Goodbye')
+        .setTitle('Chỉnh sửa Welcome/Goodbye')
         .addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(
             new TextInputBuilder()
@@ -1883,7 +1883,7 @@ export default class ServerGeneratorModule {
   private importModal(userId: string) {
     return new ModalBuilder()
       .setCustomId(customId('importjson', userId))
-      .setTitle('📥 Import Server Design')
+      .setTitle('Import Server Design')
       .addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
@@ -2410,7 +2410,7 @@ export default class ServerGeneratorModule {
       await i.showModal(
         new ModalBuilder()
           .setCustomId(customId('confirmdelete', i.user.id))
-          .setTitle('⚠️ Xác nhận xóa TOÀN BỘ')
+          .setTitle('Xác nhận xóa toàn bộ')
           .addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(
               new TextInputBuilder()
@@ -2563,9 +2563,13 @@ export default class ServerGeneratorModule {
 
     for (const role of design.roles ?? []) {
       try {
+        const color = role.color ?? '';
+        const roleColor = /^#[\da-f]{6}$/i.test(color)
+          ? Number.parseInt(color.slice(1), 16)
+          : 0x99aab5;
         await guild.roles.create({
           name: role.name,
-          color: (role.color || '#99AAB5') as any, // Default gray if no color provided
+          colors: { primaryColor: roleColor },
           permissions: (role.permissions ?? []) as any,
         });
         roles++;

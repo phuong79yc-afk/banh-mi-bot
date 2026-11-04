@@ -94,6 +94,7 @@ declare module 'discord.js' {
 let client: Client;
 let player: Player;
 let moduleLoader: ModuleLoader;
+let modulesReady = false;
 
 // Export for other modules
 export { player };
@@ -221,6 +222,7 @@ client.once('clientReady' as any, async () => {
 
   // Initialize modules
   await initializeModules();
+  modulesReady = true;
 
   // Setup prefix commands
   setupPrefixCommands(client);
@@ -309,6 +311,14 @@ client.on('interactionCreate', async (interaction) => {
     
     // Handle slash commands
     if (interaction.isChatInputCommand()) {
+      if (!modulesReady) {
+        await interaction.reply({
+          content: 'Bot đang khởi động, vui lòng thử lại sau giây lát.',
+          ephemeral: true,
+        });
+        return;
+      }
+
       const preExecuteTime = Date.now() - startTime;
       if (preExecuteTime > 500) {
         console.warn(`⚠️ Slow pre-execute: ${interaction.commandName} took ${preExecuteTime}ms before execute`);

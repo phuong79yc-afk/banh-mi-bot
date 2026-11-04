@@ -214,8 +214,10 @@ function wrapMethods(target: object, methodNames: string[], commandEmoji?: strin
     if (typeof method !== 'function') continue;
 
     Reflect.set(target, methodName, function (this: object, ...args: unknown[]) {
-      if (args.length > 0) args[0] = transformPayload(args[0]);
-      if (commandEmoji && args.length > 0) {
+      if (args.length > 0 && methodName !== 'showModal') {
+        args[0] = transformPayload(args[0]);
+      }
+      if (commandEmoji && methodName !== 'showModal' && args.length > 0) {
         args[0] = decorateCommandPayload(args[0], commandEmoji);
       }
       const result = Reflect.apply(method, this, args);

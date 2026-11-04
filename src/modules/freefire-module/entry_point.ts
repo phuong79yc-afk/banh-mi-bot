@@ -357,6 +357,21 @@ export default class FreeFireModule {
             });
           }
         } catch (error) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 10003
+          ) {
+            await db.execute({
+              sql: 'UPDATE freefire_notification_config SET enabled = 0 WHERE guild_id = ? AND channel_id = ?',
+              args: [guildId, channelId],
+            });
+            console.warn(
+              `[Free Fire] Disabled notifications for guild ${guildId}: channel ${channelId} no longer exists`,
+            );
+            continue;
+          }
           console.error(`[Free Fire] Failed to notify guild ${guildId}:`, error);
         }
       }
