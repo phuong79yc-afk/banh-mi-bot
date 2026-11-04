@@ -17,6 +17,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { keyRotator } from '../../utils/aiKeyRotator';
 import { aiUsageTracker } from '../../utils/aiUsageTracker';
+import { PREFIX_COMMANDS_KNOWLEDGE } from '../../config/prefixCommands';
 import { getCustomEmoji } from '../../utils/customEmoji';
 
 type Provider = 'groq' | 'gemini';
@@ -104,12 +105,14 @@ const STYLE_LABELS: Record<string, string> = {
 // System prompts (with auto language detection)
 const BOT_COMMANDS_KNOWLEDGE = `
 Bot Commands Knowledge (use when user asks about bot commands):
+Use this current prefix command list as the source of truth for prefix syntax and aliases. If the user asks how to use a command, explain its usage and required arguments.
+
+${PREFIX_COMMANDS_KNOWLEDGE}
 
 **🤖 AI Chat:**
 - /ai message:[câu hỏi] model:[optional] style:[optional] - Chat với AI có memory. Models: GPT-OSS 20B/120B (Groq), Llama 3.1 8B, Gemini 2.0 Flash/1.5 Pro/Flash. Styles: default, creative, professional, casual, technical
 - /ai-memory view/clear - Xem hoặc xóa lịch sử hội thoại trong kênh
 - /image prompt:[mô tả] - Tạo ảnh bằng FLUX trên Cloudflare Workers AI
-- !ai [câu hỏi] - Prefix command, dùng model mặc định GPT-OSS 20B
 
 **💰 Economy & Shop:**
 - /balance - Xem số xu, vé vàng, streak điểm danh
@@ -168,13 +171,11 @@ Bot Commands Knowledge (use when user asks about bot commands):
 
 **🛠️ Server Generator:**
 - /generator - Menu tạo server tự động (channels, categories, roles, welcome/goodbye). Có preview trước khi apply
-- !gen [mô tả] - Prefix command tạo server structure
 
 **🎫 Ticket System:**
 - /ticket-setup - Tạo panel ticket trong kênh
 - /ticket-panel - Tạo panel tùy chỉnh với button
 - /ticket-stats - Xem thống kê ticket
-- !ticket [mô tả] - Tạo ticket nhanh
 
 **🔨 Moderation:**
 - /kick user:[user] reason:[lý do] - Đuổi thành viên
@@ -198,20 +199,6 @@ Bot Commands Knowledge (use when user asks about bot commands):
 
 **📝 Quick Report:**
 - /quickreport-setup category:[danh mục] role:[role quản lý] - Cấu hình report nhanh
-- !report user:[user] reason:[lý do] - Report thành viên nhanh
-
-**🎵 Music (Prefix Commands):**
-- !bc play [tên bài/URL] - Phát nhạc (YouTube, Spotify, SoundCloud)
-- !bc skip - Bỏ qua bài hiện tại
-- !bc stop - Dừng và xóa queue
-- !bc pause - Tạm dừng
-- !bc resume - Tiếp tục
-- !bc queue - Xem hàng đợi
-- !bc nowplaying - Xem bài đang phát
-- !bc volume [0-100] - Điều chỉnh âm lượng
-- !bc loop - Bật/tắt loop bài hiện tại
-- !bc shuffle - Trộn queue
-- !bc lyrics - Xem lời bài hát
 
 **🔧 Utility:**
 - /help - Menu trợ giúp đầy đủ

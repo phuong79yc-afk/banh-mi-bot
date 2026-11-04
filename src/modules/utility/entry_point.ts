@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { emojis } from '../../config/emojis';
 import { getCommandEmoji } from '../../config/commandEmojis';
+import { PREFIX_HELP_COMMAND_COUNT, PREFIX_HELP_GROUPS } from '../../config/prefixCommands';
 import { V2, txt, sep, gallery } from '../../utils/v2Helper';
 import testEmojiCommand from './test-emoji';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
@@ -285,7 +286,13 @@ export default class UtilityModule {
 
   // Phân loại lệnh cho /help
   private categorize(allCommands: any[]) {
-    const categories: Record<string, { emoji: string; commands: { name: string; description: string }[] }> = {};
+    const categories: Record<
+      string,
+      {
+        emoji: string;
+        commands: { name: string; description: string; emoji?: string; usage?: string }[];
+      }
+    > = {};
 
     for (const cmd of allCommands) {
       const name = cmd.data.name;
@@ -342,6 +349,11 @@ export default class UtilityModule {
   }
 
   private getCategoryEmojiForDropdown(category: string): string {
+    const prefixGroup = PREFIX_HELP_GROUPS.find(
+      (group) => category === `Prefix: ${group.prefix} ${group.title}`,
+    );
+    if (prefixGroup) return prefixGroup.emoji;
+
     const emojiMap: Record<string, string> = {
       'Hệ thống xử lí tin nhắn': '💬',
       'Giải trí': '✨',
@@ -573,19 +585,32 @@ export default class UtilityModule {
 
         const allCommands: any[] = [];
         interaction.client.emit('getAllCommands' as any, allCommands);
+        const categories = self.categorize(allCommands);
+        const totalCommands = allCommands.length + PREFIX_HELP_COMMAND_COUNT;
+
+        for (const group of PREFIX_HELP_GROUPS) {
+          categories[`Prefix: ${group.prefix} ${group.title}`] = {
+            emoji: group.emoji,
+            commands: group.commands.map((command) => ({
+              name: command.usage,
+              description: command.description,
+              emoji: command.emoji,
+              usage: command.usage,
+            })),
+          };
+        }
 
         let bannerAttachment: AttachmentBuilder | null = null;
         try {
           bannerAttachment = new AttachmentBuilder(
-            await self.generateHelpBanner(allCommands.length),
+            await self.generateHelpBanner(totalCommands),
             { name: 'help-banner.png' },
           );
         } catch (error) { console.error('❌ Error generating help banner:', error); }
 
-        const categories = self.categorize(allCommands);
         const order = ['Hệ thống xử lí tin nhắn', 'Giải trí', 'Economy', 'Management', 'Moderation', 'Utility', 'Khác'];
         const stamp = `<t:${Math.floor(Date.now() / 1000)}:R>`;
-        const footer = `-# 🥟 Bánh Cuốn Bot • Tổng: ${allCommands.length} lệnh • Cập nhật ${stamp}`;
+        const footer = `-# 🥟 Bánh Cuốn Bot • Tổng: ${totalCommands} lệnh • Cập nhật ${stamp}`;
 
         const selectRow = (disabled = false) =>
           new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -611,7 +636,11 @@ export default class UtilityModule {
           const c = new ContainerBuilder();
           if (bannerAttachment) c.addMediaGalleryComponents(gallery('attachment://help-banner.png'));
 
-          const stats = order
+          const statsOrder = [
+            ...order,
+            ...Object.keys(categories).filter((name) => name.startsWith('Prefix: ')).sort(),
+          ];
+          const stats = statsOrder
             .filter(n => categories[n])
             .map(n => `${categories[n].emoji} **${n}** — \`${categories[n].commands.length}\` lệnh`)
             .join('\n');
@@ -627,12 +656,14 @@ export default class UtilityModule {
               `[Mời bot](https://invite.bot.com) • [Website](https://banhcuonbot.com)`,
             ))
             .addSeparatorComponents(sep(true))
-            .addTextDisplayComponents(txt(stats), txt(`**Lệnh slash:** \`${allCommands.length}\`  •  **Lệnh nhạc prefix:** \`12\``))
+            .addTextDisplayComponents(
+              txt(stats),
+              txt(`**Slash:** \`${allCommands.length}\` • **Prefix:** \`${PREFIX_HELP_COMMAND_COUNT}\` • **Tổng:** \`${totalCommands}\``),
+            )
             .addSeparatorComponents(sep())
             .addTextDisplayComponents(txt(
-              `### ${emojis.music} Music Commands (Prefix: \`!bc\`)\n` +
-              `\`play/p\` \`skip/sk/next\` \`pause\` \`resume\` \`queue/q\` \`volume/vol/v\`\n` +
-              `\`loop/repeat\` \`shuffle\` \`nowplaying/np\` \`seek\` \`pin\` \`pinned\`\n` +
+              `### ${emojis.music} Nhạc (\`!bc\`)\n` +
+              `13 lệnh: phát, bỏ qua, tạm dừng, tiếp tục, dừng, hàng chờ, âm lượng, lặp, trộn, đang phát, tua, ghim và xem bài đã ghim.\n` +
               `-# ${emojis.info} Ví dụ: \`!bc play never gonna give you up\``
             ))
             .addSeparatorComponents(sep())
@@ -647,7 +678,7 @@ export default class UtilityModule {
           let currentPage: string[] = [];
           let currentLength = 0;
           for (const [index, cmd] of data.commands.entries()) {
-            const entry = `**${index + 1}. ${getCommandEmoji(cmd.name)} ${cmd.description}**\n-# \`/${cmd.name}\``;
+            const entry = `**${index + 1}. ${cmd.emoji ?? getCommandEmoji(cmd.name)} ${cmd.description}**\n-# \`${cmd.usage ?? `/${cmd.name}`}\``;
             const entryLength = entry.length + (currentPage.length ? 1 : 0);
             if (currentPage.length && currentLength + entryLength > 3000) {
               pages.push(currentPage);

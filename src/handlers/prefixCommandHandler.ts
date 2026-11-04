@@ -20,6 +20,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { emojis } from '../config/emojis';
+import { PREFIX_HELP_GROUPS } from '../config/prefixCommands';
 import { getModuleLoader } from '../index';
 
 const PREFIX = '!';
@@ -764,39 +765,12 @@ register(['help'], async ({ message }) => {
         badge: '📖 TRỢ GIÚP',
         title: 'Lệnh Prefix',
         subtitle: `Prefix: \`${P}\` · Dùng \`/help\` để xem tất cả lệnh slash`,
-        sections: [
+        sections: PREFIX_HELP_GROUPS.map((group) =>
           [
-            '### 🧰 Tiện ích',
-            `\`${P}help\` – Hiển thị menu này`,
-            `\`${P}ping\` – Kiểm tra ping bot`,
-            `\`${P}avatar [@user]\` – Xem avatar của user`,
-            `\`${P}userinfo [@user]\` – Xem thông tin user`,
-            `\`${P}serverinfo\` – Xem thông tin server`,
-            `\`${P}uptime\` – Xem thời gian bot đã online`,
-            `\`${P}invite\` – Link mời bot vào server`,
-            `\`${P}profile [@user]\` – Xem profile card`,
-            `\`${P}embed [1-9]\` – Test các kiểu hiển thị`,
+            `### ${group.emoji} ${group.title} (\`${group.prefix}\`)`,
+            ...group.commands.map((command) => `${command.emoji} \`${command.usage}\` — ${command.description}`),
           ].join('\n'),
-          [
-            '### 🤖 AI & Tự động',
-            `\`${P}ai <câu hỏi>\` – Chat với AI (Groq)`,
-            '',
-            '-# 💡 Ví dụ: \`!ai Giải thích lỗ đen là gì?\`',
-          ].join('\n'),
-          [
-            '### 🛡️ Quản lý',
-            `\`${P}mute @user|<ID> <time> [lý do]\` – Mute user`,
-            `\`${P}unmute @user|<ID> [lý do]\` – Unmute user`,
-            `\`${P}ban @user|<ID> [lý do]\` – Ban user khỏi server`,
-            `\`${P}unban <ID> [lý do]\` – Unban user`,
-            `\`${P}lock [lý do]\` – Khóa channel`,
-            `\`${P}unlock [lý do]\` – Mở khóa channel`,
-            '',
-            '-# ⏱️ Thời gian: `10s`, `5m`, `1h`, `2d` (tối đa 28 ngày)',
-            '-# 📨 Bot sẽ tự động gửi DM thông báo cho user',
-          ].join('\n'),
-
-        ],
+        ),
         footer: '🥟 Bánh Cuốn Bot',
       })
     )
