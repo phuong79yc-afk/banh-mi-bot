@@ -92,8 +92,9 @@ function convertComponentLabel(target: Record<string, unknown>): boolean {
   return true;
 }
 
-function transformPayload(value: unknown, key = ''): unknown {
+function transformPayload(value: unknown, key = '', preserveModalTitle = false): unknown {
   if (typeof value === 'string') {
+    if (preserveModalTitle && key === 'title') return value;
     if (!key || ['content', 'title', 'description'].includes(key)) {
       return convertText(value);
     }
@@ -103,18 +104,23 @@ function transformPayload(value: unknown, key = ''): unknown {
   if (value instanceof AttachmentBuilder) return value;
 
   if (Array.isArray(value)) {
-    return value.map((entry) => transformPayload(entry));
+    return value.map((entry) => transformPayload(entry, '', preserveModalTitle));
   }
 
   const object = value as Record<string, unknown>;
   const toJSON = object.toJSON;
   if (typeof toJSON === 'function') {
-    return transformPayload(Reflect.apply(toJSON, value, []), key);
+    return transformPayload(Reflect.apply(toJSON, value, []), key, preserveModalTitle);
   }
 
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return value;
 
+  const isModalPayload =
+    preserveModalTitle ||
+    (typeof object.custom_id === 'string' &&
+      typeof object.title === 'string' &&
+      Array.isArray(object.components));
   const transformed: Record<string, unknown> = { ...object };
   const supportsPixelEmoji =
     'label' in transformed &&
@@ -137,7 +143,8 @@ function transformPayload(value: unknown, key = ''): unknown {
       transformed[property] = child;
       continue;
     }
-    transformed[property] = transformPayload(child, property);
+    transformed[property] =
+      isModalPayload && property === 'title' ? child : transformPayload(child, property, isModalPayload);
   }
   return transformed;
 }
@@ -240,7 +247,7 @@ export function installPixelEmojiMiddleware(client: Client): void {
       [...client.guilds.cache.values()].flatMap((guild) => [...guild.emojis.cache.values()]),
     );
   };
-  client.on('ready', syncAnimatedEmojis);
+  client.once('clientReady' as any, syncAnimatedEmojis);
   client.on('guildCreate', syncAnimatedEmojis);
   client.on('emojiCreate', syncAnimatedEmojis);
   client.on('emojiDelete', syncAnimatedEmojis);

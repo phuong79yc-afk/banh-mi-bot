@@ -318,6 +318,10 @@ client.on('interactionCreate', async (interaction) => {
       
       if (!command) {
         console.warn(`⚠️ Unknown command: ${interaction.commandName}`);
+        await interaction.reply({
+          content: 'Lệnh này hiện chưa được tải. Vui lòng thử lại sau khi bot khởi động lại.',
+          ephemeral: true,
+        });
         return;
       }
 

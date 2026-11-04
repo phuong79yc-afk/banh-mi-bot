@@ -73,6 +73,7 @@ export function auditSlashCommands(commands: Map<string, any>) {
       problems.push(`thiếu metadata data.name: ${name}`);
       continue;
     }
+    if (json.type !== undefined && json.type !== 1) continue;
     if (!json.description || json.description.includes('\uFFFD')) {
       problems.push(`mô tả chưa chuẩn: /${json.name}`);
     }
