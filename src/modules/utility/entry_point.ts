@@ -334,7 +334,11 @@ export default class UtilityModule {
       }
       // Utility
       else if (
-        ['poll', 'calc', 'random', 'choose', 'information', 'help', 'rule', 'rule-setup'].includes(name) ||
+        [
+          'poll', 'calc', 'random', 'choose', 'information', 'help', 'rule',
+          'rule-setup', 'event-test', 'test-emoji',
+        ].includes(name) ||
+        name === 'afk' ||
         name.startsWith('afk-') || name.startsWith('minecraft-') || 
         name.startsWith('snipe') || name === 'editsnipe' ||
         name.startsWith('convert-')

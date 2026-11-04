@@ -261,13 +261,16 @@ export function installPixelEmojiMiddleware(client: Client): void {
   client.on('emojiUpdate', syncAnimatedEmojis);
 
   client.on('interactionCreate', (interaction) => {
-    const commandEmoji = interaction.isChatInputCommand()
-      ? getCommandEmoji(
-          interaction.commandName,
-          interaction.options.getSubcommand(false) ?? undefined,
-          interaction.options.getSubcommandGroup(false) ?? undefined,
-        )
-      : undefined;
+    let commandEmoji: string | undefined;
+    if (interaction.isChatInputCommand()) {
+      commandEmoji = getCommandEmoji(
+        interaction.commandName,
+        interaction.options.getSubcommand(false) ?? undefined,
+        interaction.options.getSubcommandGroup(false) ?? undefined,
+      );
+    } else if (interaction.isContextMenuCommand()) {
+      commandEmoji = getCommandEmoji(interaction.commandName);
+    }
     wrapMethods(interaction, ['reply', 'followUp', 'editReply', 'update', 'showModal'], commandEmoji);
     installMessageHooks(client, interaction.guildId ?? undefined);
   });
